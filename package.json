@@ -1,0 +1,64 @@
+{
+  "name": "@muhammedaksam/waha-tui",
+  "version": "0.1.0",
+  "description": "TUI client for WhatsApp using WAHA (WhatsApp HTTP API) - manage chats, send messages, and more from your terminal",
+  "module": "src/index.ts",
+  "type": "module",
+  "bin": {
+    "waha-tui": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "author": "Muhammed Mustafa AKŞAM <info@muhammedaksam.com.tr> (https://github.com/muhammedaksam)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/muhammedaksam/waha-tui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/muhammedaksam/waha-tui/issues"
+  },
+  "homepage": "https://github.com/muhammedaksam/waha-tui#readme",
+  "keywords": [
+    "whatsapp",
+    "waha",
+    "tui",
+    "opentui",
+    "cli",
+    "terminal",
+    "chat",
+    "messaging"
+  ],
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "dev:debug": "bun run dev --debug",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "typecheck": "bun x tsc --noEmit",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write src/",
+    "format:check": "prettier --check src/",
+    "check": "bun run typecheck && bun run lint && bun run format:check",
+    "fix": "bun run lint:fix && bun run format",
+    "start": "bun run src/index.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/bun": "latest",
+    "@types/node": "^25.0.3",
+    "eslint": "^9.39.2",
+    "jiti": "^2.6.1",
+    "prettier": "^3.7.4",
+    "typescript-eslint": "^8.50.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.1.61"
+  },
+  "engines": {
+    "bun": ">=1.0"
+  }
+}
