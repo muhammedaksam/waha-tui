@@ -104,8 +104,8 @@ export function ConversationView() {
       },
       scrollbarOptions: {
         trackOptions: {
-          foregroundColor: WhatsAppTheme.green,
-          backgroundColor: WhatsAppTheme.panelDark,
+          backgroundColor: WhatsAppTheme.receivedBubble,
+          foregroundColor: WhatsAppTheme.borderColor,
         },
       },
       stickyScroll: true,
