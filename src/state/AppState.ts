@@ -4,6 +4,7 @@
  */
 
 import type { SessionDTO, ChatSummary, WAMessage } from "@muhammedaksam/waha-node"
+import { debugLog } from "../utils/debug"
 
 export type ViewType = "sessions" | "chats" | "conversation" | "settings" | "qr"
 
@@ -140,7 +141,9 @@ class StateManager {
   }
 
   setSelectedChatIndex(index: number): void {
+    debugLog(`[AppState] setSelectedChatIndex: ${this.state.selectedChatIndex} -> ${index}`)
     this.setState({ selectedChatIndex: index })
+    debugLog(`[AppState] State updated, selectedChatIndex is now: ${this.state.selectedChatIndex}`)
   }
 
   setMessageInput(text: string): void {

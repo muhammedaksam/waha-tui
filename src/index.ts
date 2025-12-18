@@ -14,9 +14,7 @@ import {
 import { validateConfig } from "./config/schema"
 import { initializeClient, testConnection } from "./client"
 import { appState } from "./state/AppState"
-import { StatusBar } from "./components/StatusBar"
 import { Footer } from "./components/Footer"
-import { Logo } from "./components/Logo"
 import { SessionsView } from "./views/SessionsView"
 import { loadSessions } from "./views/SessionsView"
 import { loadChats } from "./views/ChatsView"
@@ -138,6 +136,10 @@ async function main() {
   // Create renderer
   const renderer = await createCliRenderer({ exitOnCtrlC: true })
 
+  // Set renderer context for imperative API usage
+  const { setRenderer } = await import("./state/RendererContext")
+  setRenderer(renderer)
+
   // Set up reactive rendering
   function renderApp() {
     const state = appState.getState()
@@ -208,13 +210,23 @@ async function main() {
     if (key.name === "up") {
       if (state.currentView === "sessions" && state.sessions.length > 0) {
         const newIndex = Math.max(0, state.selectedSessionIndex - 1)
+        debugLog(
+          "Keyboard",
+          `Sessions: UP - moving from ${state.selectedSessionIndex} to ${newIndex}`
+        )
         appState.setSelectedSessionIndex(newIndex)
       } else if (state.currentView === "chats" && state.chats.length > 0) {
         const newIndex = Math.max(0, state.selectedChatIndex - 1)
+        debugLog("Keyboard", `Chats: UP - moving from ${state.selectedChatIndex} to ${newIndex}`)
         appState.setSelectedChatIndex(newIndex)
+        // Don't return - let ScrollBox also handle scrolling
       } else if (state.currentView === "conversation" && !state.inputMode) {
         // Scroll up (to older messages)
         const newPos = Math.max(0, state.scrollPosition - 1)
+        debugLog(
+          "Keyboard",
+          `Conversation: UP - scrolling from ${state.scrollPosition} to ${newPos}`
+        )
         appState.setScrollPosition(newPos)
       }
     }
@@ -222,13 +234,23 @@ async function main() {
     if (key.name === "down") {
       if (state.currentView === "sessions" && state.sessions.length > 0) {
         const newIndex = Math.min(state.sessions.length - 1, state.selectedSessionIndex + 1)
+        debugLog(
+          "Keyboard",
+          `Sessions: DOWN - moving from ${state.selectedSessionIndex} to ${newIndex}`
+        )
         appState.setSelectedSessionIndex(newIndex)
       } else if (state.currentView === "chats" && state.chats.length > 0) {
         const newIndex = Math.min(state.chats.length - 1, state.selectedChatIndex + 1)
+        debugLog("Keyboard", `Chats: DOWN - moving from ${state.selectedChatIndex} to ${newIndex}`)
         appState.setSelectedChatIndex(newIndex)
+        // Don't return - let ScrollBox also handle scrolling
       } else if (state.currentView === "conversation" && !state.inputMode) {
         // Scroll down (to newer messages)
         // We'll recalculate max in the view, but for now just increment
+        debugLog(
+          "Keyboard",
+          `Conversation: DOWN - scrolling from ${state.scrollPosition} to ${state.scrollPosition + 1}`
+        )
         appState.setScrollPosition(state.scrollPosition + 1)
       }
     }
