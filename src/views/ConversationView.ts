@@ -125,7 +125,13 @@ export function ConversationView() {
     })
     conversationScrollBox.add(emptyText)
   } else {
+    let lastDateLabel = ""
     for (const message of reversedMessages) {
+      const dateLabel = formatDateSeparator(message.timestamp)
+      if (dateLabel !== lastDateLabel) {
+        conversationScrollBox.add(DaySeparator(renderer, dateLabel))
+        lastDateLabel = dateLabel
+      }
       conversationScrollBox.add(renderMessage(renderer, message, isGroupChat))
     }
   }
@@ -459,4 +465,60 @@ export async function sendMessage(
     appState.setIsSending(false)
     return false
   }
+}
+// Helper to format date for separator
+function formatDateSeparator(timestamp: number): string {
+  const date = new Date(timestamp * 1000)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  const dateStr = date.toDateString()
+  if (dateStr === today.toDateString()) {
+    return "Today"
+  }
+  if (dateStr === yesterday.toDateString()) {
+    return "Yesterday"
+  }
+
+  // Check if within last 7 days for weekday name
+  const diffTime = Math.abs(today.getTime() - date.getTime())
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  if (diffDays < 7 && date < today) {
+    return date.toLocaleDateString("en-US", { weekday: "long" })
+  }
+
+  // Otherwise Full Date
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+}
+
+// Renderable for Day Separator
+
+function DaySeparator(renderer: CliRenderer, label: string): BoxRenderable {
+  const container = new BoxRenderable(renderer, {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 1,
+    marginTop: 1,
+  })
+
+  const badge = new BoxRenderable(renderer, {
+    backgroundColor: WhatsAppTheme.panelLight,
+    paddingLeft: 2,
+    paddingRight: 2,
+    border: false,
+  })
+
+  const text = new TextRenderable(renderer, {
+    content: label,
+    fg: WhatsAppTheme.textSecondary,
+  })
+
+  badge.add(text)
+  container.add(badge)
+  return container
 }
