@@ -14,6 +14,7 @@ import {
   TextareaRenderable,
   RenderableEvents,
   fg,
+  ScrollBarRenderable,
 } from "@opentui/core"
 import { ScrollBoxRenderable } from "@opentui/core"
 import { appState } from "../state/AppState"
@@ -28,6 +29,7 @@ import { formatAckStatus, formatLastSeen, truncate } from "../utils/formatters"
 let conversationScrollBox: ScrollBoxRenderable | null = null
 let messageInputComponent: TextareaRenderable | null = null
 let inputContainer: BoxRenderable | null = null
+let inputScrollBar: ScrollBarRenderable | null = null
 
 // Expose input focus control
 export function focusMessageInput(): void {
@@ -313,10 +315,44 @@ export function ConversationView() {
     messageInputComponent.setText(state.messageInput)
   }
 
-  // Clear children and add input (idempotent check)
+  // Initialize scrollbar (only shown when content exceeds visible area)
+  if (!inputScrollBar) {
+    inputScrollBar = new ScrollBarRenderable(renderer, {
+      id: "input-scrollbar",
+      orientation: "vertical",
+      width: 1,
+      height: "100%",
+      showArrows: false,
+      trackOptions: {
+        foregroundColor: WhatsAppTheme.textSecondary, // Thumb color
+        backgroundColor: WhatsAppTheme.panelLight, // Track color
+      },
+    })
+    // Start hidden - only show when content overflows
+    inputScrollBar.visible = false
+  }
+
+  // Update scrollbar state from textarea
+  const lineCount = messageInputComponent.lineCount
+  const viewportSize = MAX_INPUT_LINES
+  const needsScrollbar = lineCount > viewportSize
+
+  if (inputScrollBar) {
+    inputScrollBar.visible = needsScrollbar
+    if (needsScrollbar) {
+      inputScrollBar.scrollSize = lineCount
+      inputScrollBar.viewportSize = viewportSize
+      inputScrollBar.scrollPosition = messageInputComponent.scrollY
+    }
+  }
+
+  // Clear children and add input + scrollbar (idempotent check)
   const children = inputContainer.getChildren()
   if (children.length === 0) {
     inputContainer.add(messageInputComponent)
+    if (inputScrollBar) {
+      inputContainer.add(inputScrollBar)
+    }
   }
 
   return Box(
