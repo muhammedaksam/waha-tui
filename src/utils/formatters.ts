@@ -93,3 +93,129 @@ export function getConnectionStatusIcon(status: string): string {
       return "⚪"
   }
 }
+
+/**
+ * Extract message preview data from ChatSummary.lastMessage object
+ */
+export interface MessagePreview {
+  text: string
+  timestamp: string
+  isFromMe: boolean
+  hasMedia: boolean
+  mediaType?: "image" | "video" | "audio" | "document"
+}
+
+export function extractMessagePreview(lastMessageObj: unknown): MessagePreview {
+  // Default fallback
+  const defaultPreview: MessagePreview = {
+    text: "No messages",
+    timestamp: "",
+    isFromMe: false,
+    hasMedia: false,
+  }
+
+  if (!lastMessageObj || typeof lastMessageObj !== "object") {
+    return defaultPreview
+  }
+
+  const msg = lastMessageObj as Record<string, unknown>
+
+  // Extract message text
+  let text = ""
+  if (typeof msg.body === "string" && msg.body) {
+    text = msg.body
+  } else if (typeof msg.caption === "string" && msg.caption) {
+    text = msg.caption
+  }
+
+  // Check for media
+  let hasMedia = false
+  let mediaType: MessagePreview["mediaType"] = undefined
+
+  if (msg.hasMedia === true || msg.type === "image" || msg.type === "video" || msg.type === "audio" || msg.type === "document") {
+    hasMedia = true
+
+    // Determine media type
+    if (msg.type === "image" || msg.mimetype?.toString().startsWith("image/")) {
+      mediaType = "image"
+      text = text || "📷 Photo"
+    } else if (msg.type === "video" || msg.mimetype?.toString().startsWith("video/")) {
+      mediaType = "video"
+      text = text || "🎥 Video"
+    } else if (msg.type === "audio" || msg.type === "ptt" || msg.mimetype?.toString().startsWith("audio/")) {
+      mediaType = "audio"
+      text = text || "🎵 Audio"
+    } else if (msg.type === "document") {
+      mediaType = "document"
+      text = text || "📄 Document"
+    } else {
+      text = text || "📎 Media"
+    }
+  }
+
+  // If still no text, check for special message types
+  if (!text) {
+    if (msg.type === "location") {
+      text = "📍 Location"
+    } else if (msg.type === "vcard") {
+      text = "👤 Contact"
+    } else if (msg.type === "call_log") {
+      text = "📞 Call"
+    } else {
+      text = "Message"
+    }
+  }
+
+  // Extract timestamp
+  let timestamp = ""
+  if (typeof msg.timestamp === "number") {
+    timestamp = formatChatTimestamp(msg.timestamp)
+  } else if (typeof msg.timestamp === "string") {
+    timestamp = formatChatTimestamp(parseInt(msg.timestamp))
+  }
+
+  // Check if from me
+  const isFromMe = msg.fromMe === true
+
+  return {
+    text,
+    timestamp,
+    isFromMe,
+    hasMedia,
+    mediaType,
+  }
+}
+
+/**
+ * Format timestamp for chat list (shows relative time like WhatsApp)
+ */
+export function formatChatTimestamp(timestamp: number): string {
+  const date = new Date(timestamp * 1000)
+  const now = new Date()
+
+  // Get start of today
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterdayStart = new Date(todayStart)
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1)
+
+  // If today, show time
+  if (date >= todayStart) {
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  }
+
+  // If yesterday, show "Yesterday"
+  if (date >= yesterdayStart) {
+    return "Yesterday"
+  }
+
+  // If within last week, show day name
+  const weekAgo = new Date(now)
+  weekAgo.setDate(weekAgo.getDate() - 7)
+  if (date >= weekAgo) {
+    return date.toLocaleDateString([], { weekday: "long" })
+  }
+
+  // Otherwise show date
+  return date.toLocaleDateString([], { month: "short", day: "numeric" })
+}
+

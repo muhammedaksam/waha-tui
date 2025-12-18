@@ -6,7 +6,7 @@
 import { Box, Text, TextAttributes } from "@opentui/core"
 import { appState } from "../state/AppState"
 import { WhatsAppTheme, Icons } from "../config/theme"
-import { truncate } from "../utils/formatters"
+import { truncate, extractMessagePreview } from "../utils/formatters"
 import { debugLog } from "../utils/debug"
 import { getClient } from "../client"
 import type { ActiveFilter } from "../state/AppState"
@@ -132,8 +132,21 @@ export function ChatsView() {
       : state.chats.map((chat, index) => {
           const isCurrentChat = state.currentChatId === chat.id
           const isSelected = index === state.selectedChatIndex
-          const lastMessage = "No messages" // Placeholder since ChatSummary.lastMessage is object
-          const timestamp = "" // Placeholder
+
+          // Extract message preview from lastMessage object
+          const preview = extractMessagePreview(chat.lastMessage)
+          
+          // Format last message text with sender prefix for group chats
+          const isGroupChat = typeof chat.id === "string" ? chat.id.endsWith("@g.us") : false
+          let lastMessageText = preview.text
+          
+          if (isGroupChat && preview.text !== "No messages") {
+            if (preview.isFromMe) {
+              lastMessageText = `You: ${preview.text}`
+            }
+            // For received group messages, sender name would need to be extracted
+            // from the message object if available
+          }
 
           return Box(
             {
@@ -185,7 +198,7 @@ export function ChatsView() {
                   attributes: isSelected ? TextAttributes.BOLD : TextAttributes.NONE,
                 }),
                 Text({
-                  content: timestamp,
+                  content: preview.timestamp,
                   fg: WhatsAppTheme.textTertiary,
                 })
               ),
@@ -196,11 +209,11 @@ export function ChatsView() {
                   justifyContent: "space-between",
                 },
                 Text({
-                  content: truncate(lastMessage, 30),
+                  content: truncate(lastMessageText, 30),
                   fg: WhatsAppTheme.textSecondary,
                 }),
                 Text({
-                  content: Icons.checkDouble,
+                  content: preview.isFromMe ? Icons.checkDouble : "",
                   fg: WhatsAppTheme.blue,
                 })
               )

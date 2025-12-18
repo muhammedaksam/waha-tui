@@ -3,7 +3,7 @@
  * WAHA TUI - Terminal User Interface for WhatsApp via WAHA
  */
 
-import { Box, createCliRenderer, Text, ASCIIFont, type KeyEvent } from "@opentui/core"
+import { Box, createCliRenderer, Text, type KeyEvent } from "@opentui/core"
 import {
   loadConfig,
   saveConfig,
@@ -16,6 +16,7 @@ import { initializeClient, testConnection } from "./client"
 import { appState } from "./state/AppState"
 import { StatusBar } from "./components/StatusBar"
 import { Footer } from "./components/Footer"
+import { Logo } from "./components/Logo"
 import { SessionsView } from "./views/SessionsView"
 import { loadSessions } from "./views/SessionsView"
 import { loadChats } from "./views/ChatsView"
@@ -155,7 +156,7 @@ async function main() {
         // Header
         Box(
           { height: 3, flexDirection: "column", justifyContent: "center", alignItems: "center" },
-          ASCIIFont({ font: "tiny", text: "WAHA TUI" })
+          Logo()
         ),
 
         // Status Bar
