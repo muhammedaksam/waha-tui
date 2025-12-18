@@ -236,8 +236,12 @@ function renderMessage(message: WAMessageExtended, isGroupChat: boolean = false)
     }
   }
 
-  // Build message bubble content
+  // Build message bubble content with WhatsApp-like layout
+  const messageText = message.body || "(media)"
+  const timestampText = `${timestamp}${isFromMe ? ` ${getAckIcon(message.ack)}` : ""}`
+
   const bubbleContent = []
+  let numRows = 0
 
   // Row 1: Sender name (only for group chat received messages)
   if (senderName) {
@@ -251,12 +255,14 @@ function renderMessage(message: WAMessageExtended, isGroupChat: boolean = false)
         Text({
           content: senderName,
           fg: getSenderColor(senderId),
+          attributes: TextAttributes.BOLD,
         })
       )
     )
+    numRows++
   }
 
-  // Row 2+: Message content (at least 1 row)
+  // Row 2: Message content
   bubbleContent.push(
     Box(
       {
@@ -265,13 +271,14 @@ function renderMessage(message: WAMessageExtended, isGroupChat: boolean = false)
         justifyContent: "flex-start",
       },
       Text({
-        content: message.body || "(media)",
+        content: messageText,
         fg: WhatsAppTheme.textPrimary,
       })
     )
   )
+  numRows++
 
-  // Last row: Timestamp and status
+  // Row 3: Timestamp (always on separate line)
   bubbleContent.push(
     Box(
       {
@@ -280,15 +287,15 @@ function renderMessage(message: WAMessageExtended, isGroupChat: boolean = false)
         justifyContent: "flex-end",
       },
       Text({
-        content: `${timestamp}${isFromMe ? `   ${getAckIcon(message.ack)}` : ""}`,
+        content: timestampText,
         fg: isFromMe ? WhatsAppTheme.textSecondary : WhatsAppTheme.textTertiary,
       })
     )
   )
+  numRows++
 
-  // Calculate bubble height: number of rows + padding (top + bottom)
-  const numRows = bubbleContent.length
-  const bubbleHeight = numRows + 2 // +2 for paddingTop (1) and paddingBottom (1)
+  // Calculate bubble height
+  const bubbleHeight = numRows + 2 // +2 for top and bottom spacing
 
   return Box(
     {
@@ -300,7 +307,7 @@ function renderMessage(message: WAMessageExtended, isGroupChat: boolean = false)
       {
         height: bubbleHeight,
         maxWidth: "70%",
-        minWidth: "20%",
+        minWidth: "15%",
         paddingLeft: 2,
         paddingRight: 2,
         backgroundColor: isFromMe ? WhatsAppTheme.greenDark : WhatsAppTheme.receivedBubble,
