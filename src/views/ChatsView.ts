@@ -129,8 +129,9 @@ export function ChatsView() {
             })
           ),
         ]
-      : state.chats.map((chat) => {
-          const isSelected = state.currentChatId === chat.id
+      : state.chats.map((chat, index) => {
+          const isCurrentChat = state.currentChatId === chat.id
+          const isSelected = index === state.selectedChatIndex
           const lastMessage = "No messages" // Placeholder since ChatSummary.lastMessage is object
           const timestamp = "" // Placeholder
 
@@ -142,9 +143,13 @@ export function ChatsView() {
               paddingRight: 2,
               paddingTop: 1,
               paddingBottom: 1,
-              backgroundColor: isSelected ? WhatsAppTheme.activeBg : WhatsAppTheme.panelDark,
-              border: isSelected,
-              borderColor: isSelected ? WhatsAppTheme.green : undefined,
+              backgroundColor: isSelected
+                ? WhatsAppTheme.selectedBg
+                : isCurrentChat
+                  ? WhatsAppTheme.activeBg
+                  : WhatsAppTheme.panelDark,
+              border: isCurrentChat,
+              borderColor: isCurrentChat ? WhatsAppTheme.green : undefined,
             },
             // Avatar (circle with first letter or icon)
             Box(

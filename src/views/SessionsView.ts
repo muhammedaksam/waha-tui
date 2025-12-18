@@ -24,15 +24,21 @@ export function SessionsView() {
     Box({ height: 1 }),
 
     // Session list
-    ...state.sessions.map((session) => {
+    ...state.sessions.map((session, index) => {
       const statusIcon = getConnectionStatusIcon(session.status)
-      const isSelected = state.currentSession === session.name
+      const isCurrentSession = state.currentSession === session.name
+      const isSelected = index === state.selectedSessionIndex
 
       return Box(
-        { flexDirection: "row", paddingLeft: 1, paddingRight: 1 },
+        {
+          flexDirection: "row",
+          paddingLeft: 1,
+          paddingRight: 1,
+          backgroundColor: isSelected ? "#2a3942" : undefined,
+        },
         Text({
-          content: `${isSelected ? ">" : " "} ${statusIcon} ${session.name}`,
-          attributes: isSelected ? TextAttributes.BOLD : TextAttributes.NONE,
+          content: `${isCurrentSession ? ">" : " "} ${statusIcon} ${session.name}`,
+          attributes: isCurrentSession ? TextAttributes.BOLD : TextAttributes.NONE,
         }),
         Text({
           content: ` (${session.status})`,

@@ -27,6 +27,10 @@ export interface AppState {
   activeIcon: ActiveIcon
   searchQuery: string
   messageInput: string
+
+  // Keyboard navigation state
+  selectedSessionIndex: number
+  selectedChatIndex: number
 }
 
 class StateManager {
@@ -46,6 +50,10 @@ class StateManager {
     activeIcon: "chats",
     searchQuery: "",
     messageInput: "",
+
+    // Keyboard navigation
+    selectedSessionIndex: 0,
+    selectedChatIndex: 0,
   }
 
   private listeners: Array<(state: AppState) => void> = []
@@ -113,6 +121,14 @@ class StateManager {
 
   setConnectionStatus(status: AppState["connectionStatus"], errorMessage?: string): void {
     this.setState({ connectionStatus: status, errorMessage: errorMessage || null })
+  }
+
+  setSelectedSessionIndex(index: number): void {
+    this.setState({ selectedSessionIndex: index })
+  }
+
+  setSelectedChatIndex(index: number): void {
+    this.setState({ selectedChatIndex: index })
   }
 }
 

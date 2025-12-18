@@ -3,7 +3,7 @@
  * WAHA TUI - Terminal User Interface for WhatsApp via WAHA
  */
 
-import { Box, createCliRenderer, Text, ASCIIFont } from "@opentui/core"
+import { Box, createCliRenderer, Text, ASCIIFont, type KeyEvent } from "@opentui/core"
 import {
   loadConfig,
   saveConfig,
@@ -187,20 +187,21 @@ async function main() {
   // Initial render
   renderApp()
 
-  // Keyboard handling
-  process.stdin.setRawMode(true)
-  process.stdin.resume()
-  process.stdin.on("data", async (key) => {
-    const keyStr = key.toString()
+  // Keyboard handling using OpenTUI's keyInput event system
+  renderer.keyInput.on("keypress", async (key: KeyEvent) => {
+    // Debug log for keyboard input
+    debugLog(
+      "Keyboard",
+      `Key: ${key.name} | Ctrl: ${key.ctrl} | Shift: ${key.shift} | Meta: ${key.meta}`
+    )
 
     // Quit
-    if (keyStr === "q" || keyStr === "\u0003") {
-      // q or Ctrl+C
+    if ((key.name === "q" && !key.ctrl && !key.shift) || (key.name === "c" && key.ctrl)) {
       process.exit(0)
     }
 
     // Refresh current view
-    if (keyStr === "r") {
+    if (key.name === "r") {
       const state = appState.getState()
       if (state.currentView === "sessions") {
         await loadSessions()
@@ -209,9 +210,64 @@ async function main() {
       }
     }
 
+    const state = appState.getState()
+
+    // Arrow key navigation
+    if (key.name === "up") {
+      if (state.currentView === "sessions" && state.sessions.length > 0) {
+        const newIndex = Math.max(0, state.selectedSessionIndex - 1)
+        appState.setSelectedSessionIndex(newIndex)
+      } else if (state.currentView === "chats" && state.chats.length > 0) {
+        const newIndex = Math.max(0, state.selectedChatIndex - 1)
+        appState.setSelectedChatIndex(newIndex)
+      }
+    }
+
+    if (key.name === "down") {
+      if (state.currentView === "sessions" && state.sessions.length > 0) {
+        const newIndex = Math.min(state.sessions.length - 1, state.selectedSessionIndex + 1)
+        appState.setSelectedSessionIndex(newIndex)
+      } else if (state.currentView === "chats" && state.chats.length > 0) {
+        const newIndex = Math.min(state.chats.length - 1, state.selectedChatIndex + 1)
+        appState.setSelectedChatIndex(newIndex)
+      }
+    }
+
+    // Enter key - select current item
+    if (key.name === "return" || key.name === "enter") {
+      if (state.currentView === "sessions" && state.sessions.length > 0) {
+        const selectedSession = state.sessions[state.selectedSessionIndex]
+        if (selectedSession) {
+          debugLog("App", `Selected session: ${selectedSession.name}`)
+          appState.setCurrentSession(selectedSession.name)
+          appState.setCurrentView("chats")
+          appState.setSelectedChatIndex(0) // Reset chat selection
+          await loadChats(selectedSession.name)
+        }
+      } else if (state.currentView === "chats" && state.chats.length > 0) {
+        const selectedChat = state.chats[state.selectedChatIndex]
+        if (selectedChat) {
+          debugLog("App", `Selected chat object: ${JSON.stringify(selectedChat)}`)
+          debugLog("App", `Selected chat ID: ${selectedChat.id}`)
+          appState.setCurrentChat(selectedChat.id)
+          // Conversation view will be implemented later
+        }
+      }
+    }
+
+    // Escape key - go back
+    if (key.name === "escape") {
+      if (state.currentView === "conversation") {
+        appState.setCurrentView("chats")
+        appState.setCurrentChat(null)
+      } else if (state.currentView === "chats") {
+        appState.setCurrentView("sessions")
+        appState.setSelectedSessionIndex(0) // Reset session selection
+      }
+    }
+
     // Create new session (only in sessions view)
-    if (keyStr === "n") {
-      const state = appState.getState()
+    if (key.name === "n") {
       if (state.currentView === "sessions") {
         // Create session with default name - user can customize later
         await createNewSession("default")
@@ -220,16 +276,17 @@ async function main() {
     }
 
     // Navigate to sessions view
-    if (keyStr === "1") {
+    if (key.name === "1") {
       appState.setCurrentView("sessions")
+      appState.setSelectedSessionIndex(0)
       await loadSessions()
     }
 
     // Navigate to chats view
-    if (keyStr === "2") {
-      const state = appState.getState()
+    if (key.name === "2") {
       if (state.currentSession) {
         appState.setCurrentView("chats")
+        appState.setSelectedChatIndex(0)
         await loadChats(state.currentSession)
       }
     }

@@ -28,6 +28,7 @@ export const WhatsAppTheme = {
   // UI states
   hoverBg: "#2a3942",
   activeBg: "#2a3942",
+  selectedBg: "#2a3942", // Selected item background
   focusBorder: "#00a884",
 
   // Borders
