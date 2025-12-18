@@ -270,3 +270,24 @@ export function formatAckStatus(ack: number): string | TextChunk {
       return ""
   }
 }
+
+/**
+ * Format last seen time
+ */
+export function formatLastSeen(timestamp: number): string {
+  if (!timestamp) return ""
+  const date = new Date(timestamp * 1000)
+  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  const dateStr = formatChatTimestamp(timestamp)
+
+  // If dateStr is time only (today), say "today at {time}"
+  if (dateStr.includes(":")) {
+    return `last seen today at ${time}`
+  }
+  // If "Yesterday", say "last seen yesterday at {time}"
+  if (dateStr === "Yesterday") {
+    return `last seen yesterday at ${time}`
+  }
+  // Otherwise say "last seen {date} at {time}"
+  return `last seen ${dateStr} at ${time}`
+}

@@ -3,7 +3,13 @@
  * Global state management for the TUI
  */
 
-import type { SessionDTO, ChatSummary, WAMessage } from "@muhammedaksam/waha-node"
+import type {
+  SessionDTO,
+  ChatSummary,
+  WAMessage,
+  WAHAChatPresences,
+  GroupParticipant,
+} from "@muhammedaksam/waha-node"
 import { debugLog } from "../utils/debug"
 
 export type ViewType = "sessions" | "chats" | "conversation" | "settings" | "qr"
@@ -26,6 +32,8 @@ export interface AppState {
   contactsCache: Map<string, string> // Maps contact ID to name
   connectionStatus: "connected" | "connecting" | "disconnected" | "error"
   errorMessage: string | null
+  currentChatPresence: WAHAChatPresences | null
+  currentChatParticipants: GroupParticipant[] | null
 
   // UI State for WhatsApp-style layout
   activeFilter: ActiveFilter
@@ -61,6 +69,8 @@ class StateManager {
     contactsCache: new Map(),
     connectionStatus: "disconnected",
     errorMessage: null,
+    currentChatPresence: null,
+    currentChatParticipants: null,
 
     // UI State
     activeFilter: "all",
@@ -123,7 +133,12 @@ class StateManager {
   }
 
   setCurrentChat(chatId: string | null): void {
-    this.setState({ currentChatId: chatId, currentView: chatId ? "conversation" : "chats" })
+    this.setState({
+      currentChatId: chatId,
+      currentView: chatId ? "conversation" : "chats",
+      currentChatPresence: null,
+      currentChatParticipants: null,
+    })
   }
 
   setSessions(sessions: SessionDTO[]): void {
@@ -186,6 +201,14 @@ class StateManager {
 
   getContactName(contactId: string): string | undefined {
     return this.state.contactsCache.get(contactId)
+  }
+
+  setCurrentChatPresence(presence: WAHAChatPresences | null): void {
+    this.setState({ currentChatPresence: presence })
+  }
+
+  setCurrentChatParticipants(participants: GroupParticipant[] | null): void {
+    this.setState({ currentChatParticipants: participants })
   }
 }
 

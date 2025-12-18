@@ -18,8 +18,8 @@ import { getRenderer } from "../state/RendererContext"
 import { WhatsAppTheme, Icons } from "../config/theme"
 import { debugLog } from "../utils/debug"
 import { getClient } from "../client"
-import type { WAMessage } from "@muhammedaksam/waha-node"
-import { formatAckStatus } from "../utils/formatters"
+import type { WAMessage, GroupParticipant, WAHAChatPresences } from "@muhammedaksam/waha-node"
+import { formatAckStatus, formatLastSeen, truncate } from "../utils/formatters"
 
 // Cache for conversation scroll box
 let conversationScrollBox: ScrollBoxRenderable | null = null
@@ -62,9 +62,45 @@ export function ConversationView() {
   // Messages - newest at bottom (WhatsApp style)
   const reversedMessages = messages.slice().reverse()
 
+  let headerSubtitle = ""
+
+  if (isGroupChat) {
+    // Group chat: show participants
+    if (state.currentChatParticipants) {
+      const names = state.currentChatParticipants
+        .map((p: GroupParticipant) => {
+          const contactName = appState.getContactName(p.id)
+          if (contactName) return contactName
+          const idParts = p.id.split("@")
+          return idParts[0]
+        })
+        .join(", ")
+      headerSubtitle = truncate(names, 60)
+    } else {
+      headerSubtitle = "tap for group info"
+      // If no participants loaded yet, load them
+      loadChatDetails(state.currentSession, state.currentChatId)
+    }
+  } else {
+    // Direct chat: show presence
+    const presence = state.currentChatPresence
+    if (presence?.presences && presence.presences.length > 0) {
+      const p = presence.presences[0]
+      if (p.lastKnownPresence === "online" || p.lastKnownPresence === "typing") {
+        headerSubtitle = p.lastKnownPresence
+      } else if (p.lastSeen) {
+        headerSubtitle = formatLastSeen(p.lastSeen)
+      }
+    } else {
+      // Trigger load if not present (could also poll)
+      // loadChatDetails checks cache internally or we can throttle
+      loadChatDetails(state.currentSession, state.currentChatId)
+    }
+  }
+
   const header = Box(
     {
-      height: 3,
+      height: headerSubtitle ? 4 : 3,
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
@@ -74,11 +110,21 @@ export function ConversationView() {
       border: true,
       borderColor: WhatsAppTheme.borderLight,
     },
-    Text({
-      content: chatName,
-      fg: WhatsAppTheme.white,
-      attributes: TextAttributes.BOLD,
-    }),
+    Box(
+      {
+        flexDirection: "column",
+        justifyContent: "center",
+      },
+      Text({
+        content: chatName,
+        fg: WhatsAppTheme.white,
+        attributes: TextAttributes.BOLD,
+      }),
+      Text({
+        content: headerSubtitle,
+        fg: WhatsAppTheme.textSecondary,
+      })
+    ),
     Text({
       content: `${Icons.call} ${Icons.video}`,
       fg: WhatsAppTheme.textSecondary,
@@ -374,6 +420,30 @@ export async function loadMessages(sessionName: string, chatId: string): Promise
   } catch (error) {
     debugLog("Messages", `Failed to load messages: ${error}`)
     appState.setMessages(chatId, [])
+  }
+}
+
+// Load chat details (presence or participants)
+export async function loadChatDetails(sessionName: string, chatId: string): Promise<void> {
+  const isGroup = chatId.endsWith("@g.us")
+  const client = getClient()
+
+  try {
+    if (isGroup) {
+      // Load participants
+      debugLog("Conversation", `Loading participants for group: ${chatId}`)
+      const response = await client.groups.groupsControllerGetGroupParticipants(sessionName, chatId)
+      const participants = response.data as unknown as GroupParticipant[]
+      appState.setCurrentChatParticipants(participants)
+    } else {
+      // Load presence
+      debugLog("Conversation", `Loading presence for chat: ${chatId}`)
+      const response = await client.presence.presenceControllerGetPresence(sessionName, chatId)
+      const presence = response.data as unknown as WAHAChatPresences
+      appState.setCurrentChatPresence(presence)
+    }
+  } catch (error) {
+    debugLog("Conversation", `Failed to load chat details: ${error}`)
   }
 }
 
