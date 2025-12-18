@@ -30,10 +30,11 @@ export function MainLayout() {
     // Icon Sidebar (left, 8 chars fixed width ~ 64px)
     IconSidebar(),
 
-    // Chat List (30% of remaining space when conversation/welcome is shown, else full)
+    // Chat List (30% of remaining space - fixed, should not shrink)
     Box(
       {
         width: "30%",
+        flexShrink: 0,
         flexDirection: "column",
         backgroundColor: WhatsAppTheme.panelDark,
         border: true,

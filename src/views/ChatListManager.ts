@@ -141,16 +141,25 @@ class ChatListManager {
       // Avatar
       const avatar = new BoxRenderable(renderer, {
         id: `avatar-${index}`,
-        width: 3,
+        width: 7,
         height: 3,
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: WhatsAppTheme.green,
         marginRight: 2,
       })
+      // Get initials from up to 3 words
+      const getInitials = (name: string): string => {
+        if (!name) return Icons.online
+        const words = name.trim().split(/\s+/)
+        return words
+          .slice(0, 3)
+          .map((word) => word.charAt(0).toUpperCase())
+          .join("")
+      }
 
       const avatarText = new TextRenderable(renderer, {
-        content: chat.name ? chat.name.charAt(0).toUpperCase() : Icons.online,
+        content: getInitials(chat.name || ""),
         fg: WhatsAppTheme.white,
         attributes: isSelected ? TextAttributes.BOLD : TextAttributes.NONE,
       })

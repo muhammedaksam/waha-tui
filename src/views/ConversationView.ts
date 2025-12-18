@@ -3,15 +3,28 @@
  * Display messages for a selected chat
  */
 
-import { Box, Text, TextAttributes } from "@opentui/core"
+import {
+  Box,
+  Text,
+  TextAttributes,
+  TextRenderable,
+  BoxRenderable,
+  CliRenderer,
+} from "@opentui/core"
+import { ScrollBoxRenderable } from "@opentui/core"
 import { appState } from "../state/AppState"
+import { getRenderer } from "../state/RendererContext"
 import { WhatsAppTheme, Icons } from "../config/theme"
 import { debugLog } from "../utils/debug"
 import { getClient } from "../client"
 import type { WAMessage } from "@muhammedaksam/waha-node"
 
+// Cache for conversation scroll box
+let conversationScrollBox: ScrollBoxRenderable | null = null
+
 export function ConversationView() {
   const state = appState.getState()
+  const renderer = getRenderer()
 
   if (!state.currentChatId || !state.currentSession) {
     return Box(
@@ -44,24 +57,9 @@ export function ConversationView() {
   // Get messages for this chat
   const messages = state.messages.get(state.currentChatId) || []
 
-  // Messages viewport logic
-  const MESSAGES_PER_PAGE = 8
+  // Messages - newest at bottom (WhatsApp style)
   const reversedMessages = messages.slice().reverse()
-  const maxScroll = Math.max(0, reversedMessages.length - MESSAGES_PER_PAGE)
 
-  // Clamp scroll position to valid range
-  const scrollPos = Math.max(0, Math.min(maxScroll, state.scrollPosition))
-
-  // Get visible messages
-  const visibleMessages = reversedMessages.slice(scrollPos, scrollPos + MESSAGES_PER_PAGE)
-
-  // Scroll indicator for header
-  const scrollInfo =
-    reversedMessages.length > MESSAGES_PER_PAGE
-      ? ` (${scrollPos + 1}-${Math.min(scrollPos + MESSAGES_PER_PAGE, reversedMessages.length)}/${reversedMessages.length})`
-      : ""
-
-  // Header with scroll indicator
   const header = Box(
     {
       height: 3,
@@ -75,7 +73,7 @@ export function ConversationView() {
       borderColor: WhatsAppTheme.borderLight,
     },
     Text({
-      content: `${chatName}${scrollInfo}`,
+      content: chatName,
       fg: WhatsAppTheme.white,
       attributes: TextAttributes.BOLD,
     }),
@@ -85,23 +83,52 @@ export function ConversationView() {
     })
   )
 
-  // Messages area - simplified rendering
-  const messagesBox = Box(
-    {
-      flexDirection: "column",
+  // Create or update the scroll box for messages
+  if (!conversationScrollBox) {
+    conversationScrollBox = new ScrollBoxRenderable(renderer, {
+      id: "conversation-scroll-box",
       flexGrow: 1,
-      padding: 2,
-      backgroundColor: WhatsAppTheme.deepDark,
-    },
-    ...(messages.length === 0
-      ? [
-          Text({
-            content: "No messages yet",
-            fg: WhatsAppTheme.textSecondary,
-          }),
-        ]
-      : visibleMessages.map((message) => renderMessage(message, isGroupChat)))
-  )
+      rootOptions: {
+        backgroundColor: WhatsAppTheme.deepDark,
+      },
+      viewportOptions: {
+        backgroundColor: WhatsAppTheme.deepDark,
+        padding: 1,
+      },
+      contentOptions: {
+        backgroundColor: WhatsAppTheme.deepDark,
+        flexDirection: "column",
+        gap: 1,
+      },
+      scrollbarOptions: {
+        trackOptions: {
+          foregroundColor: WhatsAppTheme.green,
+          backgroundColor: WhatsAppTheme.panelDark,
+        },
+      },
+      stickyScroll: true,
+      stickyStart: "bottom", // Auto-scroll to new messages
+    })
+  }
+
+  // Clear existing children and add messages
+  const existingChildren = conversationScrollBox.getChildren()
+  for (const child of existingChildren) {
+    conversationScrollBox.remove(child.id)
+  }
+
+  // Add messages
+  if (messages.length === 0) {
+    const emptyText = new TextRenderable(renderer, {
+      content: "No messages yet",
+      fg: WhatsAppTheme.textSecondary,
+    })
+    conversationScrollBox.add(emptyText)
+  } else {
+    for (const message of reversedMessages) {
+      conversationScrollBox.add(renderMessage(renderer, message, isGroupChat))
+    }
+  }
 
   // Message input field (bottom)
   const inputField = Box(
@@ -130,9 +157,25 @@ export function ConversationView() {
       backgroundColor: WhatsAppTheme.deepDark,
     },
     header,
-    messagesBox,
+    conversationScrollBox,
     inputField
   )
+}
+
+// Reset the conversation scroll box (call when switching chats)
+export function destroyConversationScrollBox(): void {
+  if (conversationScrollBox) {
+    conversationScrollBox.destroyRecursively()
+    conversationScrollBox = null
+    debugLog("ConversationView", "Conversation scroll box destroyed")
+  }
+}
+
+// Scroll the conversation by a given amount (for keyboard navigation)
+export function scrollConversation(delta: number): void {
+  if (conversationScrollBox) {
+    conversationScrollBox.scrollBy(delta)
+  }
 }
 
 // Load contacts for the session and cache them
@@ -167,7 +210,6 @@ export async function loadContacts(sessionName: string): Promise<void> {
 
 // Hash function to assign consistent colors to senders
 function getSenderColor(senderId: string): string {
-  // debugLog("SenderColor", `Getting color for sender ID: ${senderId}`)
   const colors = WhatsAppTheme.senderColors
   let hash = 0
   for (let i = 0; i < senderId.length; i++) {
@@ -175,10 +217,6 @@ function getSenderColor(senderId: string): string {
     hash = hash & hash
   }
   const color = colors[Math.abs(hash) % colors.length]
-  debugLog(
-    "SenderColor",
-    `Assigned color ${color} to ${senderId} (hash: ${Math.abs(hash) % colors.length})`
-  )
   return color
 }
 
@@ -191,7 +229,11 @@ type WAMessageExtended = Omit<WAMessage, "participant" | "_data"> & {
   }
 }
 
-function renderMessage(message: WAMessageExtended, isGroupChat: boolean = false) {
+function renderMessage(
+  renderer: CliRenderer,
+  message: WAMessageExtended,
+  isGroupChat: boolean = false
+): BoxRenderable {
   const isFromMe = message.fromMe
   const timestamp = new Date(message.timestamp * 1000).toLocaleTimeString([], {
     hour: "2-digit",
@@ -202,12 +244,6 @@ function renderMessage(message: WAMessageExtended, isGroupChat: boolean = false)
   let senderName = ""
   let senderId = ""
   if (isGroupChat && !isFromMe && message.from) {
-    debugLog(
-      "MessageFields",
-      `Full message: ${JSON.stringify({ from: message.from, participant: message.participant, _data: message._data?.notifyName || message._data?.pushName })}`
-    )
-    // Try to extract name from "from" field
-    // Format is usually "number@c.us" or could have a name
     const fromParts = message.from.split("@")
     senderName = fromParts[0] // Use phone number as fallback
     senderId = message.from
@@ -240,84 +276,74 @@ function renderMessage(message: WAMessageExtended, isGroupChat: boolean = false)
   const messageText = message.body || "(media)"
   const timestampText = `${timestamp}${isFromMe ? ` ${getAckIcon(message.ack)}` : ""}`
 
-  const bubbleContent = []
-  let numRows = 0
+  // Create outer row container
+  const row = new BoxRenderable(renderer, {
+    id: `msg-${message.id || Date.now()}-row`,
+    flexDirection: "row",
+    justifyContent: isFromMe ? "flex-end" : "flex-start",
+    marginBottom: 1,
+  })
+
+  // Create bubble container
+  const bubble = new BoxRenderable(renderer, {
+    id: `msg-${message.id || Date.now()}-bubble`,
+    maxWidth: "70%",
+    minWidth: "15%",
+    paddingLeft: 2,
+    paddingRight: 2,
+    backgroundColor: isFromMe ? WhatsAppTheme.greenDark : WhatsAppTheme.receivedBubble,
+    border: true,
+    borderColor: isFromMe ? WhatsAppTheme.green : WhatsAppTheme.borderColor,
+    flexDirection: "column",
+  })
 
   // Row 1: Sender name (only for group chat received messages)
   if (senderName) {
-    bubbleContent.push(
-      Box(
-        {
-          height: 1,
-          flexDirection: "row",
-          justifyContent: "flex-start",
-        },
-        Text({
-          content: senderName,
-          fg: getSenderColor(senderId),
-          attributes: TextAttributes.BOLD,
-        })
-      )
-    )
-    numRows++
+    const senderRow = new BoxRenderable(renderer, {
+      id: `msg-${message.id || Date.now()}-sender`,
+      height: 1,
+      flexDirection: "row",
+      justifyContent: "flex-start",
+    })
+    const senderText = new TextRenderable(renderer, {
+      content: senderName,
+      fg: getSenderColor(senderId),
+      attributes: TextAttributes.BOLD,
+    })
+    senderRow.add(senderText)
+    bubble.add(senderRow)
   }
 
   // Row 2: Message content
-  bubbleContent.push(
-    Box(
-      {
-        height: 1,
-        flexDirection: "row",
-        justifyContent: "flex-start",
-      },
-      Text({
-        content: messageText,
-        fg: WhatsAppTheme.textPrimary,
-      })
-    )
-  )
-  numRows++
+  const contentRow = new BoxRenderable(renderer, {
+    id: `msg-${message.id || Date.now()}-content`,
+    height: 1,
+    flexDirection: "row",
+    justifyContent: "flex-start",
+  })
+  const contentText = new TextRenderable(renderer, {
+    content: messageText,
+    fg: WhatsAppTheme.textPrimary,
+  })
+  contentRow.add(contentText)
+  bubble.add(contentRow)
 
   // Row 3: Timestamp (always on separate line)
-  bubbleContent.push(
-    Box(
-      {
-        height: 1,
-        flexDirection: "row",
-        justifyContent: "flex-end",
-      },
-      Text({
-        content: timestampText,
-        fg: isFromMe ? WhatsAppTheme.textSecondary : WhatsAppTheme.textTertiary,
-      })
-    )
-  )
-  numRows++
+  const timeRow = new BoxRenderable(renderer, {
+    id: `msg-${message.id || Date.now()}-time`,
+    height: 1,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+  })
+  const timeText = new TextRenderable(renderer, {
+    content: timestampText,
+    fg: isFromMe ? WhatsAppTheme.textSecondary : WhatsAppTheme.textTertiary,
+  })
+  timeRow.add(timeText)
+  bubble.add(timeRow)
 
-  // Calculate bubble height
-  const bubbleHeight = numRows + 2 // +2 for top and bottom spacing
-
-  return Box(
-    {
-      flexDirection: "row",
-      justifyContent: isFromMe ? "flex-end" : "flex-start",
-      marginBottom: 1,
-    },
-    Box(
-      {
-        height: bubbleHeight,
-        maxWidth: "70%",
-        minWidth: "15%",
-        paddingLeft: 2,
-        paddingRight: 2,
-        backgroundColor: isFromMe ? WhatsAppTheme.greenDark : WhatsAppTheme.receivedBubble,
-        border: true,
-        borderColor: isFromMe ? WhatsAppTheme.green : WhatsAppTheme.borderColor,
-        flexDirection: "column",
-      },
-      ...bubbleContent
-    )
-  )
+  row.add(bubble)
+  return row
 }
 
 function getAckIcon(ack: number): string {
@@ -345,18 +371,64 @@ export async function loadMessages(sessionName: string, chatId: string): Promise
     const response = await client.chats.chatsControllerGetChatMessages(sessionName, chatId, {
       limit: 50,
       downloadMedia: false,
+      sortBy: "messageTimestamp",
+      sortOrder: "desc",
     })
     const messages = (response.data as unknown as WAMessage[]) || []
     debugLog("Messages", `Loaded ${messages.length} messages`)
     appState.setMessages(chatId, messages)
-
-    // Initialize scroll position to bottom (latest messages)
-    const MESSAGES_PER_PAGE = 8
-    const maxScroll = Math.max(0, messages.length - MESSAGES_PER_PAGE)
-    appState.setScrollPosition(maxScroll)
   } catch (error) {
     debugLog("Messages", `Failed to load messages: ${error}`)
     appState.setMessages(chatId, [])
+  }
+}
+
+// Track if we're currently loading more messages
+let isLoadingMore = false
+
+// Load older messages (for infinite scroll)
+export async function loadOlderMessages(): Promise<void> {
+  const state = appState.getState()
+  if (!state.currentChatId || !state.currentSession || isLoadingMore) {
+    return
+  }
+
+  const currentMessages = state.messages.get(state.currentChatId) || []
+  if (currentMessages.length === 0) return
+
+  isLoadingMore = true
+  const offset = currentMessages.length
+  debugLog("Messages", `Loading older messages with offset ${offset}`)
+
+  try {
+    const client = getClient()
+    // Load more messages using offset for pagination
+    const response = await client.chats.chatsControllerGetChatMessages(
+      state.currentSession,
+      state.currentChatId,
+      {
+        limit: 50,
+        offset: offset,
+        downloadMedia: false,
+        sortBy: "messageTimestamp",
+        sortOrder: "desc",
+      }
+    )
+
+    const newMessages = (response.data as unknown as WAMessage[]) || []
+
+    if (newMessages.length > 0) {
+      debugLog("Messages", `Loaded ${newMessages.length} older messages`)
+      // Append older messages to existing ones (maintaining Descending order)
+      const combinedMessages = [...currentMessages, ...newMessages]
+      appState.setMessages(state.currentChatId, combinedMessages)
+    } else {
+      debugLog("Messages", "No more older messages available")
+    }
+  } catch (error) {
+    debugLog("Messages", `Failed to load older messages: ${error}`)
+  } finally {
+    isLoadingMore = false
   }
 }
 

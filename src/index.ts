@@ -18,7 +18,13 @@ import { Footer } from "./components/Footer"
 import { SessionsView } from "./views/SessionsView"
 import { loadSessions } from "./views/SessionsView"
 import { loadChats } from "./views/ChatsView"
-import { loadMessages, loadContacts } from "./views/ConversationView"
+import {
+  loadMessages,
+  loadContacts,
+  scrollConversation,
+  destroyConversationScrollBox,
+  loadOlderMessages,
+} from "./views/ConversationView"
 import { createNewSession } from "./views/SessionCreate"
 import { QRCodeView } from "./views/QRCodeView"
 import { MainLayout } from "./views/MainLayout"
@@ -256,12 +262,10 @@ async function main() {
         return // Prevent ScrollBox from handling this key
       } else if (state.currentView === "conversation" && !state.inputMode) {
         // Scroll up (to older messages)
-        const newPos = Math.max(0, state.scrollPosition - 1)
-        debugLog(
-          "Keyboard",
-          `Conversation: UP - scrolling from ${state.scrollPosition} to ${newPos}`
-        )
-        appState.setScrollPosition(newPos)
+        debugLog("Keyboard", "Conversation: UP - scrolling up")
+        scrollConversation(-4) // Scroll up by 4 units
+        // Check if we should load older messages (scroll is near top)
+        loadOlderMessages()
       }
     }
 
@@ -290,11 +294,8 @@ async function main() {
         return // Prevent ScrollBox from handling this key
       } else if (state.currentView === "conversation" && !state.inputMode) {
         // Scroll down (to newer messages)
-        debugLog(
-          "Keyboard",
-          `Conversation: DOWN - scrolling from ${state.scrollPosition} to ${state.scrollPosition + 1}`
-        )
-        appState.setScrollPosition(state.scrollPosition + 1)
+        debugLog("Keyboard", "Conversation: DOWN - scrolling down")
+        scrollConversation(4) // Scroll down by 4 units
       }
     }
 
@@ -320,6 +321,8 @@ async function main() {
 
           debugLog("App", `Selected chat: ${selectedChat.name || chatId}`)
           appState.setCurrentChat(chatId)
+          // Destroy old scroll box before loading new messages
+          destroyConversationScrollBox()
           // Load contacts in background to populate cache
           loadContacts(state.currentSession)
           await loadMessages(state.currentSession, chatId)
@@ -387,12 +390,8 @@ async function main() {
         })
         return // Prevent default ScrollBox behavior
       } else if (state.currentView === "conversation" && !state.inputMode) {
-        const pageSize = 10
-        debugLog(
-          "Keyboard",
-          `Conversation: PAGE UP - scrolling from ${state.scrollPosition} to ${Math.max(0, state.scrollPosition - pageSize)}`
-        )
-        appState.setScrollPosition(Math.max(0, state.scrollPosition - pageSize))
+        debugLog("Keyboard", "Conversation: PAGE UP - scrolling up")
+        scrollConversation(-20) // Scroll up by ~20 units (page)
       }
     }
 
@@ -417,12 +416,8 @@ async function main() {
         })
         return // Prevent default ScrollBox behavior
       } else if (state.currentView === "conversation" && !state.inputMode) {
-        const pageSize = 10
-        debugLog(
-          "Keyboard",
-          `Conversation: PAGE DOWN - scrolling from ${state.scrollPosition} to ${state.scrollPosition + pageSize}`
-        )
-        appState.setScrollPosition(state.scrollPosition + pageSize)
+        debugLog("Keyboard", "Conversation: PAGE DOWN - scrolling down")
+        scrollConversation(20) // Scroll down by ~20 units (page)
       }
     }
 
