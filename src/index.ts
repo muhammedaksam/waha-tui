@@ -589,6 +589,9 @@ async function main() {
         if (state.inputMode) {
           // Exit search input mode
           blurSearchInput()
+        } else if (state.showingArchivedChats) {
+          // Exit archived view
+          appState.setShowingArchivedChats(false)
         } else if (state.searchQuery) {
           // Clear search if there's a query
           clearSearchInput()
@@ -597,6 +600,13 @@ async function main() {
           appState.setCurrentView("sessions")
         }
         appState.setSelectedSessionIndex(0) // Reset session selection
+      }
+    }
+
+    // Ctrl+A / Meta+A - Toggle Archived View
+    if (key.name === "a" && (key.meta || key.ctrl)) {
+      if (state.currentView === "chats") {
+        appState.setShowingArchivedChats(!state.showingArchivedChats)
       }
     }
 

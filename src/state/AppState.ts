@@ -59,6 +59,7 @@ export interface AppState {
   activeFilter: ActiveFilter
   activeIcon: ActiveIcon
   searchQuery: string
+  showingArchivedChats: boolean // Toggle to show archived chats instead of main list
   messageInput: string
 
   // Conversation view state
@@ -103,6 +104,7 @@ class StateManager {
     activeFilter: "all",
     activeIcon: "chats",
     searchQuery: "",
+    showingArchivedChats: false,
     messageInput: "",
 
     // Conversation view state
@@ -271,6 +273,15 @@ class StateManager {
   setSearchQuery(searchQuery: string): void {
     this.setState({
       searchQuery,
+      selectedChatIndex: 0,
+      chatListScrollOffset: 0,
+      lastChangeType: "data",
+    })
+  }
+
+  setShowingArchivedChats(showingArchivedChats: boolean): void {
+    this.setState({
+      showingArchivedChats,
       selectedChatIndex: 0,
       chatListScrollOffset: 0,
       lastChangeType: "data",

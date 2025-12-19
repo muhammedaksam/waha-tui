@@ -3,7 +3,7 @@
  * WhatsApp-style chat list with search, filters, and styled rows
  */
 
-import { Box, Text, BoxRenderable, TextRenderable } from "@opentui/core"
+import { Box, Text, BoxRenderable, TextRenderable, ProxiedVNode } from "@opentui/core"
 import { InputRenderable, InputRenderableEvents } from "@opentui/core"
 import { appState } from "../state/AppState"
 import { getRenderer } from "../state/RendererContext"
@@ -14,13 +14,15 @@ import type { ActiveFilter } from "../state/AppState"
 import type { ChatSummary } from "@muhammedaksam/waha-node"
 import { chatListManager } from "./ChatListManager"
 import { Logo } from "../components/Logo"
-import { filterChats, countUnreadInArchived } from "../utils/filterChats"
+import { filterChats, countUnreadInArchived, isArchived } from "../utils/filterChats"
 import { loadAllContacts } from "../utils/contacts"
 import {
   searchChatsWithSections,
   flattenSearchResults,
   getSectionBoundaries,
 } from "../utils/enhancedSearch"
+import { looksLikePhoneNumber, validateWhatsAppNumber } from "../utils/phoneValidation"
+import { startNewChat } from "../utils/createChat"
 
 // Module-level search input component for focus management
 let searchInputComponent: InputRenderable | null = null
@@ -231,8 +233,107 @@ export function ChatsView() {
       : Text({ content: "" })
   )
 
+  // Handle click on Archived section
+  archivedSection.on("click", () => {
+    appState.setShowingArchivedChats(true)
+  })
+
+  // Start New Chat Action Section
+  let startNewChatSection: ProxiedVNode<typeof BoxRenderable> | null = null
+
+  // Check if search query looks like a phone number
+  if (looksLikePhoneNumber(state.searchQuery)) {
+    startNewChatSection = Box(
+      {
+        height: 3,
+        flexDirection: "row",
+        alignItems: "center",
+        paddingLeft: 2,
+        paddingRight: 2,
+        backgroundColor: WhatsAppTheme.panelLight,
+        marginBottom: 1,
+      },
+      Text({
+        content: Icons.newChat + " ",
+        fg: WhatsAppTheme.green,
+      }),
+      Text({
+        content: `Start new chat with ${state.searchQuery}`,
+        fg: WhatsAppTheme.textPrimary,
+      })
+    )
+
+    // Handle click to validate and start chat
+    startNewChatSection.on("click", async () => {
+      if (!state.currentSession) return
+
+      debugLog("ChatsView", `Validating number: ${state.searchQuery}`)
+      // Visual feedback could be added here (e.g. changing text to "Checking...")
+
+      const chatId = await validateWhatsAppNumber(state.searchQuery, state.currentSession)
+
+      if (chatId) {
+        debugLog("ChatsView", `Number valid! Starting chat: ${chatId}`)
+        // Add to contacts cache so it shows up correctly
+        const contacts = appState.getState().allContacts
+        // If name unknown, use formatted number
+        if (!contacts.has(chatId)) {
+          // We might want to set a temporary name?
+          // For now just allow the ID
+        }
+
+        await startNewChat(chatId)
+
+        // Clear search after starting
+        appState.setSearchQuery("")
+      } else {
+        // Show error (for now just log, ideal would be toast/alert)
+        debugLog("ChatsView", `Invalid WhatsApp number: ${state.searchQuery}`)
+      }
+    })
+  }
+
   // Filter chats based on active filter and search query
   let filteredChats: ChatSummary[]
+
+  if (state.showingArchivedChats) {
+    // Show ONLY archived chats
+    filteredChats = state.chats.filter((chat) => isArchived(chat))
+
+    // Override header for Archived view
+    const backButton = Box(
+      {
+        height: 3,
+        flexDirection: "row",
+        alignItems: "center",
+        paddingLeft: 2,
+        backgroundColor: WhatsAppTheme.panelLight,
+      },
+      Text({
+        content: "←",
+        fg: WhatsAppTheme.green,
+      }),
+      Text({
+        content: " Archived",
+        fg: WhatsAppTheme.textPrimary,
+      })
+    )
+
+    backButton.on("click", () => {
+      appState.setShowingArchivedChats(false)
+    })
+
+    return Box(
+      {
+        flexDirection: "column",
+        flexGrow: 1,
+        backgroundColor: WhatsAppTheme.panelDark,
+      },
+      backButton,
+      // Reuse chat list manager for archived chats
+      chatListManager.buildChatList(renderer, filteredChats)
+    )
+  }
 
   // Use enhanced sectioned search when search query is active
   if (state.searchQuery.trim()) {
@@ -254,7 +355,9 @@ export function ChatsView() {
     filteredChats = filterChats(state.chats, state.activeFilter, state.searchQuery)
   }
 
-  // Handle empty state (after filtering)
+  // Handle empty state logic
+  let emptyBox: BoxRenderable | null = null
+
   if (filteredChats.length === 0) {
     const emptyMessage =
       state.chats.length === 0
@@ -264,7 +367,7 @@ export function ChatsView() {
           : `No ${state.activeFilter} chats`
 
     debugLog("ChatsView", `No chats to display: ${emptyMessage}`)
-    const emptyBox = new BoxRenderable(renderer, {
+    emptyBox = new BoxRenderable(renderer, {
       id: "empty-chats",
       flexGrow: 1,
       justifyContent: "center",
@@ -276,28 +379,35 @@ export function ChatsView() {
         fg: WhatsAppTheme.textSecondary,
       })
     )
+  }
 
-    return Box(
-      {
-        flexDirection: "column",
-        flexGrow: 1,
-        backgroundColor: WhatsAppTheme.panelDark,
-      },
-      header,
-      searchBarContainer,
-      filterPillsContainer,
-      archivedSection,
-      emptyBox
-    )
+  // Assemble view components
+  const components: (BoxRenderable | ProxiedVNode<typeof BoxRenderable>)[] = [
+    header,
+    searchBarContainer,
+    filterPillsContainer,
+  ]
+
+  // Only show archived section if NOT searching and NOT doing new chat action
+  if (!state.searchQuery && !startNewChatSection) {
+    components.push(archivedSection)
   }
 
   // Use ChatListManager for optimized rendering with filtered chats
   const chatScrollBox = chatListManager.buildChatList(renderer, filteredChats)
 
-  debugLog(
-    "ChatsView",
-    `Displaying ${filteredChats.length} chats (filter: ${state.activeFilter}, search: "${state.searchQuery}")`
-  )
+  // Show Start New Chat action if active
+  if (startNewChatSection) {
+    components.push(startNewChatSection)
+  }
+
+  // Chat list takes up remaining space
+  // If empty, show empty box
+  if (emptyBox) {
+    components.push(emptyBox)
+  } else {
+    components.push(chatScrollBox)
+  }
 
   return Box(
     {
@@ -305,11 +415,7 @@ export function ChatsView() {
       flexGrow: 1,
       backgroundColor: WhatsAppTheme.panelDark,
     },
-    header,
-    searchBarContainer,
-    filterPillsContainer,
-    archivedSection,
-    chatScrollBox
+    ...components
   )
 }
 
