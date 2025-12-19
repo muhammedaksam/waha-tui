@@ -11,7 +11,7 @@ import { appState } from "./state/AppState"
 import { Footer } from "./components/Footer"
 import { deleteSession, logoutSession, SessionsView } from "./views/SessionsView"
 import { loadSessions } from "./views/SessionsView"
-import { loadChats } from "./views/ChatsView"
+import { loadChats, focusSearchInput, blurSearchInput, clearSearchInput } from "./views/ChatsView"
 import {
   loadMessages,
   loadContacts,
@@ -360,6 +360,20 @@ async function main() {
       return
     }
 
+    // Forward slash (/) to focus search in chats view
+    if (key.name === "/" && state.currentView === "chats" && !state.inputMode) {
+      debugLog("Keyboard", "Focusing search input")
+      focusSearchInput()
+      return
+    }
+
+    // Ctrl+F to focus search in chats view (alternative shortcut)
+    if (key.name === "f" && key.ctrl && state.currentView === "chats" && !state.inputMode) {
+      debugLog("Keyboard", "Focusing search input (Ctrl+F)")
+      focusSearchInput()
+      return
+    }
+
     // Arrow key navigation
     if (key.name === "up") {
       if (state.currentView === "sessions" && state.sessions.length > 0) {
@@ -572,7 +586,16 @@ async function main() {
           appState.setCurrentChat(null)
         }
       } else if (state.currentView === "chats") {
-        appState.setCurrentView("sessions")
+        if (state.inputMode) {
+          // Exit search input mode
+          blurSearchInput()
+        } else if (state.searchQuery) {
+          // Clear search if there's a query
+          clearSearchInput()
+        } else {
+          // Go back to sessions
+          appState.setCurrentView("sessions")
+        }
         appState.setSelectedSessionIndex(0) // Reset session selection
       }
     }

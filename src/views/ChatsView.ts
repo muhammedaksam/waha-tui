@@ -4,6 +4,7 @@
  */
 
 import { Box, Text, BoxRenderable, TextRenderable } from "@opentui/core"
+import { InputRenderable, InputRenderableEvents } from "@opentui/core"
 import { appState } from "../state/AppState"
 import { getRenderer } from "../state/RendererContext"
 import { WhatsAppTheme, Icons } from "../config/theme"
@@ -14,6 +15,32 @@ import type { ChatSummary } from "@muhammedaksam/waha-node"
 import { chatListManager } from "./ChatListManager"
 import { Logo } from "../components/Logo"
 import { filterChats, countUnreadInArchived } from "../utils/filterChats"
+
+// Module-level search input component for focus management
+let searchInputComponent: InputRenderable | null = null
+
+//Export functions for search input control
+export function focusSearchInput(): void {
+  if (searchInputComponent) {
+    searchInputComponent.focus()
+    appState.setInputMode(true)
+  }
+}
+
+export function blurSearchInput(): void {
+  if (searchInputComponent) {
+    searchInputComponent.blur()
+    appState.setInputMode(false)
+  }
+}
+
+export function clearSearchInput(): void {
+  if (searchInputComponent) {
+    searchInputComponent.value = ""
+    appState.setSearchQuery("")
+    blurSearchInput()
+  }
+}
 
 export function ChatsView() {
   const state = appState.getState()
@@ -60,8 +87,8 @@ export function ChatsView() {
     )
   )
 
-  // Search Bar
-  const searchBar = Box(
+  // Search Bar - using InputRenderable for interactive search
+  const searchBarContainer = Box(
     {
       height: 5,
       paddingLeft: 2,
@@ -76,17 +103,48 @@ export function ChatsView() {
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: WhatsAppTheme.inputBg,
-        paddingLeft: 2,
+        paddingLeft: 1,
         paddingRight: 2,
         flexGrow: 1,
         border: true,
         borderStyle: "rounded",
         borderColor: WhatsAppTheme.borderColor,
       },
+      // Search icon
       Text({
-        content: state.searchQuery || `${Icons.search} Search or start a new chat`,
-        fg: state.searchQuery ? WhatsAppTheme.textPrimary : WhatsAppTheme.textTertiary,
-      })
+        content: Icons.search + " ",
+        fg: WhatsAppTheme.textTertiary,
+      }),
+      // Create or reuse search input
+      (() => {
+        // Create new search input if it doesn't exist
+        if (!searchInputComponent) {
+          searchInputComponent = new InputRenderable(renderer, {
+            id: "chat-search-input",
+            width: "auto",
+            height: 1,
+            placeholder: "Search or start a new chat",
+            backgroundColor: WhatsAppTheme.inputBg,
+            focusedBackgroundColor: WhatsAppTheme.inputBg,
+            textColor: WhatsAppTheme.textPrimary,
+            focusedTextColor: WhatsAppTheme.white,
+            placeholderColor: WhatsAppTheme.textTertiary,
+            cursorColor: WhatsAppTheme.white,
+            maxLength: 100,
+            flexGrow: 1,
+          })
+
+          // Listen for input changes and update state
+          searchInputComponent.on(InputRenderableEvents.INPUT, (value: string) => {
+            appState.setSearchQuery(value)
+          })
+        }
+
+        // Update value from state in case it changed
+        searchInputComponent.value = state.searchQuery
+
+        return searchInputComponent
+      })()
     )
   )
 
@@ -200,7 +258,7 @@ export function ChatsView() {
         backgroundColor: WhatsAppTheme.panelDark,
       },
       header,
-      searchBar,
+      searchBarContainer,
       filterPillsContainer,
       archivedSection,
       emptyBox
@@ -222,7 +280,7 @@ export function ChatsView() {
       backgroundColor: WhatsAppTheme.panelDark,
     },
     header,
-    searchBar,
+    searchBarContainer,
     filterPillsContainer,
     archivedSection,
     chatScrollBox
