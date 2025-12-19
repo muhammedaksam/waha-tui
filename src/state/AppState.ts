@@ -252,6 +252,24 @@ class StateManager {
   setMyProfile(myProfile: MyProfile | null): void {
     this.setState({ myProfile })
   }
+
+  setActiveFilter(activeFilter: ActiveFilter): void {
+    this.setState({
+      activeFilter,
+      selectedChatIndex: 0,
+      chatListScrollOffset: 0,
+      lastChangeType: "data",
+    })
+  }
+
+  setSearchQuery(searchQuery: string): void {
+    this.setState({
+      searchQuery,
+      selectedChatIndex: 0,
+      chatListScrollOffset: 0,
+      lastChangeType: "data",
+    })
+  }
 }
 
 export const appState = new StateManager()

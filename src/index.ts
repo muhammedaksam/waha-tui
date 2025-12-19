@@ -28,6 +28,7 @@ import { MainLayout } from "./views/MainLayout"
 import type { WahaTuiConfig } from "./config/schema"
 import { initDebug, debugLog } from "./utils/debug"
 import { calculateChatListScrollOffset } from "./utils/chatListScroll"
+import { filterChats } from "./utils/filterChats"
 import { pollingService } from "./services/PollingService"
 import { ConfigView } from "./views/ConfigView"
 import type { CliRenderer } from "@opentui/core"
@@ -345,13 +346,16 @@ async function main() {
         )
         appState.setSelectedSessionIndex(newIndex)
       } else if (state.currentView === "chats" && state.chats.length > 0) {
+        // Use filtered chats for navigation bounds
+        const filteredChats = filterChats(state.chats, state.activeFilter, state.searchQuery)
+        if (filteredChats.length === 0) return
         const newIndex = Math.max(0, state.selectedChatIndex - 1)
         debugLog("Keyboard", `Chats: UP - moving from ${state.selectedChatIndex} to ${newIndex}`)
         // Calculate new scroll offset
         const newScrollOffset = calculateChatListScrollOffset(
           newIndex,
           state.chatListScrollOffset,
-          state.chats.length
+          filteredChats.length
         )
         appState.setState({
           selectedChatIndex: newIndex,
@@ -377,13 +381,16 @@ async function main() {
         )
         appState.setSelectedSessionIndex(newIndex)
       } else if (state.currentView === "chats" && state.chats.length > 0) {
-        const newIndex = Math.min(state.chats.length - 1, state.selectedChatIndex + 1)
+        // Use filtered chats for navigation bounds
+        const filteredChats = filterChats(state.chats, state.activeFilter, state.searchQuery)
+        if (filteredChats.length === 0) return
+        const newIndex = Math.min(filteredChats.length - 1, state.selectedChatIndex + 1)
         debugLog("Keyboard", `Chats: DOWN - from ${state.selectedChatIndex} to ${newIndex}`)
         // Calculate new scroll offset
         const newScrollOffset = calculateChatListScrollOffset(
           newIndex,
           state.chatListScrollOffset,
-          state.chats.length
+          filteredChats.length
         )
         appState.setState({
           selectedChatIndex: newIndex,
@@ -453,12 +460,14 @@ async function main() {
         debugLog("Keyboard", `Sessions: END - jumping to last session (${lastIndex})`)
         appState.setSelectedSessionIndex(lastIndex)
       } else if (state.currentView === "chats" && state.chats.length > 0) {
-        const lastIndex = state.chats.length - 1
+        const filteredChats = filterChats(state.chats, state.activeFilter, state.searchQuery)
+        if (filteredChats.length === 0) return
+        const lastIndex = filteredChats.length - 1
         debugLog("Keyboard", `Chats: END - jumping to last chat (${lastIndex})`)
         const newScrollOffset = calculateChatListScrollOffset(
           lastIndex,
           state.chatListScrollOffset,
-          state.chats.length
+          filteredChats.length
         )
         appState.setState({
           selectedChatIndex: lastIndex,
@@ -472,6 +481,8 @@ async function main() {
     // PAGE UP key - jump up by viewport height (~12 chats)
     if (key.name === "pageup" || key.name === "left") {
       if (state.currentView === "chats" && state.chats.length > 0) {
+        const filteredChats = filterChats(state.chats, state.activeFilter, state.searchQuery)
+        if (filteredChats.length === 0) return
         const pageSize = 12
         const newIndex = Math.max(0, state.selectedChatIndex - pageSize)
         debugLog(
@@ -481,7 +492,7 @@ async function main() {
         const newScrollOffset = calculateChatListScrollOffset(
           newIndex,
           state.chatListScrollOffset,
-          state.chats.length
+          filteredChats.length
         )
         appState.setState({
           selectedChatIndex: newIndex,
@@ -498,8 +509,10 @@ async function main() {
     // PAGE DOWN key - jump down by viewport height (~12 chats)
     if (key.name === "pagedown" || key.name === "right") {
       if (state.currentView === "chats" && state.chats.length > 0) {
+        const filteredChats = filterChats(state.chats, state.activeFilter, state.searchQuery)
+        if (filteredChats.length === 0) return
         const pageSize = 12
-        const newIndex = Math.min(state.chats.length - 1, state.selectedChatIndex + pageSize)
+        const newIndex = Math.min(filteredChats.length - 1, state.selectedChatIndex + pageSize)
         debugLog(
           "Keyboard",
           `Chats: ${key.name.toUpperCase()} - jumping from ${state.selectedChatIndex} to ${newIndex} (page size: ${pageSize})`
@@ -507,7 +520,7 @@ async function main() {
         const newScrollOffset = calculateChatListScrollOffset(
           newIndex,
           state.chatListScrollOffset,
-          state.chats.length
+          filteredChats.length
         )
         appState.setState({
           selectedChatIndex: newIndex,
