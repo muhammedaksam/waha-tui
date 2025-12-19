@@ -1,25 +1,41 @@
 /**
  * Configuration Schema
  * Defines the structure and types for WAHA TUI configuration
+ *
+ * Config is split into two files:
+ * - ~/.waha-tui/.env - Secrets (WAHA_URL, WAHA_API_KEY)
+ * - ~/.waha-tui/config.json - Metadata (version, timestamps, settings)
  */
 
-export interface WahaTuiConfig {
-  version: string
+/**
+ * Environment secrets stored in .env file
+ */
+export interface WahaTuiEnv {
   wahaUrl: string
   wahaApiKey: string
-  dashboardUsername?: string
-  dashboardPassword?: string
-  swaggerUsername?: string
-  swaggerPassword?: string
-  defaultSession?: string
+}
+
+/**
+ * Config metadata stored in config.json
+ */
+export interface WahaTuiConfigMeta {
+  version: string
   createdAt: string
   updatedAt: string
 }
 
-export const DEFAULT_CONFIG: Partial<WahaTuiConfig> = {
-  version: "0.1.0",
+/**
+ * Combined config for runtime use
+ */
+export interface WahaTuiConfig extends WahaTuiEnv, WahaTuiConfigMeta {}
+
+export const DEFAULT_ENV: WahaTuiEnv = {
   wahaUrl: "http://localhost:3000",
   wahaApiKey: "",
+}
+
+export const DEFAULT_CONFIG_META: Partial<WahaTuiConfigMeta> = {
+  version: "1.0.0",
 }
 
 export function validateConfig(config: Partial<WahaTuiConfig>): string[] {
@@ -27,10 +43,6 @@ export function validateConfig(config: Partial<WahaTuiConfig>): string[] {
 
   if (!config.wahaUrl) {
     errors.push("WAHA URL is required")
-  }
-
-  if (!config.wahaApiKey) {
-    errors.push("WAHA API Key is required")
   }
 
   // Validate URL format

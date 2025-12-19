@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint-and-build:
+    name: Lint, Format & Build
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.head_commit.message || '', '[skip ci]') && !contains(github.event.pull_request.title || '', '[skip ci]') }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+
+      - name: Run ESLint
+        run: bun run lint
+
+      - name: Check Prettier formatting
+        run: bun run format:check
+
+      - name: Type check
+        run: bun run typecheck
+
+      - name: Build project
+        run: bun run build

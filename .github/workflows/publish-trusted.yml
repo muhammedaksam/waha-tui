@@ -1,0 +1,50 @@
+name: Publish Package (Trusted Publishing)
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  id-token: write # Required for OIDC trusted publishing
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npm with Trusted Publishing
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+        with:
+          frozen-lockfile: "true"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22.x"
+          registry-url: "https://registry.npmjs.org"
+
+      # Ensure npm 11.5.1 or later is installed for trusted publishing support
+      - name: Update npm to latest version
+        run: npm install -g npm@latest
+
+      - name: Build package
+        run: bun run build
+
+      - name: Verify build artifacts
+        run: |
+          if [ ! -f "dist/index.js" ]; then
+            echo "ERROR: Build artifacts missing - dist/index.js not found"
+            exit 1
+          fi
+          echo "✓ Build artifacts verified"
+          ls -la dist/
+
+      # Publish using OIDC authentication (no NPM_TOKEN needed)
+      - name: Publish to npm
+        run: npm publish --access public --no-git-checks

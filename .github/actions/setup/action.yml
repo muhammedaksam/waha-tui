@@ -1,0 +1,25 @@
+name: "Setup Environment"
+description: "Setup Bun and install dependencies"
+
+inputs:
+  frozen-lockfile:
+    description: "Use --frozen-lockfile for install"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        if [ "${{ inputs.frozen-lockfile }}" = "true" ]; then
+          bun install --frozen-lockfile
+        else
+          bun install
+        fi

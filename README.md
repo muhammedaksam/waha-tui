@@ -1,26 +1,43 @@
 # WAHA TUI
 
-A beautiful Terminal User Interface for WhatsApp using [WAHA (WhatsApp HTTP API)](https://github.com/devlikeapro/waha).
+> **WhatsApp in your terminal.**
 
-Manage your WhatsApp sessions, chats, and messages directly from your terminal with an intuitive TUI powered by [OpenTUI](https://opentui.app).
+[![npm version](https://img.shields.io/npm/v/@muhammedaksam/waha-tui.svg)](https://www.npmjs.com/package/@muhammedaksam/waha-tui)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
+[![Bun](https://img.shields.io/badge/Bun-000?logo=bun&logoColor=fff)](https://bun.sh/)
+[![CI](https://github.com/muhammedaksam/waha-tui/workflows/CI/badge.svg)](https://github.com/muhammedaksam/waha-tui/actions)
+
+> ⚠️ **Work In Progress** - This project is in early experimental development. Features may be incomplete, unstable, or change without notice.
+
+A beautiful Terminal User Interface for WhatsApp using [WAHA (WhatsApp HTTP API)](https://github.com/devlikeapro/waha). Manage your WhatsApp sessions, chats, and messages directly from your terminal with an intuitive TUI powered by [OpenTUI](https://opentui.app).
 
 ## Features
 
-- 📱 **Session Management** - Create, view, and manage WAHA sessions
-- 💬 **Chat Interface** - Browse chats and conversations
-- ✉️ **Messaging** - Send and receive messages
-- 🎨 **Beautiful UI** - Clean, modern terminal interface
+- 📱 **Session Management** - Create, view, and manage WAHA sessions with QR code login
+- 💬 **Chat Interface** - Browse chats with WhatsApp-style layout and real-time updates
+- ✉️ **Messaging** - Send and receive messages with read receipts
+- 🎨 **Beautiful UI** - WhatsApp Web-inspired interface with colors and icons
 - ⚡ **Fast & Lightweight** - Built with Bun for blazing-fast performance
 - 🔒 **Secure** - All configuration stored locally in `~/.waha-tui/`
+- 🔄 **Auto-Refresh** - QR codes refresh automatically, status updates in real-time
 
-## Prerequisites
+## Quick Start
 
-- [Bun](https://bun.sh) >= 1.0
-- A running [WAHA server](https://github.com/devlikeapro/waha)
+### Run directly with bunx (no installation required)
 
-## Installation
+```bash
+bunx @muhammedaksam/waha-tui
+```
 
-### From Source
+### Or install globally
+
+```bash
+bun add -g @muhammedaksam/waha-tui
+waha-tui
+```
+
+### Or clone and run locally
 
 ```bash
 git clone https://github.com/muhammedaksam/waha-tui.git
@@ -29,56 +46,62 @@ bun install
 bun dev
 ```
 
-### From NPM (Coming Soon)
+## Prerequisites
 
-```bash
-bun add -g @muhammedaksam/waha-tui
-waha-tui
-```
+- [Bun](https://bun.sh) >= 1.0
+- A running [WAHA server](https://github.com/devlikeapro/waha)
 
 ## Configuration
 
-On first run, WAHA TUI will prompt you for configuration. Alternatively, you can:
+On first run, WAHA TUI will prompt you for configuration with a beautiful setup wizard.
 
-### Option 1: Environment Variables
+Configuration is stored in `~/.waha-tui/` with secrets separated from metadata:
 
-Create a `.env` file in the project directory:
+### ~/.waha-tui/.env (Secrets)
+
+```env
+# WAHA TUI Configuration
+# Connection settings for WAHA server
+
+WAHA_URL=http://localhost:3000
+WAHA_API_KEY=your-api-key-here
+```
+
+### ~/.waha-tui/config.json (Metadata)
+
+```json
+{
+  "version": "1.0.0",
+  "createdAt": "2024-12-19T00:00:00.000Z",
+  "updatedAt": "2024-12-19T00:00:00.000Z"
+}
+```
+
+### Development: Project .env
+
+For development, you can also create a `.env` in the project root which takes precedence:
 
 ```env
 WAHA_URL=http://localhost:3000
 WAHA_API_KEY=your-api-key-here
 ```
 
-### Option 2: Config File
-
-Configuration is automatically saved to `~/.waha-tui/config.json`:
-
-```json
-{
-  "version": "0.1.0",
-  "wahaUrl": "http://localhost:3000",
-  "wahaApiKey": "your-api-key-here",
-  "createdAt": "2025-12-17T16:00:00.000Z",
-  "updatedAt": "2025-12-17T16:00:00.000Z"
-}
-```
-
 ## Usage
-
-### Starting the TUI
-
-```bash
-bun dev
-```
 
 ### Keyboard Shortcuts
 
-- `q` - Quit the application
-- `r` - Refresh current view
-- `n` - Create new session (in Sessions view)
-- `1` - Go to Sessions view
-- `2` - Go to Chats view
-- `Ctrl+C` - Exit immediately
+| Key      | Action                                |
+| -------- | ------------------------------------- |
+| `↑/↓`    | Navigate lists                        |
+| `Enter`  | Select item / Open chat               |
+| `Esc`    | Go back                               |
+| `i`      | Enter input mode (in conversation)    |
+| `r`      | Refresh current view                  |
+| `n`      | Create new session (in Sessions view) |
+| `1`      | Go to Sessions view                   |
+| `2`      | Go to Chats view                      |
+| `q`      | Quit / Go back                        |
+| `Ctrl+C` | Exit immediately                      |
 
 ### Debug Logging
 
@@ -92,71 +115,54 @@ WAHA_TUI_DEBUG=1 bun dev
 bun dev --debug
 ```
 
-Debug logs are saved to `~/.waha-tui/debug.log` with automatic sanitization of sensitive data (API keys, passwords, tokens).
-
-### Managing Sessions
-
-1. Press `1` to go to Sessions view
-2. Press `n` to create a new session
-3. Scan the QR code with WhatsApp
-4. Press `r` to refresh and see connection status
-
-### Sending Messages
-
-1. Press `2` to go to Chats view
-2. Navigate to a chat
-3. Type your message
-4. Press `Enter` to send
+Debug logs are saved to `~/.waha-tui/debug.log` with automatic sanitization of sensitive data.
 
 ## Development
 
+```bash
+# Install dependencies
+bun install
+
+# Run in development mode (with watch)
+bun run dev
+
+# Type check
+bun run typecheck
+
+# Lint
+bun run lint
+
+# Format
+bun run format
+
+# Run all checks (typecheck + lint + format:check)
+bun run check
+
+# Fix all issues (lint:fix + format)
+bun run fix
+
+# Build for production
+bun run build
+```
+
 ### Project Structure
 
-```
+```bash
 waha-tui/
 ├── src/
-│   ├── config/          # Configuration management
-│   │   ├── schema.ts    # Config types and validation
-│   │   └── manager.ts   # File operations
 │   ├── components/      # Reusable UI components
-│   │   └── StatusBar.ts # Status bar component
-│   ├── views/           # Main application views
-│   │   └── SessionsView.ts
+│   ├── config/          # Configuration management
+│   ├── services/        # Background services (polling)
 │   ├── state/           # Global state management
-│   │   └── AppState.ts
 │   ├── utils/           # Utility functions
-│   │   └── formatters.ts
+│   ├── views/           # Main application views
 │   ├── client.ts        # WAHA API client
 │   └── index.ts         # Main entry point
+├── .github/
+│   ├── workflows/       # CI/CD workflows
+│   └── actions/         # Reusable actions
 └── package.json
 ```
-
-### Available Scripts
-
-```bash
-bun dev              # Start in watch mode
-bun start            # Start without watch
-bun build            # Build for production
-bun typecheck        # Run TypeScript checks
-bun lint             # Run ESLint
-bun format           # Format code with Prettier
-bun check            # Run all checks (typecheck + lint + format)
-```
-
-## Roadmap
-
-- [x] Configuration management with `~/.waha-tui/`
-- [x] Session listing and status display
-- [ ] QR code display for authentication
-- [ ] Chat list with search
-- [ ] Conversation view with message history
-- [ ] Send text messages
-- [ ] Send media (images, documents, voice)
-- [ ] Group management
-- [ ] Contact management
-- [ ] Real-time message updates via webhooks
-- [ ] Settings panel
-- [ ] Multiple session support
 
 ## Technologies
 
@@ -169,12 +175,22 @@ bun check            # Run all checks (typecheck + lint + format)
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for security policy and reporting vulnerabilities.
+
 ## License
 
-MIT © Muhammed Mustafa AKŞAM
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Links
+## Related Projects
 
-- [WAHA HTTP API](https://github.com/devlikeapro/waha)
-- [WAHA Node SDK](https://github.com/muhammedaksam/waha-node)
-- [OpenTUI Framework](https://opentui.app)
+- [WAHA HTTP API](https://github.com/devlikeapro/waha) - WhatsApp HTTP API
+- [WAHA Node SDK](https://github.com/muhammedaksam/waha-node) - TypeScript SDK for WAHA
+- [OpenTUI](https://opentui.app) - Terminal UI framework used by waha-tui

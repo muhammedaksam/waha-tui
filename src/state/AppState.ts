@@ -13,13 +13,29 @@ import type {
 } from "@muhammedaksam/waha-node"
 import { debugLog } from "../utils/debug"
 
-export type ViewType = "sessions" | "chats" | "conversation" | "settings" | "qr" | "loading"
+export type ViewType =
+  | "config"
+  | "sessions"
+  | "chats"
+  | "conversation"
+  | "settings"
+  | "qr"
+  | "loading"
 
 export type ActiveFilter = "all" | "unread" | "favorites" | "groups"
 export type ActiveIcon = "chats" | "status" | "profile" | "settings" | "channels" | "communities"
 
 // Type of state change - enables render optimization
 export type ChangeType = "selection" | "scroll" | "data" | "view" | "other"
+
+// Configuration wizard step state
+export interface ConfigStep {
+  step: 1 | 2 | 3
+  wahaUrl: string
+  wahaApiKey: string
+  status: "input" | "testing" | "success" | "error"
+  errorMessage?: string
+}
 
 export interface AppState {
   currentView: ViewType
@@ -59,6 +75,9 @@ export interface AppState {
 
   // Optimization: track what kind of change occurred
   lastChangeType: ChangeType
+
+  // Config wizard state
+  configStep: ConfigStep | null
 }
 
 class StateManager {
@@ -99,6 +118,9 @@ class StateManager {
 
     // Optimization: track what kind of change
     lastChangeType: "other",
+
+    // Config wizard
+    configStep: null,
   }
 
   private listeners: Array<(state: AppState) => void> = []

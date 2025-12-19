@@ -4,13 +4,7 @@
  */
 
 import { Box, createCliRenderer, Text, type KeyEvent } from "@opentui/core"
-import {
-  loadConfig,
-  saveConfig,
-  configExists,
-  createDefaultConfig,
-  loadConfigFromEnv,
-} from "./config/manager"
+import { loadConfig, saveConfig, configExists, createDefaultConfig } from "./config/manager"
 import { validateConfig } from "./config/schema"
 import { initializeClient, testConnection } from "./client"
 import { appState } from "./state/AppState"
@@ -35,65 +29,96 @@ import type { WahaTuiConfig } from "./config/schema"
 import { initDebug, debugLog } from "./utils/debug"
 import { calculateChatListScrollOffset } from "./utils/chatListScroll"
 import { pollingService } from "./services/PollingService"
+import { ConfigView } from "./views/ConfigView"
+import type { CliRenderer } from "@opentui/core"
 
-async function promptConfig(): Promise<WahaTuiConfig> {
-  console.log("\n📱 Welcome to WAHA TUI!\n")
-  console.log("Let's set up your configuration.\n")
+/**
+ * Run the configuration wizard using the TUI
+ * Returns when configuration is complete and saved
+ */
+async function runConfigWizard(renderer: CliRenderer): Promise<void> {
+  const { getUrlInputValue, getApiKeyInputValue, destroyConfigInputs } =
+    await import("./views/ConfigView")
 
-  // Try to load from environment first
-  const envConfig = await loadConfigFromEnv()
-
-  let wahaUrl = envConfig?.wahaUrl || ""
-  let wahaApiKey = envConfig?.wahaApiKey || ""
-
-  if (!wahaUrl) {
-    wahaUrl =
-      prompt("WAHA URL (default: http://localhost:3000):", "http://localhost:3000") ||
-      "http://localhost:3000"
-  } else {
-    console.log(`✓ Using WAHA URL from .env: ${wahaUrl}`)
-  }
-
-  if (!wahaApiKey) {
-    wahaApiKey = prompt("WAHA API Key:", "") || ""
-  } else {
-    console.log("✓ Using WAHA API Key from .env")
-  }
-
-  const config = createDefaultConfig(wahaUrl, wahaApiKey, {
-    dashboardUsername: envConfig?.dashboardUsername,
-    dashboardPassword: envConfig?.dashboardPassword,
-    swaggerUsername: envConfig?.swaggerUsername,
-    swaggerPassword: envConfig?.swaggerPassword,
-  })
-
-  // Validate configuration
-  const errors = validateConfig(config)
-  if (errors.length > 0) {
-    console.error("\n❌ Configuration errors:")
-    for (const error of errors) {
-      console.error(`  - ${error}`)
+  return new Promise((resolve) => {
+    // Render the config view
+    const renderConfigView = () => {
+      const children = renderer.root.getChildren()
+      for (const child of children) {
+        renderer.root.remove(child.id)
+      }
+      renderer.root.add(ConfigView())
     }
-    process.exit(1)
-  }
 
-  // Test connection
-  console.log("\n🔌 Testing connection to WAHA...")
-  const connected = await testConnection(config)
+    // Initial render
+    renderConfigView()
 
-  if (!connected) {
-    console.error("❌ Failed to connect to WAHA server.")
-    console.error("   Please check your WAHA URL and API key, and ensure the server is running.")
-    process.exit(1)
-  }
+    // Subscribe to state changes for re-rendering and handling step transitions
+    const unsubscribe = appState.subscribe(async () => {
+      const state = appState.getState()
+      if (state.currentView !== "config" || !state.configStep) return
 
-  console.log("✅ Connected to WAHA successfully!\n")
+      const { step, status } = state.configStep
 
-  // Save configuration
-  await saveConfig(config)
-  console.log(`💾 Configuration saved to ~/.waha-tui/config.json\n`)
+      // When step 3 is reached with "testing" status, perform the connection test
+      if (step === 3 && status === "testing") {
+        const wahaUrl = getUrlInputValue() || state.configStep.wahaUrl
+        const wahaApiKey = getApiKeyInputValue() || state.configStep.wahaApiKey
 
-  return config
+        debugLog("Config", `Testing connection to ${wahaUrl}`)
+
+        // Create temp config and test
+        const tempConfig = createDefaultConfig(wahaUrl, wahaApiKey, {})
+        const connected = await testConnection(tempConfig)
+
+        if (connected) {
+          // Save config
+          await saveConfig(tempConfig)
+          appState.setState({
+            configStep: { ...state.configStep, step: 3, status: "success" },
+          })
+
+          // Wait a moment to show success, then resolve
+          setTimeout(() => {
+            destroyConfigInputs()
+            unsubscribe()
+            resolve()
+          }, 1500)
+        } else {
+          appState.setState({
+            configStep: {
+              ...state.configStep,
+              step: 3,
+              status: "error",
+              errorMessage: "Could not connect to WAHA server",
+            },
+          })
+        }
+        return
+      }
+
+      // Handle error retry
+      if (status === "error") {
+        // Wait for Enter key to retry (handled via key handler below)
+      }
+
+      // Re-render on state change
+      renderConfigView()
+    })
+
+    // Handle error retry with Enter key
+    const handleErrorRetry = (key: KeyEvent) => {
+      const state = appState.getState()
+      if (state.currentView !== "config" || !state.configStep) return
+      if (state.configStep.status === "error" && (key.name === "return" || key.name === "enter")) {
+        appState.setState({
+          configStep: { ...state.configStep, step: 2, status: "input" },
+        })
+      }
+    }
+
+    renderer.keyInput.on("keypress", handleErrorRetry)
+  })
 }
 
 async function main() {
@@ -101,29 +126,65 @@ async function main() {
   initDebug()
   debugLog("App", "WAHA TUI starting...")
 
+  // Create renderer FIRST so we can use it for everything including config
+  const renderer = await createCliRenderer({ exitOnCtrlC: true })
+
+  // Set renderer context for imperative API usage
+  const { setRenderer } = await import("./state/RendererContext")
+  setRenderer(renderer)
+
   let config: WahaTuiConfig | null = null
+  let needsConfig = false
 
   // Check if config exists
   if (await configExists()) {
     config = await loadConfig()
 
     if (!config) {
-      console.error("Failed to load configuration. Please check ~/.waha-tui/config.json")
-      process.exit(1)
-    }
-
-    // Validate loaded config
-    const errors = validateConfig(config)
-    if (errors.length > 0) {
-      console.error("Configuration is invalid:")
-      for (const error of errors) {
-        console.error(`  - ${error}`)
+      debugLog("Config", "Failed to load config, showing config view")
+      needsConfig = true
+    } else {
+      // Validate loaded config
+      const errors = validateConfig(config)
+      if (errors.length > 0) {
+        debugLog("Config", `Config validation errors: ${errors.join(", ")}`)
+        needsConfig = true
       }
-      process.exit(1)
     }
   } else {
-    // First run - prompt for configuration
-    config = await promptConfig()
+    // First run - need configuration
+    debugLog("Config", "No config found, showing config view")
+    needsConfig = true
+  }
+
+  // If we need configuration, show the ConfigView
+  if (needsConfig) {
+    // Initialize config step state
+    appState.setState({
+      currentView: "config",
+      configStep: {
+        step: 1,
+        wahaUrl: "http://localhost:3000",
+        wahaApiKey: "",
+        status: "input",
+      },
+    })
+
+    // Set up config wizard rendering and input handling
+    await runConfigWizard(renderer)
+
+    // After config wizard completes, load the saved config
+    config = await loadConfig()
+    if (!config) {
+      debugLog("Config", "Config still not found after wizard")
+      process.exit(1)
+    }
+  }
+
+  // At this point, config is guaranteed to be valid
+  if (!config) {
+    debugLog("Config", "Config is null after all checks")
+    process.exit(1)
   }
 
   // Initialize WAHA client
@@ -148,8 +209,8 @@ async function main() {
   const DEFAULT_SESSION = "default"
 
   // Check if we have a working session
-  const state = appState.getState()
-  const workingSession = state.sessions.find((s) => s.status === "WORKING")
+  const currentState = appState.getState()
+  const workingSession = currentState.sessions.find((s) => s.status === "WORKING")
 
   if (workingSession) {
     // Session is already working, go directly to chats
@@ -167,13 +228,6 @@ async function main() {
     const { showQRCode } = await import("./views/QRCodeView")
     await showQRCode(DEFAULT_SESSION)
   }
-
-  // Create renderer
-  const renderer = await createCliRenderer({ exitOnCtrlC: true })
-
-  // Set renderer context for imperative API usage
-  const { setRenderer } = await import("./state/RendererContext")
-  setRenderer(renderer)
 
   // Import ChatListManager for optimized rendering
   const { chatListManager } = await import("./views/ChatListManager")
@@ -216,15 +270,17 @@ async function main() {
         // Main Content Area - WhatsApp Layout or Legacy Views
         Box(
           { flexGrow: 1 },
-          state.currentView === "sessions"
-            ? SessionsView()
-            : state.currentView === "qr"
-              ? QRCodeView()
-              : state.currentView === "loading"
-                ? LoadingView()
-                : state.currentView === "chats" || state.currentView === "conversation"
-                  ? MainLayout()
-                  : Text({ content: `View: ${state.currentView} (Coming soon)` })
+          state.currentView === "config"
+            ? ConfigView()
+            : state.currentView === "sessions"
+              ? SessionsView()
+              : state.currentView === "qr"
+                ? QRCodeView()
+                : state.currentView === "loading"
+                  ? LoadingView()
+                  : state.currentView === "chats" || state.currentView === "conversation"
+                    ? MainLayout()
+                    : Text({ content: `View: ${state.currentView} (Coming soon)` })
         ),
 
         // Footer with styled keyboard hints

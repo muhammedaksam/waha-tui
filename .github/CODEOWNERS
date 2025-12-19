@@ -1,0 +1,21 @@
+# Dependabot reviewers (migrated from .github/dependabot.yml)
+
+# npm dependencies (root directory)
+
+/package.json @muhammedaksam
+/package-lock.json @muhammedaksam
+/npm-shrinkwrap.json @muhammedaksam
+/yarn.lock @muhammedaksam
+/bun.lock @muhammedaksam
+/pnpm-lock.yaml @muhammedaksam
+
+# GitHub Actions workflows
+
+/.github/workflows/*.yml @muhammedaksam
+/.github/workflows/*.yaml @muhammedaksam
+/action.yml @muhammedaksam
+/action.yaml @muhammedaksam
+
+# Default owner for all other files
+
+* @muhammedaksam

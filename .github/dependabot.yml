@@ -1,0 +1,31 @@
+version: 2
+updates:
+  # Enable version updates for npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    assignees:
+      - "muhammedaksam"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    target-branch: "develop"
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    assignees:
+      - "muhammedaksam"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    target-branch: "develop"

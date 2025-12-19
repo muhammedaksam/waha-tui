@@ -17,7 +17,7 @@ export function initializeClient(config: WahaTuiConfig): WahaClient {
   // Add axios interceptors for automatic request/response logging
   if (DEBUG_ENABLED) {
     // Access the axios instance via the new httpClient getter
-    const httpClient = client.httpClient
+    const httpClient = client?.httpClient
 
     if (httpClient) {
       // Request interceptor

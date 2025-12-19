@@ -1,0 +1,31 @@
+name: Build Check
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+
+      - name: Type check
+        run: bun run typecheck
+
+      - name: Build package
+        run: bun run build
+
+      - name: Verify build artifacts
+        run: |
+          echo "Checking build artifacts..."
+          test -d dist || (echo "❌ dist directory not found" && exit 1)
+          test -f dist/index.js || (echo "❌ dist/index.js not found" && exit 1)
+          echo "✅ dist/index.js: $(ls -lh dist/index.js | awk '{print $5}')"

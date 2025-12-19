@@ -59,11 +59,15 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
-    "@muhammedaksam/waha-node": "../waha-node",
+    "@muhammedaksam/waha-node": "^2025.12.2",
     "@opentui/core": "^0.1.61",
     "qrcode": "^1.5.4"
   },
   "engines": {
     "bun": ">=1.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }
