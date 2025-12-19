@@ -118,6 +118,13 @@ export function ChatsView() {
       backgroundColor: isActive ? WhatsAppTheme.green : WhatsAppTheme.receivedBubble,
       alignItems: "center",
       justifyContent: "center",
+      onMouse(event) {
+        if (event.type === "down") {
+          debugLog("ChatsView", `Filter clicked: ${filter}`)
+          appState.setActiveFilter(filter)
+          event.stopPropagation()
+        }
+      },
     })
 
     pill.add(
@@ -126,12 +133,6 @@ export function ChatsView() {
         fg: isActive ? WhatsAppTheme.white : WhatsAppTheme.textSecondary,
       })
     )
-
-    // Add click handler to change filter
-    pill.on("click", () => {
-      debugLog("ChatsView", `Filter clicked: ${filter}`)
-      appState.setActiveFilter(filter)
-    })
 
     filterPillsContainer.add(pill)
   }

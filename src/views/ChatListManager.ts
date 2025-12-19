@@ -206,22 +206,22 @@ class ChatListManager {
           : WhatsAppTheme.panelDark,
     })
 
-    // Handle click to open chat
+    // Handle click to open chat using the filtered chat
     const chatIndex = index // Capture for closure
+    const chatRef = chat // Capture chat reference for closure
     chatRow.on("click", async () => {
       const currentState = appState.getState()
       appState.setSelectedChatIndex(chatIndex)
-      const selectedChat = currentState.chats[chatIndex]
-      if (selectedChat && currentState.currentSession) {
+      if (chatRef && currentState.currentSession) {
         appState.setCurrentView("conversation")
-        appState.setCurrentChat(selectedChat.id)
+        appState.setCurrentChat(chatRef.id)
 
         // When switching chats, we want to start polling for messages immediately
         // BUT we need to be careful not to create circular dependency imports
         // PollingService imports ConversationView, so ConversationView/ChatListManager shouldn't import PollingService if possible
         // Ideally PollingService observes state changes.
 
-        await loadMessages(currentState.currentSession, selectedChat.id)
+        await loadMessages(currentState.currentSession, chatRef.id)
         await loadContacts(currentState.currentSession)
       }
     })

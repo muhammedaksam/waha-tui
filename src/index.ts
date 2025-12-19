@@ -336,6 +336,30 @@ async function main() {
       }
     }
 
+    // Tab/Shift+Tab to cycle through filters in chats view
+    if (key.name === "tab" && state.currentView === "chats" && !state.inputMode) {
+      const filters: Array<"all" | "unread" | "favorites" | "groups"> = [
+        "all",
+        "unread",
+        "favorites",
+        "groups",
+      ]
+      const currentIndex = filters.indexOf(state.activeFilter)
+
+      if (key.shift) {
+        // Shift+Tab: previous filter
+        const prevIndex = currentIndex === 0 ? filters.length - 1 : currentIndex - 1
+        debugLog("Keyboard", `Filter: cycling backward to ${filters[prevIndex]}`)
+        appState.setActiveFilter(filters[prevIndex])
+      } else {
+        // Tab: next filter
+        const nextIndex = (currentIndex + 1) % filters.length
+        debugLog("Keyboard", `Filter: cycling forward to ${filters[nextIndex]}`)
+        appState.setActiveFilter(filters[nextIndex])
+      }
+      return
+    }
+
     // Arrow key navigation
     if (key.name === "up") {
       if (state.currentView === "sessions" && state.sessions.length > 0) {
@@ -418,7 +442,9 @@ async function main() {
           pollingService.start(selectedSession.name)
         }
       } else if (state.currentView === "chats" && state.chats.length > 0) {
-        const selectedChat = state.chats[state.selectedChatIndex]
+        // Use filtered chats to get the correct selected chat
+        const filteredChats = filterChats(state.chats, state.activeFilter, state.searchQuery)
+        const selectedChat = filteredChats[state.selectedChatIndex]
         if (selectedChat && state.currentSession) {
           // ChatSummary.id is typed as string but runtime returns an object with _serialized
           const chatId =
