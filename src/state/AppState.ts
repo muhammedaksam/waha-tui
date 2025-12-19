@@ -13,7 +13,7 @@ import type {
 } from "@muhammedaksam/waha-node"
 import { debugLog } from "../utils/debug"
 
-export type ViewType = "sessions" | "chats" | "conversation" | "settings" | "qr"
+export type ViewType = "sessions" | "chats" | "conversation" | "settings" | "qr" | "loading"
 
 export type ActiveFilter = "all" | "unread" | "favorites" | "groups"
 export type ActiveIcon = "chats" | "status" | "profile" | "settings" | "channels" | "communities"

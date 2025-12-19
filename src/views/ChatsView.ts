@@ -3,7 +3,7 @@
  * WhatsApp-style chat list with search, filters, and styled rows
  */
 
-import { Box, Text, TextAttributes, BoxRenderable, TextRenderable } from "@opentui/core"
+import { Box, Text, BoxRenderable, TextRenderable } from "@opentui/core"
 import { appState } from "../state/AppState"
 import { getRenderer } from "../state/RendererContext"
 import { WhatsAppTheme, Icons } from "../config/theme"
@@ -12,6 +12,7 @@ import { getClient } from "../client"
 import type { ActiveFilter } from "../state/AppState"
 import type { ChatSummary } from "@muhammedaksam/waha-node"
 import { chatListManager } from "./ChatListManager"
+import { Logo } from "../components/Logo"
 
 export function ChatsView() {
   const state = appState.getState()
@@ -42,7 +43,7 @@ export function ChatsView() {
   // Header Section
   const header = Box(
     {
-      height: 1,
+      height: 3,
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
@@ -50,11 +51,7 @@ export function ChatsView() {
       paddingRight: 2,
       backgroundColor: WhatsAppTheme.panelDark,
     },
-    Text({
-      content: "WhatsApp",
-      fg: WhatsAppTheme.textPrimary,
-      attributes: TextAttributes.BOLD,
-    }),
+    Logo({}),
     Box(
       { flexDirection: "row", gap: 1 },
       Text({ content: Icons.newChat, fg: WhatsAppTheme.textSecondary }),

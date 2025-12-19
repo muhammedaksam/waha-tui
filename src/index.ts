@@ -29,6 +29,7 @@ import {
 } from "./views/ConversationView"
 import { createNewSession } from "./views/SessionCreate"
 import { QRCodeView } from "./views/QRCodeView"
+import { LoadingView } from "./views/LoadingView"
 import { MainLayout } from "./views/MainLayout"
 import type { WahaTuiConfig } from "./config/schema"
 import { initDebug, debugLog } from "./utils/debug"
@@ -219,9 +220,11 @@ async function main() {
             ? SessionsView()
             : state.currentView === "qr"
               ? QRCodeView()
-              : state.currentView === "chats" || state.currentView === "conversation"
-                ? MainLayout()
-                : Text({ content: `View: ${state.currentView} (Coming soon)` })
+              : state.currentView === "loading"
+                ? LoadingView()
+                : state.currentView === "chats" || state.currentView === "conversation"
+                  ? MainLayout()
+                  : Text({ content: `View: ${state.currentView} (Coming soon)` })
         ),
 
         // Footer with styled keyboard hints

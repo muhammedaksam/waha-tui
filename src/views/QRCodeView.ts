@@ -10,6 +10,27 @@ import { WhatsAppTheme, Icons } from "../config/theme"
 import QRCode from "qrcode"
 import type { QRCode as QRCodeType } from "qrcode"
 import { Logo } from "../components/Logo"
+import { getClient } from "../client"
+import { loadChats } from "./ChatsView"
+import { debugLog } from "../utils/debug"
+
+// Module-level intervals for QR refresh and status checking
+let qrRefreshInterval: NodeJS.Timeout | null = null
+let statusCheckInterval: NodeJS.Timeout | null = null
+
+/**
+ * Stop QR code auto-refresh and status checking
+ */
+export function stopQRRefresh(): void {
+  if (qrRefreshInterval) {
+    clearInterval(qrRefreshInterval)
+    qrRefreshInterval = null
+  }
+  if (statusCheckInterval) {
+    clearInterval(statusCheckInterval)
+    statusCheckInterval = null
+  }
+}
 
 /**
  * QR Code Login View Component
@@ -203,24 +224,204 @@ export function QRCodeView() {
 /**
  * Load QR code data and show QR view
  */
-export async function showQRCode(sessionName: string): Promise<void> {
+export async function showQRCode(name: string): Promise<void> {
+  // Stop any existing refresh intervals
+  stopQRRefresh()
+
+  const client = getClient()
+
+  // Helper function to wait for session to be ready (SCAN_QR_CODE state)
+  const waitForSessionReady = async (maxWaitMs: number = 30000): Promise<boolean> => {
+    const startTime = Date.now()
+    const pollInterval = 1000 // 1 second
+
+    while (Date.now() - startTime < maxWaitMs) {
+      try {
+        const { data: session } = await client.sessions.sessionsControllerGet(name)
+        debugLog("QR", `Waiting for session... status: ${session.status}`)
+
+        if (session.status === "SCAN_QR_CODE") {
+          debugLog("QR", "Session is ready for QR scan")
+          return true
+        } else if (session.status === "WORKING") {
+          debugLog("QR", "Session became WORKING while waiting")
+          appState.setCurrentSession(name)
+          appState.setCurrentView("loading")
+          await loadChats(name)
+          appState.setCurrentView("chats")
+          return false // Don't continue with QR flow
+        } else if (session.status === "FAILED") {
+          debugLog("QR", "Session failed while waiting")
+          return false
+        }
+      } catch {
+        debugLog("QR", "Session not found yet, waiting...")
+      }
+
+      // Wait before next poll
+      await new Promise((resolve) => setTimeout(resolve, pollInterval))
+    }
+
+    debugLog("QR", "Timeout waiting for session to be ready")
+    return false
+  }
+
+  // Check current session status and recover if needed
+  let needsWait = false
   try {
-    // Get raw QR data
-    const qrValue = await getQRCode(sessionName)
-    if (!qrValue) {
+    const { data: session } = await client.sessions.sessionsControllerGet(name)
+    debugLog("QR", `Initial session status: ${session.status}`)
+
+    // If session is FAILED or STOPPED, we need to restart it
+    if (session.status === "FAILED" || session.status === "STOPPED") {
+      debugLog("QR", `Session is ${session.status}, restarting...`)
+
+      // Try to logout first (ignore errors)
+      try {
+        await client.sessions.sessionsControllerLogout(name)
+        debugLog("QR", "Logged out from failed session")
+      } catch {
+        debugLog("QR", "Logout failed (session may not have been authenticated)")
+      }
+
+      // Delete and recreate the session
+      try {
+        await client.sessions.sessionsControllerDelete(name)
+        debugLog("QR", "Deleted failed session")
+      } catch {
+        debugLog("QR", "Delete failed (continuing anyway)")
+      }
+
+      // Create fresh session
+      await client.sessions.sessionsControllerCreate({ name })
+      debugLog("QR", "Created fresh session, waiting for it to be ready...")
+      needsWait = true
+    } else if (session.status === "STARTING") {
+      debugLog("QR", "Session is STARTING, waiting for it to be ready...")
+      needsWait = true
+    } else if (session.status === "WORKING") {
+      // Session is already working, go to chats
+      debugLog("QR", "Session already WORKING, navigating to chats")
+      appState.setCurrentSession(name)
+      appState.setCurrentView("loading")
+      await loadChats(name)
+      appState.setCurrentView("chats")
+      return
+    }
+  } catch (error) {
+    // Session doesn't exist, create it
+    debugLog("QR", `Session check failed, creating new session: ${error}`)
+    try {
+      await client.sessions.sessionsControllerCreate({ name })
+      debugLog("QR", "Created new session, waiting for it to be ready...")
+      needsWait = true
+    } catch {
+      debugLog("QR", "Failed to create session (may already exist)")
+    }
+  }
+
+  // Wait for session to be ready if needed
+  if (needsWait) {
+    const isReady = await waitForSessionReady()
+    if (!isReady) {
+      debugLog("QR", "Session not ready, cannot show QR code")
+      // Still show the QR view with "Loading..." message
+    }
+  }
+
+  const QR_REFRESH_INTERVAL = 15000 // 15 seconds
+
+  // Function to check session status (called every 1s)
+  const checkStatus = async () => {
+    // Only check if still on QR view
+    if (appState.getState().currentView !== "qr") {
+      stopQRRefresh()
       return
     }
 
-    // Generate QR matrix
-    const matrix: QRCodeType = QRCode.create(qrValue, { errorCorrectionLevel: "M" })
+    try {
+      const client = getClient()
 
-    // Store in app state
-    appState.setState({
-      ...appState.getState(),
-      qrCodeMatrix: matrix,
-      currentView: "qr",
-    })
-  } catch (error) {
-    console.error("Failed to load QR code:", error)
+      // Check session status
+      const { data: session } = await client.sessions.sessionsControllerGet(name)
+
+      // Double-check view hasn't changed while we were waiting for API response
+      // (another status check might have already detected login)
+      if (appState.getState().currentView !== "qr") {
+        return
+      }
+
+      debugLog("QR", `Session ${name} status: ${session.status}`)
+
+      // Check if login was successful
+      if (session.status === "WORKING") {
+        debugLog("QR", "Session is now WORKING - login successful!")
+        stopQRRefresh()
+
+        // Show loading screen
+        appState.setCurrentSession(name)
+        appState.setCurrentView("loading")
+
+        // Load chats in background
+        await loadChats(name)
+
+        // Navigate to chats after loading
+        appState.setCurrentView("chats")
+        return
+      }
+
+      // Check if session is no longer in QR scan mode
+      if (session.status !== "SCAN_QR_CODE") {
+        debugLog("QR", `Session status changed to ${session.status} - stopping QR refresh`)
+        stopQRRefresh()
+        return
+      }
+    } catch (error) {
+      debugLog("QR", `Failed to check session status: ${error}`)
+    }
   }
+
+  // Function to load/refresh QR code (called every 15s)
+  const loadQR = async (isInitialLoad: boolean = false) => {
+    // Only refresh if still on QR view
+    if (appState.getState().currentView !== "qr") {
+      return
+    }
+
+    try {
+      // Get raw QR data
+      const qrValue = await getQRCode(name)
+      if (!qrValue) {
+        return
+      }
+
+      // Generate QR matrix
+      const matrix: QRCodeType = QRCode.create(qrValue, { errorCorrectionLevel: "M" })
+
+      // Store in app state
+      appState.setState({
+        ...appState.getState(),
+        qrCodeMatrix: matrix,
+        currentView: "qr",
+      })
+    } catch (error) {
+      debugLog("QR", `Failed to load QR code: ${error}`)
+      if (isInitialLoad) {
+        console.error("Failed to load QR code:", error)
+      }
+    }
+  }
+
+  // Initial load
+  await loadQR(true)
+
+  // Set up status check every 1 second (fast detection of login)
+  statusCheckInterval = setInterval(() => {
+    void checkStatus()
+  }, 1000)
+
+  // Set up QR refresh every 15 seconds
+  qrRefreshInterval = setInterval(() => {
+    void loadQR(false)
+  }, QR_REFRESH_INTERVAL)
 }
