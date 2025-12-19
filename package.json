@@ -60,7 +60,7 @@
   },
   "dependencies": {
     "@muhammedaksam/waha-node": "^2025.12.2-dev.1",
-    "@opentui/core": "^0.1.61",
+    "@opentui/core": "^0.1.62",
     "qrcode": "^1.5.4"
   },
   "engines": {
