@@ -15,6 +15,11 @@ import type { ChatSummary } from "@muhammedaksam/waha-node"
 import { chatListManager } from "./ChatListManager"
 import { Logo } from "../components/Logo"
 import { filterChats, countUnreadInArchived } from "../utils/filterChats"
+import {
+  searchChatsWithSections,
+  flattenSearchResults,
+  getSectionBoundaries,
+} from "../utils/enhancedSearch"
 
 // Module-level search input component for focus management
 let searchInputComponent: InputRenderable | null = null
@@ -226,7 +231,27 @@ export function ChatsView() {
   )
 
   // Filter chats based on active filter and search query
-  const filteredChats = filterChats(state.chats, state.activeFilter, state.searchQuery)
+  let filteredChats: ChatSummary[]
+
+  // Use enhanced sectioned search when search query is active
+  if (state.searchQuery.trim()) {
+    const sectionedResults = searchChatsWithSections(
+      state.chats,
+      state.searchQuery,
+      state.contactsCache
+    )
+    // Flatten results (Chats -> Contacts -> Messages order)
+    filteredChats = flattenSearchResults(sectionedResults)
+
+    const boundaries = getSectionBoundaries(sectionedResults)
+    debugLog(
+      "ChatsView",
+      `Search results: ${boundaries.chats.count} chats, ${boundaries.contacts.count} contacts, ${boundaries.messages.count} messages`
+    )
+  } else {
+    // Use regular filter logic when no search
+    filteredChats = filterChats(state.chats, state.activeFilter, state.searchQuery)
+  }
 
   // Handle empty state (after filtering)
   if (filteredChats.length === 0) {
