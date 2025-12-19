@@ -83,3 +83,183 @@ export async function testConnection(config: WahaTuiConfig): Promise<boolean> {
     return false
   }
 }
+
+// ============================================
+// Chat Actions
+// ============================================
+
+export async function archiveChat(session: string, chatId: string): Promise<boolean> {
+  try {
+    debugLog("Client", `Archiving chat: ${chatId}`)
+    const wahaClient = getClient()
+    await wahaClient.chats.chatsControllerArchiveChat(session, chatId)
+    debugLog("Client", `Chat archived successfully: ${chatId}`)
+    return true
+  } catch (error) {
+    debugLog("Client", `Failed to archive chat: ${error}`)
+    return false
+  }
+}
+
+export async function unarchiveChat(session: string, chatId: string): Promise<boolean> {
+  try {
+    debugLog("Client", `Unarchiving chat: ${chatId}`)
+    const wahaClient = getClient()
+    await wahaClient.chats.chatsControllerUnarchiveChat(session, chatId)
+    debugLog("Client", `Chat unarchived successfully: ${chatId}`)
+    return true
+  } catch (error) {
+    debugLog("Client", `Failed to unarchive chat: ${error}`)
+    return false
+  }
+}
+
+export async function markChatUnread(session: string, chatId: string): Promise<boolean> {
+  try {
+    debugLog("Client", `Marking chat as unread: ${chatId}`)
+    const wahaClient = getClient()
+    await wahaClient.chats.chatsControllerUnreadChat(session, chatId)
+    debugLog("Client", `Chat marked as unread: ${chatId}`)
+    return true
+  } catch (error) {
+    debugLog("Client", `Failed to mark chat as unread: ${error}`)
+    return false
+  }
+}
+
+export async function deleteChat(session: string, chatId: string): Promise<boolean> {
+  try {
+    debugLog("Client", `Deleting chat: ${chatId}`)
+    const wahaClient = getClient()
+    await wahaClient.chats.chatsControllerDeleteChat(session, chatId)
+    debugLog("Client", `Chat deleted successfully: ${chatId}`)
+    return true
+  } catch (error) {
+    debugLog("Client", `Failed to delete chat: ${error}`)
+    return false
+  }
+}
+
+// ============================================
+// Message Actions
+// ============================================
+
+export async function starMessage(
+  session: string,
+  messageId: string,
+  chatId: string,
+  star: boolean
+): Promise<boolean> {
+  try {
+    debugLog("Client", `${star ? "Starring" : "Unstarring"} message: ${messageId}`)
+    const wahaClient = getClient()
+    await wahaClient.chatting.chattingControllerSetStar({
+      session,
+      messageId,
+      chatId,
+      star,
+    })
+    debugLog("Client", `Message ${star ? "starred" : "unstarred"}: ${messageId}`)
+    return true
+  } catch (error) {
+    debugLog("Client", `Failed to ${star ? "star" : "unstar"} message: ${error}`)
+    return false
+  }
+}
+
+export async function pinMessage(
+  session: string,
+  chatId: string,
+  messageId: string,
+  duration: number = 604800 // 7 days in seconds (default)
+): Promise<boolean> {
+  try {
+    debugLog("Client", `Pinning message: ${messageId}`)
+    const wahaClient = getClient()
+    await wahaClient.chats.chatsControllerPinMessage(session, chatId, messageId, {
+      duration,
+    })
+    debugLog("Client", `Message pinned: ${messageId}`)
+    return true
+  } catch (error) {
+    debugLog("Client", `Failed to pin message: ${error}`)
+    return false
+  }
+}
+
+export async function unpinMessage(
+  session: string,
+  chatId: string,
+  messageId: string
+): Promise<boolean> {
+  try {
+    debugLog("Client", `Unpinning message: ${messageId}`)
+    const wahaClient = getClient()
+    await wahaClient.chats.chatsControllerUnpinMessage(session, chatId, messageId)
+    debugLog("Client", `Message unpinned: ${messageId}`)
+    return true
+  } catch (error) {
+    debugLog("Client", `Failed to unpin message: ${error}`)
+    return false
+  }
+}
+
+export async function deleteMessage(
+  session: string,
+  chatId: string,
+  messageId: string
+): Promise<boolean> {
+  try {
+    debugLog("Client", `Deleting message: ${messageId}`)
+    const wahaClient = getClient()
+    await wahaClient.chats.chatsControllerDeleteMessage(session, chatId, messageId)
+    debugLog("Client", `Message deleted: ${messageId}`)
+    return true
+  } catch (error) {
+    debugLog("Client", `Failed to delete message: ${error}`)
+    return false
+  }
+}
+
+export async function forwardMessage(
+  session: string,
+  chatId: string,
+  messageId: string,
+  toChatId: string
+): Promise<boolean> {
+  try {
+    debugLog("Client", `Forwarding message ${messageId} to ${toChatId}`)
+    const wahaClient = getClient()
+    await wahaClient.chatting.chattingControllerForwardMessage({
+      session,
+      chatId: toChatId,
+      messageId,
+    })
+    debugLog("Client", `Message forwarded: ${messageId} -> ${toChatId}`)
+    return true
+  } catch (error) {
+    debugLog("Client", `Failed to forward message: ${error}`)
+    return false
+  }
+}
+
+export async function reactToMessage(
+  session: string,
+  messageId: string,
+  reaction: string
+): Promise<boolean> {
+  try {
+    debugLog("Client", `Reacting to message ${messageId} with ${reaction}`)
+    const wahaClient = getClient()
+    await wahaClient.chatting.chattingControllerSetReaction({
+      session,
+      messageId,
+      reaction,
+    })
+    debugLog("Client", `Reaction set: ${reaction} on ${messageId}`)
+    return true
+  } catch (error) {
+    debugLog("Client", `Failed to react to message: ${error}`)
+    return false
+  }
+}

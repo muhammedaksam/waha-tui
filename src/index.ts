@@ -6,9 +6,21 @@
 import { Box, createCliRenderer, Text, type KeyEvent } from "@opentui/core"
 import { loadConfig, saveConfig, configExists, createDefaultConfig } from "./config/manager"
 import { validateConfig } from "./config/schema"
-import { initializeClient, testConnection } from "./client"
+import {
+  initializeClient,
+  testConnection,
+  archiveChat,
+  unarchiveChat,
+  markChatUnread,
+  deleteChat,
+  starMessage,
+  pinMessage,
+  deleteMessage,
+  reactToMessage,
+} from "./client"
 import { appState } from "./state/AppState"
 import { Footer } from "./components/Footer"
+import { ContextMenu, handleContextMenuKey, getSelectedMenuItem } from "./components/ContextMenu"
 import { deleteSession, logoutSession, SessionsView } from "./views/SessionsView"
 import { loadSessions } from "./views/SessionsView"
 import { loadChats, focusSearchInput, blurSearchInput, clearSearchInput } from "./views/ChatsView"
@@ -36,6 +48,7 @@ import { setRenderer } from "./state/RendererContext"
 import { showQRCode } from "./views/QRCodeView"
 import { chatListManager } from "./views/ChatListManager"
 import { getClient } from "./client"
+import type { ContextMenuState } from "./state/AppState"
 
 /**
  * Run the configuration wizard using the TUI
@@ -287,6 +300,12 @@ async function main() {
         Footer()
       )
     )
+
+    // Render context menu overlay if visible
+    const contextMenuBox = ContextMenu()
+    if (contextMenuBox) {
+      renderer.root.add(contextMenuBox)
+    }
   }
 
   // Subscribe to state changes
@@ -308,13 +327,135 @@ async function main() {
     // Get latest state at the beginning of handler
     const state = appState.getState()
 
+    // Helper to determine the current list of chats being displayed
+    const getCurrentFilteredChats = () => {
+      if (state.showingArchivedChats) {
+        return state.chats.filter(isArchived)
+      }
+      return filterChats(state.chats, state.activeFilter, state.searchQuery)
+    }
+
+    // Execute context menu action
+    const executeContextMenuAction = async (actionId: string, contextMenu: ContextMenuState) => {
+      if (!state.currentSession || !contextMenu?.targetId) return
+
+      const session = state.currentSession
+      const targetId = contextMenu.targetId
+
+      debugLog("ContextMenu", `Executing action: ${actionId} on ${contextMenu.type} ${targetId}`)
+
+      try {
+        if (contextMenu.type === "chat") {
+          // Chat actions
+          switch (actionId) {
+            case "archive": {
+              const chat = contextMenu.targetData as { _chat?: { archived?: boolean } }
+              const isArchivedChat = chat?._chat?.archived === true
+              if (isArchivedChat) {
+                await unarchiveChat(session, targetId)
+              } else {
+                await archiveChat(session, targetId)
+              }
+              // Refresh chat list
+              await loadChats(session)
+              break
+            }
+            case "unread":
+              await markChatUnread(session, targetId)
+              await loadChats(session)
+              break
+            case "delete":
+              await deleteChat(session, targetId)
+              await loadChats(session)
+              break
+          }
+        } else if (contextMenu.type === "message") {
+          // Message actions
+          switch (actionId) {
+            case "reply": {
+              // Set replying to message state and focus input
+              const message = contextMenu.targetData
+              if (message) {
+                appState.setReplyingToMessage(
+                  message as import("@muhammedaksam/waha-node").WAMessage
+                )
+                focusMessageInput()
+              }
+              break
+            }
+            case "copy": {
+              // Copy message text to clipboard
+              const message = contextMenu.targetData as { body?: string }
+              if (message?.body) {
+                // For terminal apps, we can't easily access clipboard
+                // But we can log it or implement native clipboard later
+                debugLog("ContextMenu", `Copy text: ${message.body}`)
+              }
+              break
+            }
+            case "star": {
+              const message = contextMenu.targetData as { isStarred?: boolean }
+              const isStarred = message?.isStarred === true
+              if (state.currentChatId) {
+                await starMessage(session, targetId, state.currentChatId, !isStarred)
+                // Refresh messages
+                await loadMessages(session, state.currentChatId)
+              }
+              break
+            }
+            case "pin": {
+              if (state.currentChatId) {
+                await pinMessage(session, state.currentChatId, targetId)
+                await loadMessages(session, state.currentChatId)
+              }
+              break
+            }
+            case "react": {
+              // For now, add a thumbs up reaction
+              // Could show a sub-menu for emoji selection later
+              await reactToMessage(session, targetId, "👍")
+              break
+            }
+            case "delete": {
+              if (state.currentChatId) {
+                await deleteMessage(session, state.currentChatId, targetId)
+                await loadMessages(session, state.currentChatId)
+              }
+              break
+            }
+          }
+        }
+      } catch (error) {
+        debugLog("ContextMenu", `Error executing action ${actionId}: ${error}`)
+      }
+
+      // Close context menu
+      appState.closeContextMenu()
+    }
+
+    // Context menu keyboard handling - takes priority when visible
+    if (state.contextMenu?.visible) {
+      const handled = handleContextMenuKey(key.name)
+      if (handled) {
+        // Check if Enter was pressed to execute action
+        if (key.name === "return" || key.name === "enter") {
+          const selectedItem = getSelectedMenuItem()
+          if (selectedItem) {
+            await executeContextMenuAction(selectedItem.id, state.contextMenu)
+          }
+        }
+        renderApp(true)
+        return
+      }
+    }
+
     // Quit (Ctrl+C only)
     if (key.name === "c" && key.ctrl) {
       process.exit(0)
     }
 
     // Refresh current view
-    if (key.name === "r" && !state.inputMode) {
+    if (key.name === "r" && !state.inputMode && !state.contextMenu?.visible) {
       if (state.currentView === "sessions") {
         await loadSessions()
       } else if (state.currentView === "chats" && state.currentSession) {
@@ -323,7 +464,7 @@ async function main() {
     }
 
     // Quit with 'q' key
-    if (key.name === "q" && !state.inputMode) {
+    if (key.name === "q" && !state.inputMode && !state.contextMenu?.visible) {
       if (state.currentView === "sessions") {
         // Quit the app from sessions view
         await logoutSession()
@@ -333,6 +474,37 @@ async function main() {
         // Go back to sessions from QR view
         appState.setCurrentView("sessions")
       }
+    }
+
+    // Context menu triggers
+    // 'm' key - open message context menu in conversation view
+    if (key.name === "m" && state.currentView === "conversation" && !state.inputMode) {
+      // Get the currently visible message (we'd need to track this)
+      // For now, we'll need to get the selected/focused message from ConversationView
+      const messages = state.messages.get(state.currentChatId || "")
+      if (messages && messages.length > 0) {
+        // Use the last message as target for now (will improve with message selection)
+        const targetMessage = messages[messages.length - 1]
+        const messageId = targetMessage.id
+        appState.openContextMenu("message", messageId, targetMessage)
+        debugLog("ContextMenu", `Opened message context menu for: ${messageId}`)
+      }
+      return
+    }
+
+    // 'c' key - open chat context menu in chats view
+    if (key.name === "c" && !key.ctrl && state.currentView === "chats" && !state.inputMode) {
+      const filteredChats = getCurrentFilteredChats()
+      const selectedChat = filteredChats[state.selectedChatIndex]
+      if (selectedChat) {
+        const chatId =
+          typeof selectedChat.id === "string"
+            ? selectedChat.id
+            : (selectedChat.id as { _serialized: string })._serialized
+        appState.openContextMenu("chat", chatId, selectedChat)
+        debugLog("ContextMenu", `Opened chat context menu for: ${chatId}`)
+      }
+      return
     }
 
     // Tab/Shift+Tab to cycle through filters in chats view
@@ -371,14 +543,6 @@ async function main() {
       debugLog("Keyboard", "Focusing search input (Ctrl+F)")
       focusSearchInput()
       return
-    }
-
-    // Helper to determine the current list of chats being displayed
-    const getCurrentFilteredChats = () => {
-      if (state.showingArchivedChats) {
-        return state.chats.filter(isArchived)
-      }
-      return filterChats(state.chats, state.activeFilter, state.searchQuery)
     }
 
     // Arrow key navigation
@@ -589,6 +753,11 @@ async function main() {
 
     // Escape key - go back
     if (key.name === "escape") {
+      // Close context menu first if open
+      if (state.contextMenu?.visible) {
+        appState.closeContextMenu()
+        return
+      }
       if (state.currentView === "conversation") {
         if (state.inputMode) {
           // Exit input mode

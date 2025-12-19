@@ -228,6 +228,19 @@ export const Icons = {
   smile: "😊",
   send: "➤",
 
+  // Context Menu Actions
+  reply: "↩",
+  forward: "➡",
+  copy: "📋",
+  pin: "📌",
+  star: "☆",
+  starFilled: "★",
+  react: "😀",
+  delete: "✕",
+  archive: "📦",
+  unread: "●",
+  info: "ⓘ",
+
   // Status
   checkSingle: "✓",
   checkDouble: "✓✓",

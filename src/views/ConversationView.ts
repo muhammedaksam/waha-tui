@@ -556,8 +556,11 @@ function renderMessage(
   })
 
   // Create bubble container
+  // Capture message reference for context menu click handler
+  const msgRef = message
+  const msgId = message.id || String(Date.now())
   const bubble = new BoxRenderable(renderer, {
-    id: `msg-${message.id || Date.now()}-bubble`,
+    id: `msg-${msgId}-bubble`,
     maxWidth: "65%",
     minWidth: "15%",
     paddingLeft: 2,
@@ -566,6 +569,13 @@ function renderMessage(
     border: true,
     borderColor: isFromMe ? WhatsAppTheme.green : WhatsAppTheme.borderColor,
     flexDirection: "column",
+    // Handle right-click for context menu
+    onMouse: (event) => {
+      if (event.type === "down" && event.button === 2) {
+        debugLog("ConversationView", `Right-clicked message: ${msgId}`)
+        appState.openContextMenu("message", msgId, msgRef as unknown as WAMessage)
+      }
+    },
   })
 
   // Row 1: Sender name (only for group chat received messages)

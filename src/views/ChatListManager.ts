@@ -211,7 +211,7 @@ class ChatListManager {
         : isCurrentChat
           ? WhatsAppTheme.activeBg
           : WhatsAppTheme.panelDark,
-      // Handle click (mouse down) to open chat
+      // Handle click (mouse down) to open chat or show context menu
       onMouse: (event) => {
         if (event.type === "down") {
           const currentState = appState.getState()
@@ -222,6 +222,15 @@ class ChatListManager {
                 ? chatRef.id
                 : (chatRef.id as { _serialized: string })._serialized
 
+            // Right-click (button 2) opens context menu
+            if (event.button === 2) {
+              debugLog("ChatListManager", `Right-clicked chat: ${chatRef.name || chatId}`)
+              appState.setSelectedChatIndex(chatIndex)
+              appState.openContextMenu("chat", chatId, chatRef)
+              return
+            }
+
+            // Left-click (button 0) opens chat
             debugLog("ChatListManager", `Clicked chat: ${chatRef.name || chatId}`)
 
             // Destroy old scroll box before loading new messages

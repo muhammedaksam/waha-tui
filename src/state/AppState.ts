@@ -13,6 +13,17 @@ import type {
 } from "@muhammedaksam/waha-node"
 import { debugLog } from "../utils/debug"
 
+// Context menu types
+export type ContextMenuType = "chat" | "message" | null
+
+export interface ContextMenuState {
+  visible: boolean
+  type: ContextMenuType
+  targetId: string | null // Chat ID or Message ID
+  targetData?: ChatSummary | WAMessage | null // The actual chat or message data
+  selectedIndex: number // Currently highlighted menu item
+}
+
 export type ViewType =
   | "config"
   | "sessions"
@@ -80,6 +91,12 @@ export interface AppState {
 
   // Config wizard state
   configStep: ConfigStep | null
+
+  // Context menu state
+  contextMenu: ContextMenuState | null
+
+  // Reply state - message being replied to
+  replyingToMessage: WAMessage | null
 }
 
 class StateManager {
@@ -125,6 +142,12 @@ class StateManager {
 
     // Config wizard
     configStep: null,
+
+    // Context menu
+    contextMenu: null,
+
+    // Reply state
+    replyingToMessage: null,
   }
 
   private listeners: Array<(state: AppState) => void> = []
@@ -286,6 +309,43 @@ class StateManager {
       chatListScrollOffset: 0,
       lastChangeType: "data",
     })
+  }
+
+  // Context menu methods
+  openContextMenu(
+    type: ContextMenuType,
+    targetId: string,
+    targetData?: ChatSummary | WAMessage | null
+  ): void {
+    this.setState({
+      contextMenu: {
+        visible: true,
+        type,
+        targetId,
+        targetData,
+        selectedIndex: 0,
+      },
+    })
+  }
+
+  closeContextMenu(): void {
+    this.setState({ contextMenu: null })
+  }
+
+  setContextMenuSelectedIndex(selectedIndex: number): void {
+    if (this.state.contextMenu) {
+      this.setState({
+        contextMenu: {
+          ...this.state.contextMenu,
+          selectedIndex,
+        },
+      })
+    }
+  }
+
+  // Reply methods
+  setReplyingToMessage(message: WAMessage | null): void {
+    this.setState({ replyingToMessage: message })
   }
 }
 
