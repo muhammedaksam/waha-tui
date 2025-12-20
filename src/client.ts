@@ -703,3 +703,29 @@ export async function fetchMyProfile(): Promise<void> {
     debugLog("Polling", "Failed to fetch profile")
   }
 }
+
+export async function sendTypingState(
+  chatId: string,
+  state: "composing" | "paused"
+): Promise<void> {
+  try {
+    const session = getSession()
+    const wahaClient = getClient()
+
+    debugLog("Client", `Sending typing state: ${state} to ${chatId}`)
+
+    if (state === "composing") {
+      await wahaClient.chatting.chattingControllerStartTyping({
+        session,
+        chatId,
+      })
+    } else {
+      await wahaClient.chatting.chattingControllerStopTyping({
+        session,
+        chatId,
+      })
+    }
+  } catch {
+    // Silent fail for typing indicators
+  }
+}

@@ -14,6 +14,7 @@ import {
   WAHAWebhookMessageReaction,
   WAHAWebhookMessageRevoked,
   WAHAWebhookMessageAny,
+  WAHAChatPresences,
 } from "@muhammedaksam/waha-node"
 
 // Standard WebSocket close codes
@@ -26,6 +27,7 @@ type WahaEvent =
   | WAHAWebhookMessageReaction
   | WAHAWebhookMessageRevoked
   | WAHAWebhookMessageAny
+  | { event: "presence.update"; payload: WAHAChatPresences; session?: string }
 
 export class WebSocketService {
   private ws: WebSocket | null = null
@@ -170,6 +172,9 @@ export class WebSocketService {
       case "message.revoked":
         this.handleMessageRevoked(data as WAHAWebhookMessageRevoked)
         break
+      case "presence.update":
+        this.handlePresenceUpdate(data as { event: "presence.update"; payload: WAHAChatPresences })
+        break
       default:
         // debugLog("WebSocket", `Unhandled event: ${data.event}`)
         break
@@ -229,6 +234,14 @@ export class WebSocketService {
     const state = appState.getState()
     if (state.currentChatId && revokedId) {
       appState.markMessageRevoked(state.currentChatId, revokedId)
+    }
+  }
+
+  private handlePresenceUpdate(data: { payload: WAHAChatPresences }) {
+    const payload = data.payload
+    // Assuming payload has id (chatId) and presences array
+    if (payload && payload.id) {
+      appState.updateChatPresence(payload.id, payload)
     }
   }
 }

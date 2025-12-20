@@ -338,6 +338,32 @@ class StateManager {
     this.setState({ currentChatPresence })
   }
 
+  updateChatPresence(chatId: string, presence: WAHAChatPresences): void {
+    if (this.state.currentChatId !== chatId) return
+
+    // Merge with existing presence or set new
+    const current = this.state.currentChatPresence
+    let newPresences = presence.presences
+
+    if (current && current.presences) {
+      // Merge logic: update existing presences, add new ones
+      const existingMap = new Map(current.presences.map((p) => [p.participant, p]))
+
+      for (const p of presence.presences) {
+        existingMap.set(p.participant, p)
+      }
+
+      newPresences = Array.from(existingMap.values())
+    }
+
+    this.setState({
+      currentChatPresence: {
+        id: chatId,
+        presences: newPresences,
+      },
+    })
+  }
+
   setCurrentChatParticipants(currentChatParticipants: GroupParticipant[] | null): void {
     this.setState({ currentChatParticipants })
   }

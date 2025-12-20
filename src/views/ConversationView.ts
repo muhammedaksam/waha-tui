@@ -21,8 +21,8 @@ import { appState } from "../state/AppState"
 import { getRenderer } from "../state/RendererContext"
 import { WhatsAppTheme, Icons } from "../config/theme"
 import { debugLog } from "../utils/debug"
-import { sendMessage, loadChatDetails } from "../client"
-import type { WAMessage, GroupParticipant } from "@muhammedaksam/waha-node"
+import { sendMessage, loadChatDetails, sendTypingState } from "../client"
+import type { WAMessage } from "@muhammedaksam/waha-node"
 import {
   formatAckStatus,
   formatLastSeen,
@@ -37,6 +37,7 @@ let conversationScrollBox: ScrollBoxRenderable | null = null
 let messageInputComponent: TextareaRenderable | null = null
 let inputContainer: BoxRenderable | null = null
 let inputScrollBar: ScrollBarRenderable | null = null
+let typingTimeout: ReturnType<typeof setTimeout> | null = null
 
 // Expose input focus control
 export function focusMessageInput(): void {
@@ -106,33 +107,71 @@ export function ConversationView() {
   let headerSubtitle = isSelf
     ? "Message yourself"
     : `click here for ${isGroup ? "group" : "contact"} info`
+  let headerSubtitleColor: string = WhatsAppTheme.textSecondary
 
   if (isGroup) {
-    // Group chat: show participants
+    // Group chat: show participants and presence
+    const participantNames: string[] = []
+    let typingStatus = ""
+
     if (state.currentChatParticipants) {
-      const names = state.currentChatParticipants
-        .map((p: GroupParticipant) => {
+      // Build list of names
+      participantNames.push(
+        ...state.currentChatParticipants.map((p) => {
           const contactName = appState.getContactName(p.id)
           if (contactName) return contactName
-          const idParts = p.id.split("@")
-          return idParts[0]
+          return p.id.split("@")[0]
         })
-        .join(", ")
-      headerSubtitle = truncate(names, 60)
+      )
+
+      // Check for typing/online presence in group
+      const presences = state.currentChatPresence?.presences || []
+      const typingParticipants = presences.filter(
+        (p) => p.lastKnownPresence === "typing" || p.lastKnownPresence === "recording"
+      )
+
+      if (typingParticipants.length > 0) {
+        const typingNames = typingParticipants.map((p) => {
+          const contactName = appState.getContactName(p.participant)
+          return contactName || p.participant.split("@")[0]
+        })
+
+        if (typingNames.length === 1) {
+          typingStatus = `${typingNames[0]} is typing...`
+        } else {
+          typingStatus = `${typingNames.length} people are typing...`
+        }
+      }
     } else {
-      headerSubtitle = "tap for group info"
-      // If no participants loaded yet, load them
       loadChatDetails(state.currentChatId)
+    }
+
+    // Priority: Typing status > Participant list
+    if (typingStatus) {
+      headerSubtitle = typingStatus
+      headerSubtitleColor = WhatsAppTheme.green
+    } else if (participantNames.length > 0) {
+      headerSubtitle = truncate(participantNames.join(", "), 60)
     }
   } else {
     // Direct chat: show presence
     const presence = state.currentChatPresence
     if (presence?.presences && presence.presences.length > 0) {
-      const p = presence.presences[0]
-      if (p.lastKnownPresence === "online" || p.lastKnownPresence === "typing") {
-        headerSubtitle = p.lastKnownPresence
-      } else if (p.lastSeen) {
-        headerSubtitle = formatLastSeen(p.lastSeen)
+      // In 1:1, there's usually only one presence entry for the other person
+      // But we should filter by the chat ID just in case
+      const p =
+        presence.presences.find((p) => p.participant.startsWith(state.currentChatId!)) ||
+        presence.presences[0]
+
+      if (p) {
+        if (p.lastKnownPresence === "typing" || p.lastKnownPresence === "recording") {
+          headerSubtitle = "typing..."
+          headerSubtitleColor = WhatsAppTheme.green
+        } else if (p.lastKnownPresence === "online") {
+          headerSubtitle = "online"
+        } else if (p.lastSeen) {
+          headerSubtitle = formatLastSeen(p.lastSeen)
+        }
       }
     } else {
       // Trigger load if not present (could also poll)
@@ -180,7 +219,7 @@ export function ConversationView() {
       ...(headerSubtitle
         ? [
             Text({ content: chatName, fg: WhatsAppTheme.white, attributes: TextAttributes.BOLD }),
-            Text({ content: headerSubtitle, fg: WhatsAppTheme.textSecondary }),
+            Text({ content: headerSubtitle, fg: headerSubtitleColor }),
           ]
         : [
             Text({}),
@@ -362,6 +401,21 @@ export function ConversationView() {
       if (messageInputComponent) {
         // Sync state
         appState.setMessageInput(messageInputComponent.plainText)
+
+        // Handle typing indicator
+        if (state.currentChatId && messageInputComponent.plainText.length > 0) {
+          sendTypingState(state.currentChatId, "composing")
+
+          if (typingTimeout) {
+            clearTimeout(typingTimeout)
+          }
+
+          typingTimeout = setTimeout(() => {
+            if (state.currentChatId) {
+              sendTypingState(state.currentChatId, "paused")
+            }
+          }, 2000)
+        }
 
         // Calculate needed height
         // Use lineCount (logical lines) instead of virtualLineCount
