@@ -18,6 +18,7 @@ import {
 } from "@opentui/core"
 import { ScrollBoxRenderable } from "@opentui/core"
 import { appState } from "../state/AppState"
+import type { WAMessageExtended } from "../types"
 import { getRenderer } from "../state/RendererContext"
 import { WhatsAppTheme, Icons } from "../config/theme"
 import { debugLog } from "../utils/debug"
@@ -716,30 +717,6 @@ function stringHash(str: string): number {
   return hash
 }
 
-// Extended message type to include runtime fields not in the core type
-type WAMessageExtended = Omit<WAMessage, "participant" | "_data"> & {
-  participant?: string
-  _data?: {
-    notifyName?: string
-    pushName?: string
-    quotedParticipant?: {
-      _serialized?: string
-      user?: string
-    }
-  }
-  replyTo?: {
-    id: string
-    participant?: string
-    body?: string
-    _data?: {
-      notifyName?: string
-      pushName?: string
-      from?: string
-      author?: string
-    }
-  }
-}
-
 // Render the quoted/reply context box above a reply message
 function renderReplyContext(
   renderer: CliRenderer,
@@ -939,6 +916,49 @@ function getSenderInfo(
   return { senderId, senderName, senderColor }
 }
 
+function renderReactions(
+  renderer: CliRenderer,
+  reactions: Array<{ text: string; id: string; from?: string }> | undefined,
+  _isFromMe: boolean
+): BoxRenderable | null {
+  if (!reactions || reactions.length === 0) return null
+
+  // Group reactions by emoji text
+  const counts = new Map<string, number>()
+  for (const r of reactions) {
+    counts.set(r.text, (counts.get(r.text) || 0) + 1)
+  }
+
+  // Container for the reaction pill
+  const container = new BoxRenderable(renderer, {
+    flexDirection: "row",
+    gap: 1,
+    backgroundColor: WhatsAppTheme.panelLight, // Stand out a bit
+    paddingLeft: 1,
+    paddingRight: 1,
+    height: 1,
+    // Positioning details:
+    // We will place this box relative to the message bubble in the parent
+  })
+
+  // Render emojis
+  // limit to 3 types of reactions to avoid overflow?
+  let renderedCount = 0
+  for (const [emoji, count] of counts) {
+    if (renderedCount >= 4) break
+
+    container.add(
+      new TextRenderable(renderer, {
+        content: count > 1 ? `${emoji} ${count}` : emoji,
+        fg: WhatsAppTheme.textPrimary,
+      })
+    )
+    renderedCount++
+  }
+
+  return container
+}
+
 function renderMessage(
   renderer: CliRenderer,
   message: WAMessageExtended,
@@ -1119,7 +1139,28 @@ function renderMessage(
 
   bubble.add(timeRow)
 
-  row.add(bubble)
+  // Render reactions
+  const reactionBox = renderReactions(renderer, message.reactions, isFromMe)
+
+  if (reactionBox) {
+    // Wrap bubble and reactions in a column to stack them
+    const messageContainer = new BoxRenderable(renderer, {
+      flexDirection: "column",
+      alignItems: isFromMe ? "flex-end" : "flex-start",
+      width: "100%",
+      maxWidth: "100%",
+    })
+
+    messageContainer.add(bubble)
+
+    // Add reactions below bubble
+    messageContainer.add(reactionBox)
+
+    row.add(messageContainer)
+  } else {
+    row.add(bubble)
+  }
+
   return row
 }
 

@@ -14,6 +14,7 @@ import type { WahaTuiConfig } from "./config/schema"
 import { debugLog, debugRequest, debugResponse, DEBUG_ENABLED } from "./utils/debug"
 import type { InternalAxiosRequestConfig, AxiosResponse, AxiosError } from "axios"
 import { appState } from "./state/AppState"
+import type { WAMessageExtended } from "./types"
 
 let client: WahaClient | null = null
 
@@ -294,8 +295,47 @@ export async function loadMessages(chatId: string): Promise<void> {
       sortOrder: "desc",
     })
     const messages = (response.data as unknown as WAMessage[]) || []
+
+    // Attempt to normalize reactions if found in _data
+    messages.forEach((msg: WAMessageExtended) => {
+      // If we have reactions in _data, but NOT in our root reactions field yet
+      if (msg._data?.reactions && (!msg.reactions || msg.reactions.length === 0)) {
+        try {
+          // Format from WAWebJS/WAHA:
+          // reactions: [{ id: '...', aggregateEmoji: '...', senders: [...] }]
+          const rawReactions = msg._data.reactions as Array<{
+            aggregateEmoji: string
+            senders: Array<{ id: string }>
+          }>
+
+          if (Array.isArray(rawReactions)) {
+            const normalizedReactions: Array<{ text: string; id: string; from?: string }> = []
+
+            rawReactions.forEach((reactionGroup) => {
+              const emoji = reactionGroup.aggregateEmoji
+              if (Array.isArray(reactionGroup.senders)) {
+                reactionGroup.senders.forEach((sender) => {
+                  normalizedReactions.push({
+                    text: emoji,
+                    id: `${msg.id}_${emoji}_${sender.id}`, // Generate a unique ID
+                    from: sender.id,
+                  })
+                })
+              }
+            })
+
+            if (normalizedReactions.length > 0) {
+              msg.reactions = normalizedReactions
+            }
+          }
+        } catch (e) {
+          debugLog("Messages", `Failed to parse reactions for message ${msg.id}: ${e}`)
+        }
+      }
+    })
+
     // Polling-related log removed to reduce spam
-    appState.setMessages(chatId, messages)
+    appState.setMessages(chatId, messages as WAMessageExtended[])
   } catch (error) {
     debugLog("Messages", `Failed to load messages: ${error}`)
     appState.setMessages(chatId, [])

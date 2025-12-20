@@ -221,9 +221,18 @@ export class WebSocketService {
     const targetMessageId = payload.reaction?.messageId
     const reactionText = payload.reaction?.text
 
+    // Extract sender ID
+    // valid for group (participant) or direct (from)
+    const senderId = payload.participant || payload.from
+
     const state = appState.getState()
     if (state.currentChatId && targetMessageId) {
-      appState.updateMessageReaction(state.currentChatId, targetMessageId, reactionText || "")
+      appState.updateMessageReaction(
+        state.currentChatId,
+        targetMessageId,
+        reactionText || "",
+        senderId
+      )
     }
   }
 

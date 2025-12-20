@@ -7,6 +7,7 @@ import { Box, ProxiedVNode, BoxRenderable, TextRenderable } from "@opentui/core"
 import { WhatsAppTheme, Icons } from "../config/theme"
 import { appState, type ContextMenuType } from "../state/AppState"
 import type { ChatSummary, WAMessage } from "@muhammedaksam/waha-node"
+import type { WAMessageExtended } from "../types"
 import { getRenderer } from "../state/RendererContext"
 
 export interface ContextMenuItem {
@@ -47,7 +48,7 @@ export function getChatMenuItems(chat: ChatSummary): ContextMenuItem[] {
 }
 
 // Message context menu items
-export function getMessageMenuItems(message: WAMessage): ContextMenuItem[] {
+export function getMessageMenuItems(message: WAMessage | WAMessageExtended): ContextMenuItem[] {
   // Check if message is starred
   const isStarred = (message as { isStarred?: boolean }).isStarred === true
 
@@ -96,7 +97,7 @@ export function getMessageMenuItems(message: WAMessage): ContextMenuItem[] {
 // Get menu items based on context type
 export function getMenuItems(
   type: ContextMenuType,
-  targetData: ChatSummary | WAMessage | null | undefined
+  targetData: ChatSummary | WAMessage | WAMessageExtended | null | undefined
 ): ContextMenuItem[] {
   if (!type || !targetData) return []
 

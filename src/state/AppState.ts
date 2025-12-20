@@ -12,6 +12,7 @@ import type {
   MyProfile,
 } from "@muhammedaksam/waha-node"
 import { debugLog } from "../utils/debug"
+import type { WAMessageExtended } from "../types"
 
 // Context menu types
 export type ContextMenuType = "chat" | "message" | null
@@ -20,7 +21,7 @@ export interface ContextMenuState {
   visible: boolean
   type: ContextMenuType
   targetId: string | null // Chat ID or Message ID
-  targetData?: ChatSummary | WAMessage | null // The actual chat or message data
+  targetData?: ChatSummary | WAMessage | WAMessageExtended | null // The actual chat or message data
   selectedIndex: number // Currently highlighted menu item
   position: {
     x: number
@@ -62,7 +63,7 @@ export interface AppState {
   chats: ChatSummary[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   qrCodeMatrix: any | null // QRCode type from qrcode library
-  messages: Map<string, WAMessage[]>
+  messages: Map<string, WAMessageExtended[]>
   contactsCache: Map<string, string> // Maps contact ID to name
   allContacts: Map<string, string> // Full phonebook contacts for search
   connectionStatus: "connected" | "connecting" | "disconnected" | "error"
@@ -95,14 +96,14 @@ export interface AppState {
   // Optimization: track what kind of change occurred
   lastChangeType: ChangeType
 
+  // Reply state
+  replyingToMessage: WAMessageExtended | WAMessage | null
+
   // Config wizard state
   configStep: ConfigStep | null
 
   // Context menu state
   contextMenu: ContextMenuState | null
-
-  // Reply state - message being replied to
-  replyingToMessage: WAMessage | null
 }
 
 class StateManager {
@@ -211,18 +212,45 @@ class StateManager {
     this.setState({ chats, lastChangeType: "data" })
   }
 
-  setMessages(chatId: string, messagesToSet: WAMessage[]): void {
-    const messages = new Map(this.state.messages)
-    messages.set(chatId, messagesToSet)
-    this.setState({ messages })
+  setMessages(chatId: string, messagesToSet: WAMessageExtended[]): void {
+    const messagesMap = new Map(this.state.messages)
+    const existingMessages = messagesMap.get(chatId) || []
+
+    // Create a map of existing reactions by message ID to preserve them
+    const existingReactionsMap = new Map<string, WAMessageExtended["reactions"]>()
+    existingMessages.forEach((m) => {
+      if (m.reactions && m.reactions.length > 0) {
+        existingReactionsMap.set(m.id, m.reactions)
+      }
+    })
+
+    // Merge existing reactions into the new messages if they don't have their own
+    const mergedMessages = messagesToSet.map((m) => {
+      const existingReactions = existingReactionsMap.get(m.id)
+      if (existingReactions && (!m.reactions || m.reactions.length === 0)) {
+        return { ...m, reactions: existingReactions }
+      }
+      return m
+    })
+
+    messagesMap.set(chatId, mergedMessages)
+    this.setState({ messages: messagesMap })
   }
 
   appendMessage(chatId: string, message: WAMessage): void {
-    const messages = new Map(this.state.messages)
-    const existing = messages.get(chatId) || []
+    const messagesMap = new Map(this.state.messages)
+    const existing = messagesMap.get(chatId) || []
 
     // Check if message already exists (deduplication)
-    if (existing.some((m) => m.id === message.id)) {
+    const existingIdx = existing.findIndex((m) => m.id === message.id)
+    if (existingIdx !== -1) {
+      // If it exists, update it but preserve reactions
+      const currentMsg = existing[existingIdx]
+      const updatedMsg = { ...message, reactions: currentMsg.reactions } as WAMessageExtended
+      const nextMessages = [...existing]
+      nextMessages[existingIdx] = updatedMsg
+      messagesMap.set(chatId, nextMessages)
+      this.setState({ messages: messagesMap, lastChangeType: "data" })
       return
     }
 
@@ -230,8 +258,8 @@ class StateManager {
     // Re-sort just in case to be safe
     newMessages.sort((a, b) => b.timestamp - a.timestamp)
 
-    messages.set(chatId, newMessages)
-    this.setState({ messages, lastChangeType: "data" })
+    messagesMap.set(chatId, newMessages)
+    this.setState({ messages: messagesMap, lastChangeType: "data" })
   }
 
   updateMessageAck(chatId: string, messageId: string, ack: number, ackName: string): void {
@@ -251,7 +279,12 @@ class StateManager {
     this.setState({ messages, lastChangeType: "data" })
   }
 
-  updateMessageReaction(chatId: string, messageId: string, reaction: string): void {
+  updateMessageReaction(
+    chatId: string,
+    messageId: string,
+    reaction: string,
+    senderId?: string
+  ): void {
     const messages = new Map(this.state.messages)
     const chatMessages = messages.get(chatId)
     if (!chatMessages) return
@@ -259,9 +292,52 @@ class StateManager {
     const msgIndex = chatMessages.findIndex((m) => m.id === messageId)
     if (msgIndex === -1) return
 
-    // Placeholder:
-    debugLog("AppState", `Reaction update for ${messageId}: ${reaction}`)
-    // To properly update, we'd need to fetch message again or know the full new state.
+    // Get the message and cast it to include reactions
+    const msg = chatMessages[msgIndex] as WAMessage & {
+      reactions?: Array<{ text: string; id: string; from?: string }>
+    }
+
+    // Initialize reactions array if needed
+    let newReactions = msg.reactions ? [...msg.reactions] : []
+
+    debugLog("AppState", `Reaction update for ${messageId}: ${reaction} from ${senderId}`)
+
+    // Logic:
+    // 1. If reaction is empty, it might mean removal (depending on WAHA payload, usually empty string implies revoke)
+    // 2. If senderId is known, we should look for existing reaction from this sender and update/remove it.
+    // 3. If senderId is unknown, we just append (naive) or try to find if we have this reaction already?
+    //    Ideally we should always have a senderId.
+
+    if (senderId) {
+      // Remove existing reaction from this sender
+      newReactions = newReactions.filter((r) => r.from !== senderId)
+
+      // Add new reaction if it's not empty (empty string = remove)
+      if (reaction) {
+        newReactions.push({
+          text: reaction,
+          id: Date.now().toString(),
+          from: senderId,
+        })
+      }
+    } else {
+      // Fallback for when we don't know the sender (shouldn't happen with correct implementation)
+      // Just add it if not empty
+      if (reaction) {
+        newReactions.push({
+          text: reaction,
+          id: Date.now().toString(),
+          from: "unknown",
+        })
+      }
+    }
+
+    const updatedMsg = { ...msg, reactions: newReactions }
+    const newChatMessages = [...chatMessages]
+    newChatMessages[msgIndex] = updatedMsg
+
+    messages.set(chatId, newChatMessages)
+    this.setState({ messages, lastChangeType: "data" })
   }
 
   markMessageRevoked(chatId: string, messageId: string): void {
@@ -403,7 +479,7 @@ class StateManager {
   openContextMenu(
     type: ContextMenuType,
     targetId: string,
-    targetData?: ChatSummary | WAMessage | null,
+    targetData?: ChatSummary | WAMessage | WAMessageExtended | null,
     position: { x: number; y: number } = { x: 10, y: 5 }
   ): void {
     this.setState({
@@ -447,7 +523,7 @@ class StateManager {
   }
 
   // Reply methods
-  setReplyingToMessage(message: WAMessage | null): void {
+  setReplyingToMessage(message: WAMessageExtended | WAMessage | null): void {
     this.setState({ replyingToMessage: message })
   }
 }
