@@ -188,6 +188,10 @@ export const WhatsAppTheme = {
   sentBubble: "#005c4b",
   receivedBubble: "#202c33",
 
+  // Quote box backgrounds (darker than bubbles)
+  quoteSentBg: "#025144",
+  quoteReceivedBg: "#1a2429",
+
   // Text colors
   white: "#ffffff",
   textPrimary: "#e9edef",
