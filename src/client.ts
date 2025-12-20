@@ -299,7 +299,11 @@ export async function loadMessages(chatId: string): Promise<void> {
     // Attempt to normalize reactions if found in _data
     messages.forEach((msg: WAMessageExtended) => {
       // If we have reactions in _data, but NOT in our root reactions field yet
-      if (msg._data?.reactions && (!msg.reactions || msg.reactions.length === 0)) {
+      if (
+        msg._data?.hasReaction &&
+        msg._data?.reactions &&
+        (!msg.reactions || msg.reactions.length === 0)
+      ) {
         try {
           // Format from WAWebJS/WAHA:
           // reactions: [{ id: '...', aggregateEmoji: '...', senders: [...] }]

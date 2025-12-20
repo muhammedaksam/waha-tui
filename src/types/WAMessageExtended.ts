@@ -9,6 +9,7 @@ export type WAMessageExtended = Omit<WAMessage, "participant" | "_data" | "reply
       _serialized?: string
       user?: string
     }
+    hasReaction?: boolean
     reactions?: Array<{
       id: string
       aggregateEmoji: string
