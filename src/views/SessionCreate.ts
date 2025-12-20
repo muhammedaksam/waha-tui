@@ -48,6 +48,11 @@ export async function createNewSession(sessionName: string = "default"): Promise
     const createRequest: SessionCreateRequest = {
       name,
       start: true,
+      config: {
+        webjs: {
+          tagsEventsOn: true,
+        },
+      },
     }
 
     const { data: session } = await client.sessions.sessionsControllerCreate(createRequest)

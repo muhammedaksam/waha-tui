@@ -14,6 +14,7 @@ import type { WahaTuiConfig } from "./config/schema"
 import { debugLog, debugRequest, debugResponse, DEBUG_ENABLED } from "./utils/debug"
 import type { InternalAxiosRequestConfig, AxiosResponse, AxiosError } from "axios"
 import { appState } from "./state/AppState"
+import type { WAMessageExtended } from "./types"
 
 let client: WahaClient | null = null
 
@@ -294,8 +295,51 @@ export async function loadMessages(chatId: string): Promise<void> {
       sortOrder: "desc",
     })
     const messages = (response.data as unknown as WAMessage[]) || []
+
+    // Attempt to normalize reactions if found in _data
+    messages.forEach((msg: WAMessageExtended) => {
+      // If we have reactions in _data, but NOT in our root reactions field yet
+      if (
+        msg._data?.hasReaction &&
+        msg._data?.reactions &&
+        (!msg.reactions || msg.reactions.length === 0)
+      ) {
+        try {
+          // Format from WAWebJS/WAHA:
+          // reactions: [{ id: '...', aggregateEmoji: '...', senders: [...] }]
+          const rawReactions = msg._data.reactions as Array<{
+            aggregateEmoji: string
+            senders: Array<{ id: string }>
+          }>
+
+          if (Array.isArray(rawReactions)) {
+            const normalizedReactions: Array<{ text: string; id: string; from?: string }> = []
+
+            rawReactions.forEach((reactionGroup) => {
+              const emoji = reactionGroup.aggregateEmoji
+              if (Array.isArray(reactionGroup.senders)) {
+                reactionGroup.senders.forEach((sender) => {
+                  normalizedReactions.push({
+                    text: emoji,
+                    id: `${msg.id}_${emoji}_${sender.id}`, // Generate a unique ID
+                    from: sender.id,
+                  })
+                })
+              }
+            })
+
+            if (normalizedReactions.length > 0) {
+              msg.reactions = normalizedReactions
+            }
+          }
+        } catch (e) {
+          debugLog("Messages", `Failed to parse reactions for message ${msg.id}: ${e}`)
+        }
+      }
+    })
+
     // Polling-related log removed to reduce spam
-    appState.setMessages(chatId, messages)
+    appState.setMessages(chatId, messages as WAMessageExtended[])
   } catch (error) {
     debugLog("Messages", `Failed to load messages: ${error}`)
     appState.setMessages(chatId, [])
@@ -556,7 +600,7 @@ export async function loadContacts(): Promise<void> {
     const wahaClient = getClient()
     const response = await wahaClient.contacts.contactsControllerGetAll({
       session,
-      limit: 1000,
+      limit: 5000,
     })
 
     const contacts = (response.data as unknown as Array<{ id?: string; name?: string }>) || []
@@ -575,6 +619,30 @@ export async function loadContacts(): Promise<void> {
   }
 }
 
+/**
+ * Load LID to phone number mappings for presence matching
+ */
+export async function loadLidMappings(): Promise<void> {
+  try {
+    const state = appState.getState()
+    if (state.lidToPhoneMap.size > 0) return // Already loaded
+
+    const session = getSession()
+    debugLog("LID", `Loading LID mappings for session: ${session}`)
+    const wahaClient = getClient()
+
+    // Get all known LID to phone number mappings
+    const response = await wahaClient.contacts.lidsControllerGetAll(session, { limit: 5000 })
+    const mappings = response.data || []
+
+    appState.addLidMappings(mappings)
+    debugLog("LID", `Loaded ${mappings.length} LID mappings`)
+  } catch (error) {
+    debugLog("LID", `Failed to load LID mappings: ${error}`)
+    // Not critical - we can still work without mappings
+  }
+}
+
 // ============================================
 // Chat Details (Presence/Participants)
 // ============================================
@@ -590,11 +658,18 @@ export async function loadChatDetails(chatId: string): Promise<void> {
       const response = await wahaClient.groups.groupsControllerGetGroupParticipants(session, chatId)
       const participants = response.data as unknown as GroupParticipant[]
       appState.setCurrentChatParticipants(participants)
-    } else {
-      debugLog("Conversation", `Loading presence for chat: ${chatId}`)
-      const response = await wahaClient.presence.presenceControllerGetPresence(session, chatId)
-      const presence = response.data as unknown as WAHAChatPresences
-      appState.setCurrentChatPresence(presence)
+    }
+
+    // Always load and subscribe to presence (for both groups and 1:1 chats)
+    const response = await wahaClient.presence.presenceControllerGetPresence(session, chatId)
+    const presence = response.data as unknown as WAHAChatPresences
+    appState.setCurrentChatPresence(presence)
+
+    // Also explicitly subscribe to ensure we get WebSocket updates (if supported by WAHA tier)
+    try {
+      await wahaClient.presence.presenceControllerSubscribe(session, chatId)
+    } catch {
+      // Subscription might fail if already subscribed or not supported, that's okay
     }
   } catch (error) {
     debugLog("Conversation", `Failed to load chat details: ${error}`)
@@ -702,4 +777,154 @@ export async function fetchMyProfile(): Promise<void> {
   } catch {
     debugLog("Polling", "Failed to fetch profile")
   }
+}
+
+export async function sendTypingState(
+  chatId: string,
+  state: "composing" | "paused"
+): Promise<void> {
+  try {
+    const session = getSession()
+    const wahaClient = getClient()
+
+    debugLog("Client", `Sending typing state: ${state} to ${chatId}`)
+
+    if (state === "composing") {
+      await wahaClient.chatting.chattingControllerStartTyping({
+        session,
+        chatId,
+      })
+    } else {
+      await wahaClient.chatting.chattingControllerStopTyping({
+        session,
+        chatId,
+      })
+    }
+  } catch {
+    // Silent fail for typing indicators
+  }
+}
+
+// ============================================
+// Session Presence Management
+// ============================================
+
+let lastActivityTime = Date.now()
+let presenceInterval: ReturnType<typeof setInterval> | null = null
+let resubscribeInterval: ReturnType<typeof setInterval> | null = null
+let currentPresenceStatus: "online" | "offline" = "offline"
+
+/**
+ * Mark user activity - resets the offline timer
+ */
+export function markActivity(): void {
+  lastActivityTime = Date.now()
+  // If we're offline, go online
+  if (currentPresenceStatus === "offline") {
+    setSessionPresence("online")
+  }
+}
+
+/**
+ * Set session presence (online/offline)
+ * Required to receive presence.update events on WEBJS engine
+ */
+export async function setSessionPresence(presence: "online" | "offline"): Promise<void> {
+  // Set status immediately to prevent race conditions with markActivity
+  if (currentPresenceStatus === presence) return // No change needed
+  currentPresenceStatus = presence
+
+  try {
+    const session = getSession()
+    const wahaClient = getClient()
+
+    await wahaClient.presence.presenceControllerSetPresence(session, {
+      chatId: "", // Empty for global presence
+      presence,
+    })
+
+    debugLog("Presence", `Session presence set to: ${presence}`)
+  } catch (error) {
+    debugLog("Presence", `Failed to set session presence: ${error}`)
+    // Revert status on failure
+    currentPresenceStatus = presence === "online" ? "offline" : "online"
+  }
+}
+
+/**
+ * Subscribe to presence for a chat - needs to be called every 5 minutes
+ */
+export async function subscribeToPresence(chatId: string): Promise<void> {
+  try {
+    const session = getSession()
+    const wahaClient = getClient()
+
+    await wahaClient.presence.presenceControllerSubscribe(session, chatId)
+    debugLog("Presence", `Subscribed to presence for: ${chatId}`)
+  } catch {
+    // Silent fail
+  }
+}
+
+/**
+ * Start presence management for a conversation
+ * - Sets session to "online" to receive presence.update events
+ * - Re-subscribes every 5 minutes
+ * - Goes offline after 30 seconds of inactivity
+ */
+export function startPresenceManagement(chatId: string): void {
+  stopPresenceManagement()
+
+  debugLog("Presence", `Starting presence management for: ${chatId}`)
+
+  // Mark initial activity and go online
+  markActivity()
+
+  // Subscribe immediately
+  subscribeToPresence(chatId)
+
+  // Set up re-subscription every 5 minutes (300000ms)
+  resubscribeInterval = setInterval(
+    () => {
+      const state = appState.getState()
+      if (state.currentChatId === chatId) {
+        debugLog("Presence", `Re-subscribing to presence for: ${chatId}`)
+        subscribeToPresence(chatId)
+      }
+    },
+    5 * 60 * 1000
+  )
+
+  // Set up activity check - go offline after 30 seconds of inactivity
+  presenceInterval = setInterval(() => {
+    const now = Date.now()
+    const inactiveDuration = now - lastActivityTime
+
+    if (inactiveDuration > 30000 && currentPresenceStatus === "online") {
+      // 30 seconds of inactivity
+      debugLog("Presence", "Inactivity timeout - going offline")
+      setSessionPresence("offline")
+    }
+  }, 5000) // Check every 5 seconds
+}
+
+/**
+ * Stop presence management
+ */
+export function stopPresenceManagement(): void {
+  if (presenceInterval) {
+    clearInterval(presenceInterval)
+    presenceInterval = null
+  }
+  if (resubscribeInterval) {
+    clearInterval(resubscribeInterval)
+    resubscribeInterval = null
+  }
+
+  // Go offline when leaving
+  if (currentPresenceStatus === "online") {
+    setSessionPresence("offline")
+  }
+
+  debugLog("Presence", "Stopped presence management")
 }

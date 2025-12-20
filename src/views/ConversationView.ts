@@ -18,11 +18,12 @@ import {
 } from "@opentui/core"
 import { ScrollBoxRenderable } from "@opentui/core"
 import { appState } from "../state/AppState"
+import type { WAMessageExtended } from "../types"
 import { getRenderer } from "../state/RendererContext"
 import { WhatsAppTheme, Icons } from "../config/theme"
 import { debugLog } from "../utils/debug"
-import { sendMessage, loadChatDetails } from "../client"
-import type { WAMessage, GroupParticipant } from "@muhammedaksam/waha-node"
+import { sendMessage, loadChatDetails, sendTypingState } from "../client"
+import type { WAMessage } from "@muhammedaksam/waha-node"
 import {
   formatAckStatus,
   formatLastSeen,
@@ -37,6 +38,7 @@ let conversationScrollBox: ScrollBoxRenderable | null = null
 let messageInputComponent: TextareaRenderable | null = null
 let inputContainer: BoxRenderable | null = null
 let inputScrollBar: ScrollBarRenderable | null = null
+let typingTimeout: ReturnType<typeof setTimeout> | null = null
 
 // Expose input focus control
 export function focusMessageInput(): void {
@@ -106,39 +108,80 @@ export function ConversationView() {
   let headerSubtitle = isSelf
     ? "Message yourself"
     : `click here for ${isGroup ? "group" : "contact"} info`
+  let headerSubtitleColor: string = WhatsAppTheme.textSecondary
 
   if (isGroup) {
-    // Group chat: show participants
+    // Group chat: show participants and presence
+    const participantNames: string[] = []
+    let typingStatus = ""
+
     if (state.currentChatParticipants) {
-      const names = state.currentChatParticipants
-        .map((p: GroupParticipant) => {
+      // Build list of names
+      participantNames.push(
+        ...state.currentChatParticipants.map((p) => {
           const contactName = appState.getContactName(p.id)
           if (contactName) return contactName
-          const idParts = p.id.split("@")
-          return idParts[0]
+          return p.id.split("@")[0]
         })
-        .join(", ")
-      headerSubtitle = truncate(names, 60)
+      )
+
+      // Check for typing/online presence in group
+      const presences = state.currentChatPresence?.presences || []
+      const typingParticipants = presences.filter(
+        (p) => p.lastKnownPresence === "typing" || p.lastKnownPresence === "recording"
+      )
+
+      if (typingParticipants.length > 0) {
+        const typingNames = typingParticipants.map((p) => {
+          const contactName = appState.getContactName(p.participant)
+          return contactName || p.participant.split("@")[0]
+        })
+
+        if (typingNames.length === 1) {
+          typingStatus = `${typingNames[0]} is typing...`
+        } else {
+          typingStatus = `${typingNames.length} people are typing...`
+        }
+      }
     } else {
-      headerSubtitle = "tap for group info"
-      // If no participants loaded yet, load them
       loadChatDetails(state.currentChatId)
+    }
+
+    // Priority: Typing status > Participant list
+    if (typingStatus) {
+      headerSubtitle = typingStatus
+      headerSubtitleColor = WhatsAppTheme.green
+    } else if (participantNames.length > 0) {
+      headerSubtitle = truncate(participantNames.join(", "), 60)
     }
   } else {
     // Direct chat: show presence
-    const presence = state.currentChatPresence
-    if (presence?.presences && presence.presences.length > 0) {
-      const p = presence.presences[0]
-      if (p.lastKnownPresence === "online" || p.lastKnownPresence === "typing") {
-        headerSubtitle = p.lastKnownPresence
-      } else if (p.lastSeen) {
-        headerSubtitle = formatLastSeen(p.lastSeen)
-      }
+    // Use isChatTyping for consistent typing detection with chat list
+    if (state.currentChatId && appState.isChatTyping(state.currentChatId)) {
+      headerSubtitle = "typing..."
+      headerSubtitleColor = WhatsAppTheme.textSecondary // Gray like WhatsApp Web header
     } else {
-      // Trigger load if not present (could also poll)
-      // loadChatDetails checks cache internally or we can throttle
-      headerSubtitle = ""
-      loadChatDetails(state.currentChatId)
+      // Not typing - show regular presence status
+      const presence = state.currentChatPresence
+      if (presence?.presences && presence.presences.length > 0) {
+        // Find the best presence to display (prefer online, then last seen)
+        const onlinePresence = presence.presences.find((p) => p.lastKnownPresence === "online")
+        const presenceToShow = onlinePresence || presence.presences[0]
+
+        if (presenceToShow) {
+          if (presenceToShow.lastKnownPresence === "online") {
+            headerSubtitle = "online"
+          } else if (presenceToShow.lastSeen) {
+            headerSubtitle = formatLastSeen(presenceToShow.lastSeen)
+          } else {
+            headerSubtitle = "" // Don't show "offline" or "paused"
+          }
+        }
+      } else {
+        // Trigger load if not present
+        headerSubtitle = ""
+        loadChatDetails(state.currentChatId!)
+      }
     }
   }
 
@@ -180,7 +223,7 @@ export function ConversationView() {
       ...(headerSubtitle
         ? [
             Text({ content: chatName, fg: WhatsAppTheme.white, attributes: TextAttributes.BOLD }),
-            Text({ content: headerSubtitle, fg: WhatsAppTheme.textSecondary }),
+            Text({ content: headerSubtitle, fg: headerSubtitleColor }),
           ]
         : [
             Text({}),
@@ -362,6 +405,21 @@ export function ConversationView() {
       if (messageInputComponent) {
         // Sync state
         appState.setMessageInput(messageInputComponent.plainText)
+
+        // Handle typing indicator
+        if (state.currentChatId && messageInputComponent.plainText.length > 0) {
+          sendTypingState(state.currentChatId, "composing")
+
+          if (typingTimeout) {
+            clearTimeout(typingTimeout)
+          }
+
+          typingTimeout = setTimeout(() => {
+            if (state.currentChatId) {
+              sendTypingState(state.currentChatId, "paused")
+            }
+          }, 2000)
+        }
 
         // Calculate needed height
         // Use lineCount (logical lines) instead of virtualLineCount
@@ -662,30 +720,6 @@ function stringHash(str: string): number {
   return hash
 }
 
-// Extended message type to include runtime fields not in the core type
-type WAMessageExtended = Omit<WAMessage, "participant" | "_data"> & {
-  participant?: string
-  _data?: {
-    notifyName?: string
-    pushName?: string
-    quotedParticipant?: {
-      _serialized?: string
-      user?: string
-    }
-  }
-  replyTo?: {
-    id: string
-    participant?: string
-    body?: string
-    _data?: {
-      notifyName?: string
-      pushName?: string
-      from?: string
-      author?: string
-    }
-  }
-}
-
 // Render the quoted/reply context box above a reply message
 function renderReplyContext(
   renderer: CliRenderer,
@@ -885,6 +919,49 @@ function getSenderInfo(
   return { senderId, senderName, senderColor }
 }
 
+function renderReactions(
+  renderer: CliRenderer,
+  reactions: Array<{ text: string; id: string; from?: string }> | undefined,
+  _isFromMe: boolean
+): BoxRenderable | null {
+  if (!reactions || reactions.length === 0) return null
+
+  // Group reactions by emoji text
+  const counts = new Map<string, number>()
+  for (const r of reactions) {
+    counts.set(r.text, (counts.get(r.text) || 0) + 1)
+  }
+
+  // Container for the reaction pill
+  const container = new BoxRenderable(renderer, {
+    flexDirection: "row",
+    gap: 1,
+    backgroundColor: WhatsAppTheme.panelLight, // Stand out a bit
+    paddingLeft: 1,
+    paddingRight: 1,
+    height: 1,
+    // Positioning details:
+    // We will place this box relative to the message bubble in the parent
+  })
+
+  // Render emojis
+  // limit to 3 types of reactions to avoid overflow?
+  let renderedCount = 0
+  for (const [emoji, count] of counts) {
+    if (renderedCount >= 4) break
+
+    container.add(
+      new TextRenderable(renderer, {
+        content: count > 1 ? `${emoji} ${count}` : emoji,
+        fg: WhatsAppTheme.textPrimary,
+      })
+    )
+    renderedCount++
+  }
+
+  return container
+}
+
 function renderMessage(
   renderer: CliRenderer,
   message: WAMessageExtended,
@@ -1065,7 +1142,28 @@ function renderMessage(
 
   bubble.add(timeRow)
 
-  row.add(bubble)
+  // Render reactions
+  const reactionBox = renderReactions(renderer, message.reactions, isFromMe)
+
+  if (reactionBox) {
+    // Wrap bubble and reactions in a column to stack them
+    const messageContainer = new BoxRenderable(renderer, {
+      flexDirection: "column",
+      alignItems: isFromMe ? "flex-end" : "flex-start",
+      width: "100%",
+      maxWidth: "100%",
+    })
+
+    messageContainer.add(bubble)
+
+    // Add reactions below bubble
+    messageContainer.add(reactionBox)
+
+    row.add(messageContainer)
+  } else {
+    row.add(bubble)
+  }
+
   return row
 }
 

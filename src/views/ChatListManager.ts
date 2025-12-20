@@ -24,7 +24,7 @@ import { debugLog } from "../utils/debug"
 import { appState } from "../state/AppState"
 import { destroyConversationScrollBox } from "./ConversationView"
 import { ROW_HEIGHT } from "../utils/chatListScroll"
-import { loadContacts, loadMessages } from "../client"
+import { loadContacts, loadMessages, startPresenceManagement } from "../client"
 
 interface ChatRowData {
   box: BoxRenderable
@@ -245,6 +245,8 @@ class ChatListManager {
             // Load contacts and messages
             loadContacts()
             loadMessages(chatId)
+            // Start presence management (online/offline + re-subscribe)
+            startPresenceManagement(chatId)
           }
         }
       },
@@ -317,9 +319,12 @@ class ChatListManager {
       )
     }
 
+    // Check if someone is typing in this chat
+    const isTyping = appState.isChatTyping(chatIdStr)
+
     const messageText = new TextRenderable(renderer, {
-      content: truncate(lastMessageText),
-      fg: WhatsAppTheme.textSecondary,
+      content: isTyping ? "typing..." : truncate(lastMessageText),
+      fg: isTyping ? WhatsAppTheme.green : WhatsAppTheme.textSecondary,
     })
 
     messageRow.add(messageText)
@@ -387,8 +392,10 @@ class ChatListManager {
       rowData.nameText.content = truncate(displayName, 50)
       rowData.nameText.attributes = isSelected ? TextAttributes.BOLD : TextAttributes.NONE
 
-      // 3. Message Preview
-      rowData.messageText.content = truncate(lastMessageText, 50)
+      // 3. Message Preview - check for typing status
+      const isTyping = appState.isChatTyping(chatIdStr)
+      rowData.messageText.content = isTyping ? "typing..." : truncate(lastMessageText, 50)
+      rowData.messageText.fg = isTyping ? WhatsAppTheme.green : WhatsAppTheme.textSecondary
 
       // Note: We are currently NOT updating the timestamp text or ack status text dynamically
       // because we didn't store references to them in ChatRowData interface.
@@ -434,6 +441,23 @@ class ChatListManager {
       // Update text attributes
       rowData.avatarText.attributes = isSelected ? TextAttributes.BOLD : TextAttributes.NONE
       rowData.nameText.attributes = isSelected ? TextAttributes.BOLD : TextAttributes.NONE
+
+      // Update typing status for message text
+      const isTyping = appState.isChatTyping(chatId)
+      if (isTyping) {
+        rowData.messageText.content = "typing..."
+        rowData.messageText.fg = WhatsAppTheme.green
+      } else {
+        // Always restore the message preview when not typing
+        const preview = extractMessagePreview(chat.lastMessage)
+        const isGroupChat = chatId.endsWith("@g.us")
+        let lastMessageText = preview.text
+        if (isGroupChat && preview.text !== "No messages" && preview.isFromMe) {
+          lastMessageText = `You: ${preview.text}`
+        }
+        rowData.messageText.content = truncate(lastMessageText, 50)
+        rowData.messageText.fg = WhatsAppTheme.textSecondary
+      }
     }
 
     this.currentSelectedIndex = newSelectedIndex

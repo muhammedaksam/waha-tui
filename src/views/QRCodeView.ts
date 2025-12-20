@@ -12,6 +12,7 @@ import type { QRCode as QRCodeType } from "qrcode"
 import { Logo } from "../components/Logo"
 import { getClient, loadChats } from "../client"
 import { debugLog } from "../utils/debug"
+import { createNewSession } from "./SessionCreate"
 
 // Module-level intervals for QR refresh and status checking
 let qrRefreshInterval: NodeJS.Timeout | null = null
@@ -302,7 +303,7 @@ export async function showQRCode(name: string): Promise<void> {
       }
 
       // Create fresh session
-      await client.sessions.sessionsControllerCreate({ name, start: true })
+      await createNewSession(name)
       debugLog("QR", "Created fresh session, waiting for it to be ready...")
       needsWait = true
     } else if (session.status === "STARTING") {
@@ -321,7 +322,7 @@ export async function showQRCode(name: string): Promise<void> {
     // Session doesn't exist, create it
     debugLog("QR", `Session check failed, creating new session: ${error}`)
     try {
-      await client.sessions.sessionsControllerCreate({ name, start: true })
+      await createNewSession(name)
       debugLog("QR", "Created new session, waiting for it to be ready...")
       needsWait = true
     } catch {

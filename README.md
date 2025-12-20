@@ -51,6 +51,23 @@ bun dev
 - [Bun](https://bun.sh) >= 1.0
 - A running [WAHA server](https://github.com/devlikeapro/waha)
 
+### WEBJS Engine Configuration
+
+If you're using the **WEBJS** engine (default for WAHA CORE), you must enable `tagsEventsOn` in your session config to receive typing indicators (`presence.update`) and message ack events:
+
+```json
+{
+  "name": "default",
+  "config": {
+    "webjs": {
+      "tagsEventsOn": true
+    }
+  }
+}
+```
+
+> **Note**: This setting is required for real-time typing indicators to work. See [WAHA documentation](https://waha.devlike.pro/docs/how-to/sessions/#webjs) for more details.
+
 ## Configuration
 
 On first run, WAHA TUI will prompt you for configuration with a beautiful setup wizard.
@@ -152,7 +169,7 @@ waha-tui/
 ├── src/
 │   ├── components/      # Reusable UI components
 │   ├── config/          # Configuration management
-│   ├── services/        # Background services (polling)
+│   ├── services/        # Background services (WebSocket)
 │   ├── state/           # Global state management
 │   ├── utils/           # Utility functions
 │   ├── views/           # Main application views

@@ -7,6 +7,7 @@ import { Box, ProxiedVNode, BoxRenderable, TextRenderable } from "@opentui/core"
 import { WhatsAppTheme, Icons } from "../config/theme"
 import { appState, type ContextMenuType } from "../state/AppState"
 import type { ChatSummary, WAMessage } from "@muhammedaksam/waha-node"
+import type { WAMessageExtended } from "../types"
 import { getRenderer } from "../state/RendererContext"
 
 export interface ContextMenuItem {
@@ -47,7 +48,7 @@ export function getChatMenuItems(chat: ChatSummary): ContextMenuItem[] {
 }
 
 // Message context menu items
-export function getMessageMenuItems(message: WAMessage): ContextMenuItem[] {
+export function getMessageMenuItems(message: WAMessage | WAMessageExtended): ContextMenuItem[] {
   // Check if message is starred
   const isStarred = (message as { isStarred?: boolean }).isStarred === true
 
@@ -96,7 +97,7 @@ export function getMessageMenuItems(message: WAMessage): ContextMenuItem[] {
 // Get menu items based on context type
 export function getMenuItems(
   type: ContextMenuType,
-  targetData: ChatSummary | WAMessage | null | undefined
+  targetData: ChatSummary | WAMessage | WAMessageExtended | null | undefined
 ): ContextMenuItem[] {
   if (!type || !targetData) return []
 
@@ -263,35 +264,57 @@ export function ContextMenu(): ProxiedVNode<typeof BoxRenderable> | null {
     topPosition = Math.max(2, pos.y)
   }
 
-  return Box(
-    {
-      position: "absolute",
-      top: topPosition,
-      left: leftPosition,
-      width: menuWidth + 2, // +2 for border
-      height: menuHeight + (contextMenu.type === "message" ? 1 : 0),
-      backgroundColor: WhatsAppTheme.panelDark,
-      border: true,
-      borderColor: WhatsAppTheme.borderLight,
-      flexDirection: "column",
-      zIndex: 100,
+  // Create the menu box imperatively for mouse handlers
+  const menuBox = new BoxRenderable(renderer, {
+    position: "absolute",
+    top: topPosition,
+    left: leftPosition,
+    width: menuWidth + 2, // +2 for border
+    height: menuHeight + (contextMenu.type === "message" ? 1 : 0),
+    backgroundColor: WhatsAppTheme.panelDark,
+    border: true,
+    borderColor: WhatsAppTheme.borderLight,
+    flexDirection: "column",
+    zIndex: 100,
+    onMouse(event) {
+      // Stop propagation so clicks on menu don't trigger outside-click handler
+      event.stopPropagation()
     },
-    // Header
-    // Box(
-    //   {
-    //     height: 1,
-    //     width: menuWidth,
-    //     paddingLeft: 1,
-    //     backgroundColor: WhatsAppTheme.panelLight,
-    //   },
-    //   Text({
-    //     content: title,
-    //     fg: WhatsAppTheme.textSecondary,
-    //   })
-    // ),
-    // Menu items
-    ...menuItems
+  })
+
+  // Add menu items to the menu box
+  for (const item of menuItems) {
+    menuBox.add(item)
+  }
+
+  // Store bounds for outside-click detection
+  lastMenuBounds = {
+    left: leftPosition,
+    top: topPosition,
+    right: leftPosition + menuWidth + 2,
+    bottom: topPosition + menuHeight + (contextMenu.type === "message" ? 1 : 0),
+  }
+
+  return menuBox as unknown as ProxiedVNode<typeof BoxRenderable>
+}
+
+// Store menu bounds for outside-click detection
+let lastMenuBounds: { left: number; top: number; right: number; bottom: number } | null = null
+
+// Check if a click position is outside the context menu
+export function isClickOutsideContextMenu(x: number, y: number): boolean {
+  if (!lastMenuBounds) return true
+  return (
+    x < lastMenuBounds.left ||
+    x > lastMenuBounds.right ||
+    y < lastMenuBounds.top ||
+    y > lastMenuBounds.bottom
   )
+}
+
+// Clear menu bounds when menu is closed
+export function clearMenuBounds(): void {
+  lastMenuBounds = null
 }
 
 // Keyboard handler for context menu navigation

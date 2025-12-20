@@ -3,7 +3,7 @@
  * WAHA TUI - Terminal User Interface for WhatsApp via WAHA
  */
 
-import { Box, createCliRenderer, Text, type KeyEvent } from "@opentui/core"
+import { Box, createCliRenderer, Text, type KeyEvent, BoxRenderable } from "@opentui/core"
 import { loadConfig, saveConfig, configExists, createDefaultConfig } from "./config/manager"
 import { validateConfig } from "./config/schema"
 import {
@@ -25,10 +25,21 @@ import {
   deleteSession,
   loadContacts,
   loadOlderMessages,
+  fetchMyProfile,
+  startPresenceManagement,
+  stopPresenceManagement,
+  markActivity,
+  loadLidMappings,
 } from "./client"
 import { appState } from "./state/AppState"
 import { Footer } from "./components/Footer"
-import { ContextMenu, handleContextMenuKey, getSelectedMenuItem } from "./components/ContextMenu"
+import {
+  ContextMenu,
+  handleContextMenuKey,
+  getSelectedMenuItem,
+  isClickOutsideContextMenu,
+  clearMenuBounds,
+} from "./components/ContextMenu"
 import { SessionsView } from "./views/SessionsView"
 import { focusSearchInput, blurSearchInput, clearSearchInput } from "./views/ChatsView"
 import {
@@ -45,7 +56,8 @@ import type { WahaTuiConfig } from "./config/schema"
 import { initDebug, debugLog } from "./utils/debug"
 import { calculateChatListScrollOffset } from "./utils/chatListScroll"
 import { filterChats, isArchived } from "./utils/filterChats"
-import { pollingService } from "./services/PollingService"
+
+import { webSocketService } from "./services/WebSocketService"
 import { ConfigView } from "./views/ConfigView"
 import type { CliRenderer } from "@opentui/core"
 import { setRenderer } from "./state/RendererContext"
@@ -211,6 +223,7 @@ async function main() {
 
   // Initialize WAHA client
   initializeClient(config)
+  webSocketService.initialize(config)
 
   // Fetch WAHA version and tier info
   try {
@@ -240,7 +253,9 @@ async function main() {
     appState.setCurrentSession(workingSession.name)
     appState.setCurrentView("chats")
     await loadChats()
-    pollingService.start(workingSession.name)
+    loadLidMappings() // Preload LID mappings for presence matching
+    webSocketService.connect() // Connect also if already working
+    fetchMyProfile() // Fetch profile for "You" identification
   } else {
     // No working session - show QR view for login
     debugLog("App", `No working session, showing QR login with session: ${DEFAULT_SESSION}`)
@@ -280,31 +295,48 @@ async function main() {
       chatListManager.destroy()
     }
 
-    // Main layout
-    renderer.root.add(
+    // Clear menu bounds when context menu is closed
+    if (!state.contextMenu?.visible) {
+      clearMenuBounds()
+    }
+
+    // Create root wrapper with mouse handler for outside-click detection
+    const rootWrapper = new BoxRenderable(renderer, {
+      flexDirection: "column",
+      flexGrow: 1,
+      onMouse(event) {
+        // Close context menu on any mouse down outside the menu
+        if (event.type === "down" && state.contextMenu?.visible) {
+          if (isClickOutsideContextMenu(event.x, event.y)) {
+            appState.closeContextMenu()
+          }
+        }
+      },
+    })
+
+    // Main Content Area - WhatsApp Layout or Legacy Views
+    rootWrapper.add(
       Box(
-        { flexDirection: "column", flexGrow: 1 },
-
-        // Main Content Area - WhatsApp Layout or Legacy Views
-        Box(
-          { flexGrow: 1 },
-          state.currentView === "config"
-            ? ConfigView()
-            : state.currentView === "sessions"
-              ? SessionsView()
-              : state.currentView === "qr"
-                ? QRCodeView()
-                : state.currentView === "loading"
-                  ? LoadingView()
-                  : state.currentView === "chats" || state.currentView === "conversation"
-                    ? MainLayout()
-                    : Text({ content: `View: ${state.currentView} (Coming soon)` })
-        ),
-
-        // Footer with styled keyboard hints
-        Footer()
+        { flexGrow: 1 },
+        state.currentView === "config"
+          ? ConfigView()
+          : state.currentView === "sessions"
+            ? SessionsView()
+            : state.currentView === "qr"
+              ? QRCodeView()
+              : state.currentView === "loading"
+                ? LoadingView()
+                : state.currentView === "chats" || state.currentView === "conversation"
+                  ? MainLayout()
+                  : Text({ content: `View: ${state.currentView} (Coming soon)` })
       )
     )
+
+    // Footer with styled keyboard hints
+    rootWrapper.add(Footer())
+
+    // Add root wrapper to renderer
+    renderer.root.add(rootWrapper)
 
     // Render context menu overlay if visible
     const contextMenuBox = ContextMenu()
@@ -442,6 +474,11 @@ async function main() {
 
     // Get latest state at the beginning of handler
     const state = appState.getState()
+
+    // Mark activity to keep session "online" when user is active in a conversation
+    if (state.currentView === "conversation") {
+      markActivity()
+    }
 
     // Helper to determine the current list of chats being displayed
     const getCurrentFilteredChats = () => {
@@ -743,8 +780,9 @@ async function main() {
           appState.setCurrentSession(selectedSession.name)
           appState.setCurrentView("chats")
           appState.setSelectedChatIndex(0) // Reset chat selection
+          await fetchMyProfile() // Fetch profile for "You" identification
           await loadChats()
-          pollingService.start(selectedSession.name)
+          webSocketService.connect() // Ensure connected
         }
       } else if (state.currentView === "chats" && state.chats.length > 0) {
         // Handle search input focus
@@ -770,6 +808,8 @@ async function main() {
           // Load contacts in background to populate cache
           loadContacts()
           await loadMessages(chatId)
+          // Start presence management (online/offline + re-subscribe)
+          startPresenceManagement(chatId)
         }
       }
     }
@@ -884,6 +924,7 @@ async function main() {
           blurMessageInput()
         } else {
           // Go back to chats
+          stopPresenceManagement()
           appState.setCurrentView("chats")
           appState.setCurrentChat(null)
         }
