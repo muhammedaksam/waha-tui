@@ -217,11 +217,67 @@ class StateManager {
     this.setState({ messages })
   }
 
-  addMessage(chatId: string, message: WAMessage): void {
+  appendMessage(chatId: string, message: WAMessage): void {
     const messages = new Map(this.state.messages)
     const existing = messages.get(chatId) || []
-    messages.set(chatId, [...existing, message])
-    this.setState({ messages })
+
+    // Check if message already exists (deduplication)
+    if (existing.some((m) => m.id === message.id)) {
+      return
+    }
+
+    const newMessages = [message, ...existing]
+    // Re-sort just in case to be safe
+    newMessages.sort((a, b) => b.timestamp - a.timestamp)
+
+    messages.set(chatId, newMessages)
+    this.setState({ messages, lastChangeType: "data" })
+  }
+
+  updateMessageAck(chatId: string, messageId: string, ack: number, ackName: string): void {
+    const messages = new Map(this.state.messages)
+    const chatMessages = messages.get(chatId)
+
+    if (!chatMessages) return
+
+    const msgIndex = chatMessages.findIndex((m) => m.id === messageId)
+    if (msgIndex === -1) return
+
+    const updatedMsg = { ...chatMessages[msgIndex], ack: ack as WAMessage["ack"], ackName }
+    const newChatMessages = [...chatMessages]
+    newChatMessages[msgIndex] = updatedMsg
+
+    messages.set(chatId, newChatMessages)
+    this.setState({ messages, lastChangeType: "data" })
+  }
+
+  updateMessageReaction(chatId: string, messageId: string, reaction: string): void {
+    const messages = new Map(this.state.messages)
+    const chatMessages = messages.get(chatId)
+    if (!chatMessages) return
+
+    const msgIndex = chatMessages.findIndex((m) => m.id === messageId)
+    if (msgIndex === -1) return
+
+    // Placeholder:
+    debugLog("AppState", `Reaction update for ${messageId}: ${reaction}`)
+    // To properly update, we'd need to fetch message again or know the full new state.
+  }
+
+  markMessageRevoked(chatId: string, messageId: string): void {
+    const messages = new Map(this.state.messages)
+    const chatMessages = messages.get(chatId)
+    if (!chatMessages) return
+
+    const msgIndex = chatMessages.findIndex((m) => m.id === messageId)
+    if (msgIndex === -1) return
+
+    const updatedMsg = { ...chatMessages[msgIndex], body: "🚫 This message was deleted" }
+    const newChatMessages = [...chatMessages]
+    newChatMessages[msgIndex] = updatedMsg
+
+    messages.set(chatId, newChatMessages)
+    this.setState({ messages, lastChangeType: "data" })
   }
 
   setConnectionStatus(connectionStatus: AppState["connectionStatus"], errorMessage?: string): void {

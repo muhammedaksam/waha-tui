@@ -45,7 +45,8 @@ import type { WahaTuiConfig } from "./config/schema"
 import { initDebug, debugLog } from "./utils/debug"
 import { calculateChatListScrollOffset } from "./utils/chatListScroll"
 import { filterChats, isArchived } from "./utils/filterChats"
-import { pollingService } from "./services/PollingService"
+
+import { webSocketService } from "./services/WebSocketService"
 import { ConfigView } from "./views/ConfigView"
 import type { CliRenderer } from "@opentui/core"
 import { setRenderer } from "./state/RendererContext"
@@ -211,6 +212,7 @@ async function main() {
 
   // Initialize WAHA client
   initializeClient(config)
+  webSocketService.initialize(config)
 
   // Fetch WAHA version and tier info
   try {
@@ -240,7 +242,7 @@ async function main() {
     appState.setCurrentSession(workingSession.name)
     appState.setCurrentView("chats")
     await loadChats()
-    pollingService.start(workingSession.name)
+    webSocketService.connect() // Connect also if already working
   } else {
     // No working session - show QR view for login
     debugLog("App", `No working session, showing QR login with session: ${DEFAULT_SESSION}`)
@@ -744,7 +746,7 @@ async function main() {
           appState.setCurrentView("chats")
           appState.setSelectedChatIndex(0) // Reset chat selection
           await loadChats()
-          pollingService.start(selectedSession.name)
+          webSocketService.connect() // Ensure connected
         }
       } else if (state.currentView === "chats" && state.chats.length > 0) {
         // Handle search input focus
