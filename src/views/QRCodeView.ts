@@ -10,8 +10,7 @@ import { WhatsAppTheme, Icons } from "../config/theme"
 import QRCode from "qrcode"
 import type { QRCode as QRCodeType } from "qrcode"
 import { Logo } from "../components/Logo"
-import { getClient } from "../client"
-import { loadChats } from "./ChatsView"
+import { getClient, loadChats } from "../client"
 import { debugLog } from "../utils/debug"
 
 // Module-level intervals for QR refresh and status checking
@@ -257,7 +256,7 @@ export async function showQRCode(name: string): Promise<void> {
           debugLog("QR", "Session became WORKING while waiting")
           appState.setCurrentSession(name)
           appState.setCurrentView("loading")
-          await loadChats(name)
+          await loadChats()
           appState.setCurrentView("chats")
           return false // Don't continue with QR flow
         } else if (session.status === "FAILED") {
@@ -314,7 +313,7 @@ export async function showQRCode(name: string): Promise<void> {
       debugLog("QR", "Session already WORKING, navigating to chats")
       appState.setCurrentSession(name)
       appState.setCurrentView("loading")
-      await loadChats(name)
+      await loadChats()
       appState.setCurrentView("chats")
       return
     }
@@ -373,7 +372,7 @@ export async function showQRCode(name: string): Promise<void> {
         appState.setCurrentView("loading")
 
         // Load chats in background
-        await loadChats(name)
+        await loadChats()
 
         // Navigate to chats after loading
         appState.setCurrentView("chats")

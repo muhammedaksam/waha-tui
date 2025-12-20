@@ -22,8 +22,9 @@ import {
 } from "../utils/formatters"
 import { debugLog } from "../utils/debug"
 import { appState } from "../state/AppState"
-import { loadMessages, loadContacts, destroyConversationScrollBox } from "./ConversationView"
+import { destroyConversationScrollBox } from "./ConversationView"
 import { ROW_HEIGHT } from "../utils/chatListScroll"
+import { loadContacts, loadMessages } from "../client"
 
 interface ChatRowData {
   box: BoxRenderable
@@ -242,8 +243,8 @@ class ChatListManager {
             appState.setSelectedChatIndex(chatIndex)
 
             // Load contacts and messages
-            loadContacts(currentState.currentSession)
-            loadMessages(currentState.currentSession, chatId)
+            loadContacts()
+            loadMessages(chatId)
           }
         }
       },

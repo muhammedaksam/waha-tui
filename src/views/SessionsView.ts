@@ -5,9 +5,7 @@
 
 import { Box, Text, TextAttributes } from "@opentui/core"
 import { appState } from "../state/AppState"
-import { getClient } from "../client"
 import { getConnectionStatusIcon } from "../utils/formatters"
-import { debugLog } from "../utils/debug"
 
 export function SessionsView() {
   const state = appState.getState()
@@ -65,77 +63,4 @@ export function SessionsView() {
       attributes: TextAttributes.DIM,
     })
   )
-}
-
-/**
- * Load sessions from WAHA API
- */
-export async function loadSessions(): Promise<void> {
-  try {
-    debugLog("Session", "Loading sessions from WAHA API")
-    appState.setConnectionStatus("connecting")
-    const client = getClient()
-    const { data: sessions } = await client.sessions.sessionsControllerList()
-    debugLog("Session", `Loaded ${sessions?.length ?? 0} sessions`)
-    appState.setSessions(sessions ?? [])
-    appState.setConnectionStatus("connected")
-  } catch (error) {
-    debugLog("Session", `Failed to load sessions: ${error}`)
-    appState.setConnectionStatus("error", `Failed to load sessions: ${error}`)
-    appState.setSessions([])
-  }
-}
-
-/**
- * Logout from the current session
- */
-export async function logoutSession(): Promise<void> {
-  const state = appState.getState()
-  const sessionName = state.currentSession
-
-  if (!sessionName) {
-    debugLog("Session", "No session to logout from")
-    return
-  }
-
-  try {
-    debugLog("Session", `Logging out from session: ${sessionName}`)
-    const client = getClient()
-    await client.sessions.sessionsControllerLogout(sessionName)
-    debugLog("Session", `Successfully logged out from: ${sessionName}`)
-
-    // Clear current session and reload list
-    appState.setCurrentSession(null)
-    appState.setCurrentView("sessions")
-    await loadSessions()
-  } catch (error) {
-    debugLog("Session", `Failed to logout: ${error}`)
-  }
-}
-
-/**
- * Delete the current session completely
- */
-export async function deleteSession(): Promise<void> {
-  const state = appState.getState()
-  const sessionName = state.currentSession
-
-  if (!sessionName) {
-    debugLog("Session", "No session to delete")
-    return
-  }
-
-  try {
-    debugLog("Session", `Deleting session: ${sessionName}`)
-    const client = getClient()
-    await client.sessions.sessionsControllerDelete(sessionName)
-    debugLog("Session", `Successfully deleted: ${sessionName}`)
-
-    // Clear current session and reload list
-    appState.setCurrentSession(null)
-    appState.setCurrentView("sessions")
-    await loadSessions()
-  } catch (error) {
-    debugLog("Session", `Failed to delete session: ${error}`)
-  }
 }

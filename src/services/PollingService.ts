@@ -4,10 +4,8 @@
  */
 
 import { appState } from "../state/AppState"
-import { getClient } from "../client"
-import { loadMessages } from "../views/ConversationView"
+import { loadMessages, pollChats, fetchMyProfile } from "../client"
 import { debugLog } from "../utils/debug"
-import type { ChatSummary } from "@muhammedaksam/waha-node"
 
 // Polling intervals in milliseconds
 const CHATS_POLL_INTERVAL = 3000 // 3 seconds for chat list
@@ -24,13 +22,13 @@ class PollingService {
     debugLog("Polling", `Starting polling service for session: ${sessionName}`)
 
     // Fetch current user's profile for self-chat detection
-    this.fetchMyProfile(sessionName)
+    fetchMyProfile()
 
     // Start chats polling
-    this.chatsTimer = setInterval(() => this.pollChats(sessionName), CHATS_POLL_INTERVAL)
+    this.chatsTimer = setInterval(() => this.doPollChats(), CHATS_POLL_INTERVAL)
 
     // Start messages polling (will only actually poll if a chat is selected)
-    this.messagesTimer = setInterval(() => this.pollMessages(sessionName), MESSAGES_POLL_INTERVAL)
+    this.messagesTimer = setInterval(() => this.pollMessages(), MESSAGES_POLL_INTERVAL)
   }
 
   public stop(): void {
@@ -45,30 +43,20 @@ class PollingService {
     debugLog("Polling", "Stopped polling service")
   }
 
-  private async pollChats(sessionName: string): Promise<void> {
+  private async doPollChats(): Promise<void> {
     if (this.isPollingChats) return
     this.isPollingChats = true
 
     try {
-      const client = getClient()
-      const response = await client.chats.chatsControllerGetChatsOverview(sessionName, {
-        limit: 1000,
-      })
-      const chats = (response.data as unknown as ChatSummary[]) || []
-
-      // Update state - Reactivity will handle UI updates if data changed
-      // Note: We might need to optimize this if it causes too many re-renders
-      // But ChatListManager has its own hash check to prevent unnecessary rebuilds
-      appState.setChats(chats)
+      await pollChats()
     } catch {
-      // Silent error for polling to avoid spamming logs
-      // debugLog("Polling", `Error polling chats: ${error}`)
+      // Silent error for polling
     } finally {
       this.isPollingChats = false
     }
   }
 
-  private async pollMessages(sessionName: string): Promise<void> {
+  private async pollMessages(): Promise<void> {
     if (this.isPollingMessages) return
 
     const state = appState.getState()
@@ -84,24 +72,11 @@ class PollingService {
     try {
       // We use loadMessages which already updates the state
       // It fetches the latest 50 messages, which should include any new ones
-      await loadMessages(sessionName, currentChatId)
+      await loadMessages(currentChatId)
     } catch {
       // Silent error
     } finally {
       this.isPollingMessages = false
-    }
-  }
-
-  private async fetchMyProfile(sessionName: string): Promise<void> {
-    try {
-      const client = getClient()
-      const response = await client.profile.profileControllerGetMyProfile(sessionName)
-      if (response.data) {
-        appState.setMyProfile(response.data)
-        debugLog("Polling", `Fetched my profile: ${response.data.name} (${response.data.id})`)
-      }
-    } catch {
-      debugLog("Polling", "Failed to fetch profile")
     }
   }
 }

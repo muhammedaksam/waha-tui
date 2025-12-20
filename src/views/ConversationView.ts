@@ -21,8 +21,8 @@ import { appState } from "../state/AppState"
 import { getRenderer } from "../state/RendererContext"
 import { WhatsAppTheme, Icons } from "../config/theme"
 import { debugLog } from "../utils/debug"
-import { getClient } from "../client"
-import type { WAMessage, GroupParticipant, WAHAChatPresences } from "@muhammedaksam/waha-node"
+import { sendMessage, loadChatDetails } from "../client"
+import type { WAMessage, GroupParticipant } from "@muhammedaksam/waha-node"
 import {
   formatAckStatus,
   formatLastSeen,
@@ -116,7 +116,7 @@ export function ConversationView() {
     } else {
       headerSubtitle = "tap for group info"
       // If no participants loaded yet, load them
-      loadChatDetails(state.currentSession, state.currentChatId)
+      loadChatDetails(state.currentChatId)
     }
   } else {
     // Direct chat: show presence
@@ -132,7 +132,7 @@ export function ConversationView() {
       // Trigger load if not present (could also poll)
       // loadChatDetails checks cache internally or we can throttle
       headerSubtitle = ""
-      loadChatDetails(state.currentSession, state.currentChatId)
+      loadChatDetails(state.currentChatId)
     }
   }
 
@@ -348,8 +348,8 @@ export function ConversationView() {
     messageInputComponent.onSubmit = async () => {
       if (messageInputComponent) {
         const text = messageInputComponent.plainText.trim()
-        if (text && state.currentSession && state.currentChatId) {
-          const success = await sendMessage(state.currentSession, state.currentChatId, text)
+        if (text && state.currentChatId) {
+          const success = await sendMessage(state.currentChatId, text)
           if (success) {
             messageInputComponent.setText("")
             appState.setMessageInput("")
@@ -446,36 +446,6 @@ export function destroyConversationScrollBox(): void {
 export function scrollConversation(delta: number): void {
   if (conversationScrollBox) {
     conversationScrollBox.scrollBy(delta)
-  }
-}
-
-// Load contacts for the session and cache them
-export async function loadContacts(sessionName: string): Promise<void> {
-  try {
-    // Only load once
-    const state = appState.getState()
-    if (state.contactsCache.size > 0) return
-
-    debugLog("Contacts", `Loading contacts for session: ${sessionName}`)
-    const client = getClient()
-    const response = await client.contacts.contactsControllerGetAll({
-      session: sessionName,
-      limit: 1000,
-    })
-
-    const contacts = (response.data as unknown as Array<{ id?: string; name?: string }>) || []
-    const contactsMap = new Map<string, string>()
-
-    for (const contact of contacts) {
-      if (contact.id && contact.name) {
-        contactsMap.set(contact.id, contact.name)
-      }
-    }
-
-    debugLog("Contacts", `Cached ${contactsMap.size} contacts`)
-    appState.setContactsCache(contactsMap)
-  } catch (error) {
-    debugLog("Contacts", `Failed to load contacts: ${error}`)
   }
 }
 
@@ -642,127 +612,6 @@ function renderMessage(
   return row
 }
 
-// Load messages from WAHA API
-export async function loadMessages(sessionName: string, chatId: string): Promise<void> {
-  try {
-    debugLog("Messages", `Loading messages for chat: ${chatId}`)
-    const client = getClient()
-    const response = await client.chats.chatsControllerGetChatMessages(sessionName, chatId, {
-      limit: 50,
-      downloadMedia: false,
-      sortBy: "messageTimestamp",
-      sortOrder: "desc",
-    })
-    const messages = (response.data as unknown as WAMessage[]) || []
-    debugLog("Messages", `Loaded ${messages.length} messages`)
-    appState.setMessages(chatId, messages)
-  } catch (error) {
-    debugLog("Messages", `Failed to load messages: ${error}`)
-    appState.setMessages(chatId, [])
-  }
-}
-
-// Load chat details (presence or participants)
-export async function loadChatDetails(sessionName: string, chatId: string): Promise<void> {
-  const isGroup = chatId.endsWith("@g.us")
-  const client = getClient()
-
-  try {
-    if (isGroup) {
-      // Load participants
-      debugLog("Conversation", `Loading participants for group: ${chatId}`)
-      const response = await client.groups.groupsControllerGetGroupParticipants(sessionName, chatId)
-      const participants = response.data as unknown as GroupParticipant[]
-      appState.setCurrentChatParticipants(participants)
-    } else {
-      // Load presence
-      debugLog("Conversation", `Loading presence for chat: ${chatId}`)
-      const response = await client.presence.presenceControllerGetPresence(sessionName, chatId)
-      const presence = response.data as unknown as WAHAChatPresences
-      appState.setCurrentChatPresence(presence)
-    }
-  } catch (error) {
-    debugLog("Conversation", `Failed to load chat details: ${error}`)
-  }
-}
-
-// Track if we're currently loading more messages
-let isLoadingMore = false
-
-// Load older messages (for infinite scroll)
-export async function loadOlderMessages(): Promise<void> {
-  const state = appState.getState()
-  if (!state.currentChatId || !state.currentSession || isLoadingMore) {
-    return
-  }
-
-  const currentMessages = state.messages.get(state.currentChatId) || []
-  if (currentMessages.length === 0) return
-
-  isLoadingMore = true
-  const offset = currentMessages.length
-  debugLog("Messages", `Loading older messages with offset ${offset}`)
-
-  try {
-    const client = getClient()
-    // Load more messages using offset for pagination
-    const response = await client.chats.chatsControllerGetChatMessages(
-      state.currentSession,
-      state.currentChatId,
-      {
-        limit: 50,
-        offset: offset,
-        downloadMedia: false,
-        sortBy: "messageTimestamp",
-        sortOrder: "desc",
-      }
-    )
-
-    const newMessages = (response.data as unknown as WAMessage[]) || []
-
-    if (newMessages.length > 0) {
-      debugLog("Messages", `Loaded ${newMessages.length} older messages`)
-      // Append older messages to existing ones (maintaining Descending order)
-      const combinedMessages = [...currentMessages, ...newMessages]
-      appState.setMessages(state.currentChatId, combinedMessages)
-    } else {
-      debugLog("Messages", "No more older messages available")
-    }
-  } catch (error) {
-    debugLog("Messages", `Failed to load older messages: ${error}`)
-  } finally {
-    isLoadingMore = false
-  }
-}
-
-// Send a message via WAHA API
-export async function sendMessage(
-  sessionName: string,
-  chatId: string,
-  text: string
-): Promise<boolean> {
-  try {
-    debugLog("Messages", `Sending message to ${chatId}: ${text}`)
-    appState.setIsSending(true)
-
-    const client = getClient()
-    await client.chatting.chattingControllerSendText({
-      session: sessionName,
-      chatId,
-      text,
-    })
-
-    debugLog("Messages", "Message sent successfully")
-    // Reload messages to get the sent message with proper metadata
-    await loadMessages(sessionName, chatId)
-    appState.setIsSending(false)
-    return true
-  } catch (error) {
-    debugLog("Messages", `Failed to send message: ${error}`)
-    appState.setIsSending(false)
-    return false
-  }
-}
 // Helper to format date for separator
 function formatDateSeparator(timestamp: number): string {
   const date = new Date(timestamp * 1000)

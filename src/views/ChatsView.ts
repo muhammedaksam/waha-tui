@@ -9,13 +9,11 @@ import { appState } from "../state/AppState"
 import { getRenderer } from "../state/RendererContext"
 import { WhatsAppTheme, Icons } from "../config/theme"
 import { debugLog } from "../utils/debug"
-import { getClient } from "../client"
 import type { ActiveFilter } from "../state/AppState"
 import type { ChatSummary } from "@muhammedaksam/waha-node"
 import { chatListManager } from "./ChatListManager"
 import { Logo } from "../components/Logo"
 import { filterChats, countUnreadInArchived, isArchived } from "../utils/filterChats"
-import { loadAllContacts } from "../utils/contacts"
 import {
   searchChatsWithSections,
   flattenSearchResults,
@@ -417,23 +415,4 @@ export function ChatsView() {
     },
     ...components
   )
-}
-
-// Load chats from WAHA API
-export async function loadChats(sessionName: string): Promise<void> {
-  try {
-    debugLog("Chats", `Loading chats for session: ${sessionName}`)
-    const client = getClient()
-    const response = await client.chats.chatsControllerGetChats(sessionName, {})
-    const chats = (response.data as unknown as ChatSummary[]) || []
-    debugLog("Chats", `Loaded ${chats.length} chats`)
-    appState.setChats(chats)
-
-    // Also load all contacts for comprehensive search
-    const allContacts = await loadAllContacts(sessionName)
-    appState.setAllContacts(allContacts)
-  } catch (error) {
-    debugLog("Chats", `Failed to load chats: ${error}`)
-    appState.setChats([])
-  }
 }

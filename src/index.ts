@@ -17,19 +17,23 @@ import {
   pinMessage,
   deleteMessage,
   reactToMessage,
+  copyToClipboard,
+  loadMessages,
+  loadChats,
+  loadSessions,
+  logoutSession,
+  deleteSession,
+  loadContacts,
+  loadOlderMessages,
 } from "./client"
 import { appState } from "./state/AppState"
 import { Footer } from "./components/Footer"
 import { ContextMenu, handleContextMenuKey, getSelectedMenuItem } from "./components/ContextMenu"
-import { deleteSession, logoutSession, SessionsView } from "./views/SessionsView"
-import { loadSessions } from "./views/SessionsView"
-import { loadChats, focusSearchInput, blurSearchInput, clearSearchInput } from "./views/ChatsView"
+import { SessionsView } from "./views/SessionsView"
+import { focusSearchInput, blurSearchInput, clearSearchInput } from "./views/ChatsView"
 import {
-  loadMessages,
-  loadContacts,
   scrollConversation,
   destroyConversationScrollBox,
-  loadOlderMessages,
   focusMessageInput,
   blurMessageInput,
 } from "./views/ConversationView"
@@ -234,7 +238,7 @@ async function main() {
     debugLog("App", `Found working session: ${workingSession.name}, switching to chats view`)
     appState.setCurrentSession(workingSession.name)
     appState.setCurrentView("chats")
-    await loadChats(workingSession.name)
+    await loadChats()
     pollingService.start(workingSession.name)
   } else {
     // No working session - show QR view for login
@@ -337,9 +341,7 @@ async function main() {
 
     // Execute context menu action
     const executeContextMenuAction = async (actionId: string, contextMenu: ContextMenuState) => {
-      if (!state.currentSession || !contextMenu?.targetId) return
-
-      const session = state.currentSession
+      if (!contextMenu?.targetId) return
       const targetId = contextMenu.targetId
 
       debugLog("ContextMenu", `Executing action: ${actionId} on ${contextMenu.type} ${targetId}`)
@@ -352,21 +354,21 @@ async function main() {
               const chat = contextMenu.targetData as { _chat?: { archived?: boolean } }
               const isArchivedChat = chat?._chat?.archived === true
               if (isArchivedChat) {
-                await unarchiveChat(session, targetId)
+                await unarchiveChat(targetId)
               } else {
-                await archiveChat(session, targetId)
+                await archiveChat(targetId)
               }
               // Refresh chat list
-              await loadChats(session)
+              await loadChats()
               break
             }
             case "unread":
-              await markChatUnread(session, targetId)
-              await loadChats(session)
+              await markChatUnread(targetId)
+              await loadChats()
               break
             case "delete":
-              await deleteChat(session, targetId)
-              await loadChats(session)
+              await deleteChat(targetId)
+              await loadChats()
               break
           }
         } else if (contextMenu.type === "message") {
@@ -384,12 +386,11 @@ async function main() {
               break
             }
             case "copy": {
-              // Copy message text to clipboard
+              // Copy message text to system clipboard
               const message = contextMenu.targetData as { body?: string }
               if (message?.body) {
-                // For terminal apps, we can't easily access clipboard
-                // But we can log it or implement native clipboard later
-                debugLog("ContextMenu", `Copy text: ${message.body}`)
+                const copied = await copyToClipboard(message.body)
+                debugLog("ContextMenu", copied ? `Copied to clipboard` : `Clipboard copy failed`)
               }
               break
             }
@@ -397,30 +398,39 @@ async function main() {
               const message = contextMenu.targetData as { isStarred?: boolean }
               const isStarred = message?.isStarred === true
               if (state.currentChatId) {
-                await starMessage(session, targetId, state.currentChatId, !isStarred)
+                await starMessage(targetId, state.currentChatId, !isStarred)
                 // Refresh messages
-                await loadMessages(session, state.currentChatId)
+                await loadMessages(state.currentChatId)
               }
               break
             }
             case "pin": {
               if (state.currentChatId) {
-                await pinMessage(session, state.currentChatId, targetId)
-                await loadMessages(session, state.currentChatId)
+                await pinMessage(state.currentChatId, targetId)
+                await loadMessages(state.currentChatId)
               }
               break
             }
             case "react": {
               // For now, add a thumbs up reaction
               // Could show a sub-menu for emoji selection later
-              await reactToMessage(session, targetId, "👍")
+              await reactToMessage(targetId, "👍")
               break
             }
             case "delete": {
               if (state.currentChatId) {
-                await deleteMessage(session, state.currentChatId, targetId)
-                await loadMessages(session, state.currentChatId)
+                await deleteMessage(state.currentChatId, targetId)
+                await loadMessages(state.currentChatId)
               }
+              break
+            }
+            case "forward": {
+              // TODO: Implement chat picker UI for selecting destination
+              // For now, just log that forward was requested
+              debugLog(
+                "ContextMenu",
+                `Forward requested for message: ${targetId} - need chat picker UI`
+              )
               break
             }
           }
@@ -459,7 +469,7 @@ async function main() {
       if (state.currentView === "sessions") {
         await loadSessions()
       } else if (state.currentView === "chats" && state.currentSession) {
-        await loadChats(state.currentSession)
+        await loadChats()
       }
     }
 
@@ -623,7 +633,7 @@ async function main() {
           appState.setCurrentSession(selectedSession.name)
           appState.setCurrentView("chats")
           appState.setSelectedChatIndex(0) // Reset chat selection
-          await loadChats(selectedSession.name)
+          await loadChats()
           pollingService.start(selectedSession.name)
         }
       } else if (state.currentView === "chats" && state.chats.length > 0) {
@@ -648,8 +658,8 @@ async function main() {
           // Destroy old scroll box before loading new messages
           destroyConversationScrollBox()
           // Load contacts in background to populate cache
-          loadContacts(state.currentSession)
-          await loadMessages(state.currentSession, chatId)
+          loadContacts()
+          await loadMessages(chatId)
         }
       }
     }
@@ -822,7 +832,7 @@ async function main() {
       if (state.currentSession) {
         appState.setCurrentView("chats")
         appState.setSelectedChatIndex(0)
-        await loadChats(state.currentSession)
+        await loadChats()
       }
     }
   })

@@ -3,10 +3,17 @@
  * Singleton client for interacting with WAHA API
  */
 
-import { WahaClient } from "@muhammedaksam/waha-node"
+import { WahaClient, WAMessage } from "@muhammedaksam/waha-node"
+import type {
+  ChatSummary,
+  SessionInfo,
+  WAHAChatPresences,
+  GroupParticipant,
+} from "@muhammedaksam/waha-node"
 import type { WahaTuiConfig } from "./config/schema"
 import { debugLog, debugRequest, debugResponse, DEBUG_ENABLED } from "./utils/debug"
 import type { InternalAxiosRequestConfig, AxiosResponse, AxiosError } from "axios"
+import { appState } from "./state/AppState"
 
 let client: WahaClient | null = null
 
@@ -63,11 +70,27 @@ export function initializeClient(config: WahaTuiConfig): WahaClient {
   return client
 }
 
+/**
+ * Get the initialized WAHA client
+ * Throws error if client is not initialized
+ */
 export function getClient(): WahaClient {
   if (!client) {
     throw new Error("WAHA client not initialized. Call initializeClient() first.")
   }
   return client
+}
+
+/**
+ * Get current session from appState
+ * Throws error if no session is active
+ */
+function getSession(): string {
+  const session = appState.getState().currentSession
+  if (!session) {
+    throw new Error("No active session. Please select a session first.")
+  }
+  return session
 }
 
 export async function testConnection(config: WahaTuiConfig): Promise<boolean> {
@@ -88,8 +111,9 @@ export async function testConnection(config: WahaTuiConfig): Promise<boolean> {
 // Chat Actions
 // ============================================
 
-export async function archiveChat(session: string, chatId: string): Promise<boolean> {
+export async function archiveChat(chatId: string): Promise<boolean> {
   try {
+    const session = getSession()
     debugLog("Client", `Archiving chat: ${chatId}`)
     const wahaClient = getClient()
     await wahaClient.chats.chatsControllerArchiveChat(session, chatId)
@@ -101,8 +125,9 @@ export async function archiveChat(session: string, chatId: string): Promise<bool
   }
 }
 
-export async function unarchiveChat(session: string, chatId: string): Promise<boolean> {
+export async function unarchiveChat(chatId: string): Promise<boolean> {
   try {
+    const session = getSession()
     debugLog("Client", `Unarchiving chat: ${chatId}`)
     const wahaClient = getClient()
     await wahaClient.chats.chatsControllerUnarchiveChat(session, chatId)
@@ -114,8 +139,9 @@ export async function unarchiveChat(session: string, chatId: string): Promise<bo
   }
 }
 
-export async function markChatUnread(session: string, chatId: string): Promise<boolean> {
+export async function markChatUnread(chatId: string): Promise<boolean> {
   try {
+    const session = getSession()
     debugLog("Client", `Marking chat as unread: ${chatId}`)
     const wahaClient = getClient()
     await wahaClient.chats.chatsControllerUnreadChat(session, chatId)
@@ -127,8 +153,9 @@ export async function markChatUnread(session: string, chatId: string): Promise<b
   }
 }
 
-export async function deleteChat(session: string, chatId: string): Promise<boolean> {
+export async function deleteChat(chatId: string): Promise<boolean> {
   try {
+    const session = getSession()
     debugLog("Client", `Deleting chat: ${chatId}`)
     const wahaClient = getClient()
     await wahaClient.chats.chatsControllerDeleteChat(session, chatId)
@@ -145,12 +172,12 @@ export async function deleteChat(session: string, chatId: string): Promise<boole
 // ============================================
 
 export async function starMessage(
-  session: string,
   messageId: string,
   chatId: string,
   star: boolean
 ): Promise<boolean> {
   try {
+    const session = getSession()
     debugLog("Client", `${star ? "Starring" : "Unstarring"} message: ${messageId}`)
     const wahaClient = getClient()
     await wahaClient.chatting.chattingControllerSetStar({
@@ -168,12 +195,12 @@ export async function starMessage(
 }
 
 export async function pinMessage(
-  session: string,
   chatId: string,
   messageId: string,
   duration: number = 604800 // 7 days in seconds (default)
 ): Promise<boolean> {
   try {
+    const session = getSession()
     debugLog("Client", `Pinning message: ${messageId}`)
     const wahaClient = getClient()
     await wahaClient.chats.chatsControllerPinMessage(session, chatId, messageId, {
@@ -187,12 +214,9 @@ export async function pinMessage(
   }
 }
 
-export async function unpinMessage(
-  session: string,
-  chatId: string,
-  messageId: string
-): Promise<boolean> {
+export async function unpinMessage(chatId: string, messageId: string): Promise<boolean> {
   try {
+    const session = getSession()
     debugLog("Client", `Unpinning message: ${messageId}`)
     const wahaClient = getClient()
     await wahaClient.chats.chatsControllerUnpinMessage(session, chatId, messageId)
@@ -204,12 +228,9 @@ export async function unpinMessage(
   }
 }
 
-export async function deleteMessage(
-  session: string,
-  chatId: string,
-  messageId: string
-): Promise<boolean> {
+export async function deleteMessage(chatId: string, messageId: string): Promise<boolean> {
   try {
+    const session = getSession()
     debugLog("Client", `Deleting message: ${messageId}`)
     const wahaClient = getClient()
     await wahaClient.chats.chatsControllerDeleteMessage(session, chatId, messageId)
@@ -222,12 +243,12 @@ export async function deleteMessage(
 }
 
 export async function forwardMessage(
-  session: string,
   chatId: string,
   messageId: string,
   toChatId: string
 ): Promise<boolean> {
   try {
+    const session = getSession()
     debugLog("Client", `Forwarding message ${messageId} to ${toChatId}`)
     const wahaClient = getClient()
     await wahaClient.chatting.chattingControllerForwardMessage({
@@ -243,12 +264,9 @@ export async function forwardMessage(
   }
 }
 
-export async function reactToMessage(
-  session: string,
-  messageId: string,
-  reaction: string
-): Promise<boolean> {
+export async function reactToMessage(messageId: string, reaction: string): Promise<boolean> {
   try {
+    const session = getSession()
     debugLog("Client", `Reacting to message ${messageId} with ${reaction}`)
     const wahaClient = getClient()
     await wahaClient.chatting.chattingControllerSetReaction({
@@ -261,5 +279,384 @@ export async function reactToMessage(
   } catch (error) {
     debugLog("Client", `Failed to react to message: ${error}`)
     return false
+  }
+}
+
+export async function loadMessages(chatId: string): Promise<void> {
+  try {
+    debugLog("Messages", `Loading messages for chat: ${chatId}`)
+    const wahaClient = getClient()
+    const session = getSession()
+    const response = await wahaClient.chats.chatsControllerGetChatMessages(session, chatId, {
+      limit: 50,
+      downloadMedia: false,
+      sortBy: "messageTimestamp",
+      sortOrder: "desc",
+    })
+    const messages = (response.data as unknown as WAMessage[]) || []
+    debugLog("Messages", `Loaded ${messages.length} messages`)
+    appState.setMessages(chatId, messages)
+  } catch (error) {
+    debugLog("Messages", `Failed to load messages: ${error}`)
+    appState.setMessages(chatId, [])
+  }
+}
+
+// ============================================
+// Utility Functions
+// ============================================
+
+/**
+ * Copy text to system clipboard using platform-specific command
+ * Returns true if successful, false otherwise
+ */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    const { spawn } = await import("child_process")
+    const platform = process.platform
+
+    let clipboardCommand: string
+    let args: string[]
+
+    if (platform === "darwin") {
+      // macOS
+      clipboardCommand = "pbcopy"
+      args = []
+    } else if (platform === "linux") {
+      // Linux - try xclip first, then xsel
+      clipboardCommand = "xclip"
+      args = ["-selection", "clipboard"]
+    } else if (platform === "win32") {
+      // Windows
+      clipboardCommand = "clip"
+      args = []
+    } else {
+      debugLog("Client", `Clipboard not supported on platform: ${platform}`)
+      return false
+    }
+
+    return new Promise((resolve) => {
+      const proc = spawn(clipboardCommand, args, { stdio: ["pipe", "ignore", "ignore"] })
+
+      proc.stdin?.write(text)
+      proc.stdin?.end()
+
+      proc.on("close", (code) => {
+        if (code === 0) {
+          debugLog("Client", `Copied to clipboard: ${text.substring(0, 50)}...`)
+          resolve(true)
+        } else {
+          debugLog("Client", `Clipboard command failed with code: ${code}`)
+          resolve(false)
+        }
+      })
+      proc.on("error", (err) => {
+        debugLog("Client", `Clipboard error: ${err.message}`)
+        resolve(false)
+      })
+    })
+  } catch (error) {
+    debugLog("Client", `Failed to copy to clipboard: ${error}`)
+    return false
+  }
+}
+
+// ============================================
+// Session Management
+// ============================================
+
+export async function loadSessions(): Promise<void> {
+  try {
+    debugLog("Session", "Loading sessions from WAHA API")
+    appState.setConnectionStatus("connecting")
+    const wahaClient = getClient()
+    const { data: sessions } = await wahaClient.sessions.sessionsControllerList()
+    debugLog("Session", `Loaded ${sessions?.length ?? 0} sessions`)
+    appState.setSessions((sessions as SessionInfo[]) ?? [])
+    appState.setConnectionStatus("connected")
+  } catch (error) {
+    debugLog("Session", `Failed to load sessions: ${error}`)
+    appState.setConnectionStatus("error", `Failed to load sessions: ${error}`)
+    appState.setSessions([])
+  }
+}
+
+export async function logoutSession(): Promise<void> {
+  const state = appState.getState()
+  const sessionName = state.currentSession
+
+  if (!sessionName) {
+    debugLog("Session", "No session to logout from")
+    return
+  }
+
+  try {
+    debugLog("Session", `Logging out from session: ${sessionName}`)
+    const wahaClient = getClient()
+    await wahaClient.sessions.sessionsControllerLogout(sessionName)
+    debugLog("Session", `Successfully logged out from: ${sessionName}`)
+
+    appState.setCurrentSession(null)
+    appState.setCurrentView("sessions")
+    await loadSessions()
+  } catch (error) {
+    debugLog("Session", `Failed to logout: ${error}`)
+  }
+}
+
+export async function deleteSession(): Promise<void> {
+  const state = appState.getState()
+  const sessionName = state.currentSession
+
+  if (!sessionName) {
+    debugLog("Session", "No session to delete")
+    return
+  }
+
+  try {
+    debugLog("Session", `Deleting session: ${sessionName}`)
+    const wahaClient = getClient()
+    await wahaClient.sessions.sessionsControllerDelete(sessionName)
+    debugLog("Session", `Successfully deleted: ${sessionName}`)
+
+    appState.setCurrentSession(null)
+    appState.setCurrentView("sessions")
+    await loadSessions()
+  } catch (error) {
+    debugLog("Session", `Failed to delete session: ${error}`)
+  }
+}
+
+/**
+ * Load all contacts from WAHA API
+ * This populates a full contact list for search (not just contacts with chats)
+ */
+export async function loadAllContacts(): Promise<Map<string, string>> {
+  const session = getSession()
+
+  debugLog("Contacts", `Loading all contacts for session: ${session}`)
+
+  try {
+    const client = getClient()
+    // The API returns an array of contact objects
+    const response = await client.contacts.contactsControllerGetAll({
+      session,
+      limit: 10000, // Get all contacts
+      sortBy: "name",
+    })
+
+    // The actual API response format is different than the Contact interface
+    // It returns objects with { id, name, pushname, ... }
+    const contacts = response.data as unknown as Array<{
+      id: string
+      name?: string
+      pushname?: string
+      shortName?: string
+    }>
+
+    const contactMap = new Map<string, string>()
+
+    for (const contact of contacts) {
+      // Use name, fallback to pushname, then shortName
+      const contactName = contact.name || contact.pushname || contact.shortName
+
+      if (contact.id && contactName) {
+        contactMap.set(contact.id, contactName)
+      }
+    }
+
+    debugLog("Contacts", `Loaded ${contactMap.size} contacts`)
+    return contactMap
+  } catch (error) {
+    debugLog("Contacts", `Error loading contacts: ${error}`)
+    // Return empty map on error
+    return new Map()
+  }
+}
+
+// ============================================
+// Chats
+// ============================================
+
+export async function loadChats(): Promise<void> {
+  try {
+    const session = getSession()
+    debugLog("Chats", `Loading chats for session: ${session}`)
+    const wahaClient = getClient()
+    const response = await wahaClient.chats.chatsControllerGetChats(session, {})
+    const chats = (response.data as unknown as ChatSummary[]) || []
+    debugLog("Chats", `Loaded ${chats.length} chats`)
+    appState.setChats(chats)
+
+    // Also load all contacts for comprehensive search
+    const allContacts = await loadAllContacts()
+    appState.setAllContacts(allContacts)
+  } catch (error) {
+    debugLog("Chats", `Failed to load chats: ${error}`)
+    appState.setChats([])
+  }
+}
+
+export async function pollChats(): Promise<void> {
+  try {
+    const session = getSession()
+    const wahaClient = getClient()
+    const response = await wahaClient.chats.chatsControllerGetChatsOverview(session, {
+      limit: 1000,
+    })
+    const chats = (response.data as unknown as ChatSummary[]) || []
+    appState.setChats(chats)
+  } catch {
+    // Silent error for polling
+  }
+}
+
+// ============================================
+// Contacts
+// ============================================
+
+export async function loadContacts(): Promise<void> {
+  try {
+    const state = appState.getState()
+    if (state.contactsCache.size > 0) return
+
+    const session = getSession()
+    debugLog("Contacts", `Loading contacts for session: ${session}`)
+    const wahaClient = getClient()
+    const response = await wahaClient.contacts.contactsControllerGetAll({
+      session,
+      limit: 1000,
+    })
+
+    const contacts = (response.data as unknown as Array<{ id?: string; name?: string }>) || []
+    const contactsMap = new Map<string, string>()
+
+    for (const contact of contacts) {
+      if (contact.id && contact.name) {
+        contactsMap.set(contact.id, contact.name)
+      }
+    }
+
+    debugLog("Contacts", `Cached ${contactsMap.size} contacts`)
+    appState.setContactsCache(contactsMap)
+  } catch (error) {
+    debugLog("Contacts", `Failed to load contacts: ${error}`)
+  }
+}
+
+// ============================================
+// Chat Details (Presence/Participants)
+// ============================================
+
+export async function loadChatDetails(chatId: string): Promise<void> {
+  const isGroup = chatId.endsWith("@g.us")
+  const session = getSession()
+  const wahaClient = getClient()
+
+  try {
+    if (isGroup) {
+      debugLog("Conversation", `Loading participants for group: ${chatId}`)
+      const response = await wahaClient.groups.groupsControllerGetGroupParticipants(session, chatId)
+      const participants = response.data as unknown as GroupParticipant[]
+      appState.setCurrentChatParticipants(participants)
+    } else {
+      debugLog("Conversation", `Loading presence for chat: ${chatId}`)
+      const response = await wahaClient.presence.presenceControllerGetPresence(session, chatId)
+      const presence = response.data as unknown as WAHAChatPresences
+      appState.setCurrentChatPresence(presence)
+    }
+  } catch (error) {
+    debugLog("Conversation", `Failed to load chat details: ${error}`)
+  }
+}
+
+// ============================================
+// Message Operations
+// ============================================
+
+let isLoadingMore = false
+
+export async function loadOlderMessages(): Promise<void> {
+  const state = appState.getState()
+  if (!state.currentChatId || !state.currentSession || isLoadingMore) {
+    return
+  }
+
+  const currentMessages = state.messages.get(state.currentChatId) || []
+  if (currentMessages.length === 0) return
+
+  isLoadingMore = true
+  const offset = currentMessages.length
+  debugLog("Messages", `Loading older messages with offset ${offset}`)
+
+  try {
+    const wahaClient = getClient()
+    const response = await wahaClient.chats.chatsControllerGetChatMessages(
+      state.currentSession,
+      state.currentChatId,
+      {
+        limit: 50,
+        offset: offset,
+        downloadMedia: false,
+        sortBy: "messageTimestamp",
+        sortOrder: "desc",
+      }
+    )
+
+    const newMessages = (response.data as unknown as WAMessage[]) || []
+
+    if (newMessages.length > 0) {
+      debugLog("Messages", `Loaded ${newMessages.length} older messages`)
+      const combinedMessages = [...currentMessages, ...newMessages]
+      appState.setMessages(state.currentChatId, combinedMessages)
+    } else {
+      debugLog("Messages", "No more older messages available")
+    }
+  } catch (error) {
+    debugLog("Messages", `Failed to load older messages: ${error}`)
+  } finally {
+    isLoadingMore = false
+  }
+}
+
+export async function sendMessage(chatId: string, text: string): Promise<boolean> {
+  try {
+    const session = getSession()
+    debugLog("Messages", `Sending message to ${chatId}: ${text}`)
+    appState.setIsSending(true)
+
+    const wahaClient = getClient()
+    await wahaClient.chatting.chattingControllerSendText({
+      session,
+      chatId,
+      text,
+    })
+
+    debugLog("Messages", "Message sent successfully")
+    await loadMessages(chatId)
+    appState.setIsSending(false)
+    return true
+  } catch (error) {
+    debugLog("Messages", `Failed to send message: ${error}`)
+    appState.setIsSending(false)
+    return false
+  }
+}
+
+// ============================================
+// Profile
+// ============================================
+
+export async function fetchMyProfile(): Promise<void> {
+  try {
+    const session = getSession()
+    const wahaClient = getClient()
+    const response = await wahaClient.profile.profileControllerGetMyProfile(session)
+    if (response.data) {
+      appState.setMyProfile(response.data)
+      debugLog("Polling", `Fetched my profile: ${response.data.name} (${response.data.id})`)
+    }
+  } catch {
+    debugLog("Polling", "Failed to fetch profile")
   }
 }
