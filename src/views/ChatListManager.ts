@@ -12,7 +12,7 @@ import {
 } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import type { ChatSummary } from "@muhammedaksam/waha-node"
-import { WhatsAppTheme } from "../config/theme"
+import { WhatsAppTheme, Icons } from "../config/theme"
 import {
   truncate,
   extractMessagePreview,
@@ -25,6 +25,7 @@ import { appState } from "../state/AppState"
 import { destroyConversationScrollBox } from "./ConversationView"
 import { ROW_HEIGHT } from "../utils/chatListScroll"
 import { loadContacts, loadMessages, startPresenceManagement } from "../client"
+import { isPinned } from "../utils/filterChats"
 
 interface ChatRowData {
   box: BoxRenderable
@@ -296,23 +297,40 @@ class ChatListManager {
     })
     nameRow.add(nameText)
 
-    const timeText = new TextRenderable(renderer, {
-      content: preview.timestamp,
-      fg: WhatsAppTheme.textTertiary,
-    })
-    nameRow.add(timeText)
-    chatInfo.add(nameRow)
-
-    // Last message row
-    const messageRow = new BoxRenderable(renderer, {
-      id: `message-row-${index}`,
+    // Time and pin indicator container
+    const timeContainer = new BoxRenderable(renderer, {
+      id: `time-container-${index}`,
       flexDirection: "row",
       gap: 1,
     })
 
+    const timeText = new TextRenderable(renderer, {
+      content: preview.timestamp,
+      fg: WhatsAppTheme.textTertiary,
+    })
+    timeContainer.add(timeText)
+
+    nameRow.add(timeContainer)
+    chatInfo.add(nameRow)
+
+    // Last message row - use space-between to push pin to right
+    const messageRow = new BoxRenderable(renderer, {
+      id: `message-row-${index}`,
+      flexDirection: "row",
+      justifyContent: "space-between",
+    })
+
+    // Left group: ack status + message text
+    const messageLeftGroup = new BoxRenderable(renderer, {
+      id: `message-left-${index}`,
+      flexDirection: "row",
+      gap: 1,
+      flexGrow: 1,
+    })
+
     // Add Ack Status if message is from me
     if (preview.isFromMe) {
-      messageRow.add(
+      messageLeftGroup.add(
         new TextRenderable(renderer, {
           content: t`${formatAckStatus(preview.ack, { side: "right", disableSpace: true })}`,
         })
@@ -327,7 +345,30 @@ class ChatListManager {
       fg: isTyping ? WhatsAppTheme.green : WhatsAppTheme.textSecondary,
     })
 
-    messageRow.add(messageText)
+    messageLeftGroup.add(messageText)
+    messageRow.add(messageLeftGroup)
+
+    // Add pin icon on the right if chat is pinned
+    if (isPinned(chat)) {
+      messageRow.add(
+        new TextRenderable(renderer, {
+          content: Icons.pin,
+          fg: WhatsAppTheme.textTertiary,
+        })
+      )
+    }
+
+    // Add muted icon if chat is muted (check both top-level and _chat properties)
+    const chatData = chat as ChatSummary & { isMuted?: boolean; _chat?: { isMuted?: boolean } }
+    const isMuted = chatData.isMuted || chatData._chat?.isMuted
+    if (isMuted) {
+      messageRow.add(
+        new TextRenderable(renderer, {
+          content: Icons.muted,
+          fg: WhatsAppTheme.textTertiary,
+        })
+      )
+    }
 
     chatInfo.add(messageRow)
 

@@ -322,7 +322,15 @@ export function isGroupChat(chatId: string): boolean {
 
 /**
  * Check if a chat ID is the user's own self-chat (Saved Messages)
+ * Normalizes IDs by stripping @c.us and @lid suffixes for proper comparison
+ * Note: WhatsApp uses different ID formats:
+ *   - @c.us: Standard chat suffix
+ *   - @lid: Linked Identity suffix (used in self-chats and some internal references)
  */
 export function isSelfChat(chatId: string, myProfileId: string | null): boolean {
-  return myProfileId ? chatId === myProfileId : false
+  if (!myProfileId) return false
+  // Normalize both IDs by stripping @c.us and @lid suffixes
+  const normalizedChatId = chatId.replace(/@(c\.us|lid)$/, "")
+  const normalizedProfileId = myProfileId.replace(/@(c\.us|lid)$/, "")
+  return normalizedChatId === normalizedProfileId
 }

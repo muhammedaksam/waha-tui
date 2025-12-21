@@ -273,6 +273,10 @@ export const Icons = {
   circled2: "②",
   circled3: "③",
   circled4: "④",
+
+  // Chat list indicators
+  muted: "🔕",
+  chevronDown: "˅",
 } as const
 
 export const BoxChars = {

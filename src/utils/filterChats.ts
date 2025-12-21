@@ -5,6 +5,7 @@
 
 import type { ChatSummary } from "@muhammedaksam/waha-node"
 import type { ActiveFilter } from "../state/AppState"
+import { debugLog } from "./debug"
 
 interface ExtendedChat {
   archived?: boolean
@@ -19,17 +20,26 @@ interface ExtendedChat {
  */
 function getChatProperties(chat: ChatSummary): ExtendedChat {
   // Check top-level properties first (populated by modified waha backend)
-  const c = chat as ChatSummary & { archived?: boolean; pinned?: boolean; unreadCount?: number }
+  const c = chat as ChatSummary & {
+    archived?: boolean
+    pinned?: boolean
+    unreadCount?: number
+    star?: boolean
+  }
+  if (c.pinned) {
+    debugLog("getChatProperties", `chat: ${JSON.stringify(chat, null, 2)}`)
+  }
   if (c.archived !== undefined) {
     return {
       archived: c.archived,
       pinned: c.pinned,
       unreadCount: c.unreadCount,
-      star: undefined, // Not yet in top-level
+      star: c.star,
     }
   }
 
   const rawChat = chat._chat as Record<string, unknown> | undefined
+  debugLog("getChatProperties", `rawChat: ${JSON.stringify(rawChat, null, 2)}`)
   if (!rawChat) return {}
 
   return {
@@ -67,11 +77,19 @@ export function hasUnreadMessages(chat: ChatSummary): boolean {
 }
 
 /**
- * Check if a chat is pinned/favorited
+ * Check if a chat is pinned (at top of list)
+ */
+export function isPinned(chat: ChatSummary): boolean {
+  const props = getChatProperties(chat)
+  return props.pinned === true
+}
+
+/**
+ * Check if a chat is favorited (same as pinned for chats)
+ * Note: star is a message-level property, not chat-level
  */
 export function isFavorite(chat: ChatSummary): boolean {
   const props = getChatProperties(chat)
-  // Use pinned as the primary indicator for favorites
   return props.pinned === true
 }
 
