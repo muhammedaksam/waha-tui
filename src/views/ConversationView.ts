@@ -299,6 +299,8 @@ export function ConversationView() {
   } else {
     let lastDateLabel = ""
     let lastSenderId = ""
+    let lastTimestamp = 0
+    let lastFromMe: boolean | null = null
 
     for (const message of reversedMessages) {
       // Date Separator
@@ -308,11 +310,24 @@ export function ConversationView() {
         lastDateLabel = dateLabel
         // Reset sender grouping on new day
         lastSenderId = ""
+        lastTimestamp = 0
+        lastFromMe = null
       }
 
       // Determine if this is the start of a new sequence of messages from the same user
+      // Show tail if sender changed OR if more than 1.5 hours gap between messages
+      // For fromMe messages, use fromMe flag directly to avoid ID comparison issues
       const { senderId } = getSenderInfo(message, isGroup, participantIds, state.currentChatId)
-      const isSequenceStart = senderId !== lastSenderId
+      const timeGap = message.timestamp - lastTimestamp
+
+      // Compare using fromMe flag for reliability (avoids myProfile.id being undefined)
+      // For group chats, also compare participant IDs
+      const currentFromMe = message.fromMe === true
+      const senderChanged = isGroup
+        ? senderId !== lastSenderId // In groups, compare actual participant IDs
+        : currentFromMe !== lastFromMe // In 1:1 chats, just compare fromMe flags
+
+      const isSequenceStart = senderChanged || (lastTimestamp > 0 && timeGap > 60 * 60 * 1.5)
 
       conversationScrollBox.add(
         renderMessage(
@@ -325,8 +340,10 @@ export function ConversationView() {
         )
       )
 
-      // Update last sender
+      // Update last sender, timestamp, and fromMe flag
       lastSenderId = senderId
+      lastTimestamp = message.timestamp
+      lastFromMe = currentFromMe
     }
 
     // Add a spacer at the bottom to prevent messages from being "crushed" by the input bar
@@ -364,7 +381,7 @@ export function ConversationView() {
   inputContainer.title = state.inputMode ? "Type a message (Enter to send)" : "Press 'i' to type"
   inputContainer.borderColor = state.inputMode ? WhatsAppTheme.green : WhatsAppTheme.borderLight
   // Remove margin when reply preview is shown (it connects to reply bar)
-  inputContainer.marginTop = state.replyingToMessage ? 0 : 1
+  // inputContainer.marginTop = state.replyingToMessage ? 0 : 0
 
   // Initialize input component
   if (!messageInputComponent) {
@@ -578,7 +595,6 @@ export function ConversationView() {
       flexDirection: "row",
       backgroundColor: WhatsAppTheme.panelDark,
       alignItems: "center",
-      marginTop: 1,
       paddingLeft: 1,
     })
 
@@ -1065,12 +1081,11 @@ function renderMessage(
   const bubble = new BoxRenderable(renderer, {
     id: `msg-${msgId}-bubble`,
     maxWidth: "65%",
-    minWidth: "15%",
-    paddingLeft: 1,
-    paddingRight: 1,
+    // minWidth: "15%",
+    padding: 1,
+    // marginRight: isFromMe && !message.replyTo ? 1 : 0,
     backgroundColor: isFromMe ? WhatsAppTheme.greenDark : WhatsAppTheme.receivedBubble,
-    border: true,
-    borderColor: isFromMe ? WhatsAppTheme.green : WhatsAppTheme.borderColor,
+    border: false,
     flexDirection: "column",
     // Handle right-click for context menu
     // Use function (not arrow) to get access to 'this' which is the bubble renderable
@@ -1135,45 +1150,49 @@ function renderMessage(
     }
   }
 
-  // Row 2: Message content (dynamic height for multiline)
+  // Row 2: Message content + Timestamp on same line (WhatsApp style)
   const contentRow = new BoxRenderable(renderer, {
     id: `msg-${message.id || Date.now()}-content`,
     flexDirection: "row",
-    justifyContent: "flex-start",
+    alignItems: "flex-end", // Align timestamp to bottom of content
+    justifyContent: "space-between", // Push timestamp to right edge of bubble
   })
+
   const contentText = new TextRenderable(renderer, {
     content: messageText,
     fg: WhatsAppTheme.textPrimary,
+    flexGrow: 1, // Take available space, pushing timestamp right
   })
   contentRow.add(contentText)
-  bubble.add(contentRow)
 
-  // Row 3: Timestamp & Status (Right aligned)
-  const timeRow = new BoxRenderable(renderer, {
-    id: `msg-${message.id || Date.now()}-time`,
-    height: 1,
-    flexDirection: "row",
-    justifyContent: "flex-end",
-  })
-
+  // Timestamp on same line, pushed to right
   const timeText = new TextRenderable(renderer, {
-    content: timestampText,
+    content: timestampText, // Use directly - it's already a t`` template
     fg: isFromMe ? WhatsAppTheme.textSecondary : WhatsAppTheme.textTertiary,
+    flexShrink: 0, // Don't shrink timestamp
+    marginLeft: 1, // Space before timestamp
   })
-  timeRow.add(timeText)
+  contentRow.add(timeText)
 
-  bubble.add(timeRow)
+  bubble.add(contentRow)
 
   // Render reactions
   const reactionBox = renderReactions(renderer, message.reactions, isFromMe)
+
+  // Add tail before bubble for received messages
+  if (!isFromMe) {
+    const tailLeft = new TextRenderable(renderer, {
+      content: isSequenceStart ? "◥" : " ",
+      fg: WhatsAppTheme.receivedBubble,
+    })
+    row.add(tailLeft)
+  }
 
   if (reactionBox) {
     // Wrap bubble and reactions in a column to stack them
     const messageContainer = new BoxRenderable(renderer, {
       flexDirection: "column",
       alignItems: isFromMe ? "flex-end" : "flex-start",
-      width: "100%",
-      maxWidth: "100%",
     })
 
     messageContainer.add(bubble)
@@ -1184,6 +1203,16 @@ function renderMessage(
     row.add(messageContainer)
   } else {
     row.add(bubble)
+  }
+
+  // Add tail after bubble for sent messages
+  if (isFromMe) {
+    const tailRight = new TextRenderable(renderer, {
+      content: isSequenceStart ? "◤" : " ",
+      fg: WhatsAppTheme.greenDark,
+      marginRight: 1, // Spacing from scrollbar
+    })
+    row.add(tailRight)
   }
 
   return row

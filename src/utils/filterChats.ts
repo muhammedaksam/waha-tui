@@ -85,12 +85,12 @@ export function isPinned(chat: ChatSummary): boolean {
 }
 
 /**
- * Check if a chat is favorited/starred
+ * Check if a chat is favorited (same as pinned for chats)
+ * Note: star is a message-level property, not chat-level
  */
 export function isFavorite(chat: ChatSummary): boolean {
   const props = getChatProperties(chat)
-  // Favorites can be starred chats OR pinned chats
-  return props.star === true
+  return props.pinned === true
 }
 
 /**
