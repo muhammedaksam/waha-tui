@@ -1024,8 +1024,11 @@ function renderMessage(
     marginTop: isSequenceStart ? 1 : 0, // Add spacing only between groups
   })
 
-  // Avatar Column (Only for received messages in Group Chats)
+  // Avatar Column - WhatsApp Web shows consistent left spacing for all messages
+  // In groups: received messages show avatar, sent messages get margin
+  // In 1:1: both sent and received get margin
   if (isGroupChat && !isFromMe) {
+    // Group chat received messages: show avatar column with avatar or empty placeholder
     const avatarColumn = new BoxRenderable(renderer, {
       width: 6, // Match avatarBox width
       height: 3, // Approximate height of avatar
@@ -1056,12 +1059,19 @@ function renderMessage(
         })
       )
       avatarColumn.add(avatarBox)
-    } else {
-      // Empty placeholder for padding
-      // Just an empty box or nothing, but width ensures alignment
     }
+    // else: Empty placeholder - width ensures alignment
 
     row.add(avatarColumn)
+  } else {
+    // All other cases: use marginLeft on row to create gap (like WhatsApp Web)
+    // This includes: sent messages in groups, and ALL messages in 1:1 chats
+    // Using marginLeft instead of spacer box because flex-end ignores spacers
+    if (isFromMe) {
+      row.marginRight = 7
+    } else {
+      row.marginLeft = 7
+    }
   }
 
   // Create bubble container
