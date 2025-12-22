@@ -6,6 +6,7 @@
 import type { ChatSummary } from "@muhammedaksam/waha-node"
 import type { ActiveFilter } from "../state/AppState"
 import { debugLog } from "./debug"
+import { getChatIdString } from "./formatters"
 
 interface ExtendedChat {
   archived?: boolean
@@ -63,8 +64,7 @@ export function isArchived(chat: ChatSummary): boolean {
  * Check if a chat is a group chat
  */
 export function isGroupChat(chat: ChatSummary): boolean {
-  const id =
-    typeof chat.id === "string" ? chat.id : (chat.id as { _serialized: string })._serialized
+  const id = getChatIdString(chat.id)
   return id.endsWith("@g.us")
 }
 
@@ -112,8 +112,7 @@ export function filterChats(
     const query = searchQuery.toLowerCase().trim()
     filtered = filtered.filter((chat) => {
       const name = chat.name?.toLowerCase() ?? ""
-      const id =
-        typeof chat.id === "string" ? chat.id : (chat.id as { _serialized: string })._serialized
+      const id = getChatIdString(chat.id)
       return name.includes(query) || id.includes(query)
     })
   }

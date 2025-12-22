@@ -167,17 +167,32 @@ bun run build
 ```bash
 waha-tui/
 ├── src/
-│   ├── components/      # Reusable UI components
-│   ├── config/          # Configuration management
-│   ├── services/        # Background services (WebSocket)
-│   ├── state/           # Global state management
-│   ├── utils/           # Utility functions
-│   ├── views/           # Main application views
-│   ├── client.ts        # WAHA API client
-│   └── index.ts         # Main entry point
+│   ├── client/           # WAHA API client (domain-split modules)
+│   │   ├── core.ts           # Client initialization & utilities
+│   │   ├── chatActions.ts    # Chat operations (archive, delete, etc.)
+│   │   ├── messageActions.ts # Message operations (send, star, react)
+│   │   ├── sessionActions.ts # Session & contact management
+│   │   ├── presenceActions.ts# Presence & activity management
+│   │   └── index.ts          # Barrel exports
+│   ├── components/       # Reusable UI components
+│   ├── config/           # Configuration management
+│   ├── handlers/         # Action handlers
+│   │   ├── ContextMenuActions.ts # Context menu action execution
+│   │   └── index.ts
+│   ├── services/         # Background services (WebSocket)
+│   ├── state/            # Global state management
+│   ├── utils/            # Utility functions
+│   ├── views/            # Main application views
+│   │   ├── conversation/     # Conversation view modules
+│   │   │   ├── MessageHelpers.ts   # Sender colors, date formatting
+│   │   │   ├── MessageRenderer.ts  # Message bubble rendering
+│   │   │   ├── ReplyContext.ts     # Reply/quote rendering
+│   │   │   └── index.ts
+│   │   └── ...
+│   └── index.ts          # Main entry point
 ├── .github/
-│   ├── workflows/       # CI/CD workflows
-│   └── actions/         # Reusable actions
+│   ├── workflows/        # CI/CD workflows
+│   └── actions/          # Reusable actions
 └── package.json
 ```
 

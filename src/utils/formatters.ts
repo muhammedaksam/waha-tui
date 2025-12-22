@@ -329,8 +329,39 @@ export function isGroupChat(chatId: string): boolean {
  */
 export function isSelfChat(chatId: string, myProfileId: string | null): boolean {
   if (!myProfileId) return false
-  // Normalize both IDs by stripping @c.us and @lid suffixes
-  const normalizedChatId = chatId.replace(/@(c\.us|lid)$/, "")
-  const normalizedProfileId = myProfileId.replace(/@(c\.us|lid)$/, "")
-  return normalizedChatId === normalizedProfileId
+  return normalizeId(chatId) === normalizeId(myProfileId)
+}
+
+/**
+ * Extract chat ID string from ChatSummary.id
+ * Handles both string IDs and object IDs with _serialized field
+ * Use this helper for consistent chat ID comparison across the app
+ */
+export function getChatIdString(
+  id: string | { _serialized: string; [key: string]: unknown } | undefined | null
+): string {
+  if (!id) return ""
+  if (typeof id === "string") return id
+  return id._serialized || ""
+}
+
+/**
+ * Normalize WhatsApp ID by stripping @c.us and @lid suffixes
+ * Useful for comparing IDs that may have different suffixes
+ * @example normalizeId("1234567890@c.us") → "1234567890"
+ * @example normalizeId("1234567890@lid") → "1234567890"
+ */
+export function normalizeId(id: string | undefined | null): string {
+  if (!id) return ""
+  return id.replace(/@(c\.us|lid)$/, "")
+}
+
+/**
+ * Extract phone number from WhatsApp ID (strips @ suffix entirely)
+ * @example getPhoneNumber("1234567890@c.us") → "1234567890"
+ * @example getPhoneNumber("1234567890@lid") → "1234567890"
+ */
+export function getPhoneNumber(id: string | undefined | null): string {
+  if (!id) return ""
+  return id.split("@")[0]
 }

@@ -4,6 +4,7 @@
  */
 
 import type { ChatSummary } from "@muhammedaksam/waha-node"
+import { getChatIdString } from "./formatters"
 
 export type SearchSection = "chats" | "contacts" | "messages"
 
@@ -43,8 +44,7 @@ export function searchChatsWithSections(
 
   for (const chat of searchableChats) {
     const chatName = chat.name?.toLowerCase() ?? ""
-    const chatId =
-      typeof chat.id === "string" ? chat.id : (chat.id as { _serialized: string })._serialized
+    const chatId = getChatIdString(chat.id)
 
     // Section 1: Chats - Search by chat name or chat ID (for unnamed chats/numbers)
     if (chatName.includes(query) || chatId.toLowerCase().includes(query)) {

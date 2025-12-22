@@ -19,6 +19,7 @@ import {
   formatAckStatus,
   getInitials,
   isSelfChat,
+  getChatIdString,
 } from "../utils/formatters"
 import { debugLog } from "../utils/debug"
 import { appState } from "../state/AppState"
@@ -179,9 +180,8 @@ class ChatListManager {
 
     // Extract message preview
     const preview = extractMessagePreview(chat.lastMessage)
-    const isGroupChat = typeof chat.id === "string" ? chat.id.endsWith("@g.us") : false
-    const chatIdStr =
-      typeof chat.id === "string" ? chat.id : (chat.id as { _serialized: string })._serialized
+    const chatIdStr = getChatIdString(chat.id)
+    const isGroupChat = chatIdStr.endsWith("@g.us")
     const isSelf = isSelfChat(chatIdStr, appState.getState().myProfile?.id ?? null)
     let lastMessageText = preview.text
     // Add "(You)" suffix for self-chat
@@ -219,10 +219,7 @@ class ChatListManager {
           const currentState = appState.getState()
           if (chatRef && currentState.currentSession) {
             // Extract chat ID properly (handle _serialized property)
-            const chatId =
-              typeof chatRef.id === "string"
-                ? chatRef.id
-                : (chatRef.id as { _serialized: string })._serialized
+            const chatId = getChatIdString(chatRef.id)
 
             // Right-click (button 2) opens context menu
             if (event.button === 2) {
@@ -413,9 +410,8 @@ class ChatListManager {
 
       // Prepare data
       const preview = extractMessagePreview(chat.lastMessage)
-      const isGroupChat = typeof chat.id === "string" ? chat.id.endsWith("@g.us") : false
-      const chatIdStr =
-        typeof chat.id === "string" ? chat.id : (chat.id as { _serialized: string })._serialized
+      const chatIdStr = getChatIdString(chat.id)
+      const isGroupChat = chatIdStr.endsWith("@g.us")
       const isSelf = isSelfChat(chatIdStr, appState.getState().myProfile?.id ?? null)
       const displayName = isSelf ? `${chat.name || chat.id} (You)` : chat.name || chat.id
       let lastMessageText = preview.text
@@ -466,8 +462,7 @@ class ChatListManager {
       if (!rowData) continue
 
       const chat = chats[index]
-      const chatId =
-        typeof chat.id === "string" ? chat.id : (chat.id as { _serialized: string })._serialized
+      const chatId = getChatIdString(chat.id)
 
       const isSelected = index === newSelectedIndex
       const isCurrentChat = currentChatId === chatId

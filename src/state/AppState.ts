@@ -12,6 +12,7 @@ import type {
   MyProfile,
 } from "@muhammedaksam/waha-node"
 import { debugLog } from "../utils/debug"
+import { getChatIdString, normalizeId } from "../utils/formatters"
 import type { WAMessageExtended } from "../types"
 
 // Context menu types
@@ -263,7 +264,18 @@ class StateManager {
     newMessages.sort((a, b) => b.timestamp - a.timestamp)
 
     messagesMap.set(chatId, newMessages)
-    this.setState({ messages: messagesMap, lastChangeType: "data" })
+
+    // Also update the chat list's lastMessage so the chat list shows the latest message
+    const chatIndex = this.state.chats.findIndex((c) => getChatIdString(c.id) === chatId)
+    if (chatIndex !== -1) {
+      const chat = this.state.chats[chatIndex]
+      const updatedChat = { ...chat, lastMessage: message }
+      const newChats = [...this.state.chats]
+      newChats[chatIndex] = updatedChat
+      this.setState({ messages: messagesMap, chats: newChats, lastChangeType: "data" })
+    } else {
+      this.setState({ messages: messagesMap, lastChangeType: "data" })
+    }
   }
 
   updateMessageAck(chatId: string, messageId: string, ack: number, ackName: string): void {
@@ -281,6 +293,31 @@ class StateManager {
 
     messages.set(chatId, newChatMessages)
     this.setState({ messages, lastChangeType: "data" })
+  }
+
+  /**
+   * Update the ack status of a chat's lastMessage in the chat list
+   * This ensures the chat list shows updated read receipts in real-time
+   */
+  updateChatLastMessageAck(chatId: string, messageId: string, ack: number, ackName: string): void {
+    const chatIndex = this.state.chats.findIndex((c) => getChatIdString(c.id) === chatId)
+    if (chatIndex === -1) return
+
+    const chat = this.state.chats[chatIndex]
+    const lastMessage = chat.lastMessage as Record<string, unknown> | undefined
+    if (!lastMessage) return
+
+    // Only update if this is the last message of the chat
+    if (lastMessage.id !== messageId) return
+
+    // Create updated chat with new ack
+    const updatedLastMessage = { ...lastMessage, ack, ackName }
+    const updatedChat = { ...chat, lastMessage: updatedLastMessage }
+
+    const newChats = [...this.state.chats]
+    newChats[chatIndex] = updatedChat
+
+    this.setState({ chats: newChats, lastChangeType: "data" })
   }
 
   updateMessageReaction(
@@ -537,14 +574,30 @@ class StateManager {
   /**
    * Check if any participant in a chat is typing
    * Uses LID mapping to match presence updates to chat IDs
+   * Filters out the current user's own typing
    */
   isChatTyping(chatId: string): boolean {
+    // Get my profile ID to filter out self-typing
+    const myProfileId = this.state.myProfile?.id
+    const myIdBase = normalizeId(myProfileId)
+
+    // Filter out typing for self-chat entirely
+    if (myIdBase && normalizeId(chatId) === myIdBase) {
+      return false
+    }
+
     // Check all stored presences for typing status
     for (const [, presence] of this.state.chatPresences) {
       const typingPresence = presence.presences?.find(
         (p) => p.lastKnownPresence === "typing" || p.lastKnownPresence === "recording"
       )
       if (typingPresence) {
+        // Skip if this is our own typing
+        const participantBase = normalizeId(typingPresence.participant)
+        if (myIdBase && participantBase === myIdBase) {
+          continue // Skip our own typing
+        }
+
         // Try to map the LID participant to a phone number
         const participantLid = typingPresence.participant
         const phoneNumber = this.state.lidToPhoneMap.get(participantLid)

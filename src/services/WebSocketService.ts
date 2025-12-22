@@ -5,6 +5,7 @@
 
 import { appState } from "../state/AppState"
 import { debugLog } from "../utils/debug"
+import { normalizeId } from "../utils/formatters"
 import type { WahaTuiConfig } from "../config/schema"
 import { loadChats } from "../client"
 import {
@@ -252,9 +253,16 @@ export class WebSocketService {
     const payload = data.payload
     const state = appState.getState()
 
-    if (state.currentChatId) {
-      appState.updateMessageAck(state.currentChatId, payload.id, payload.ack, payload.ackName)
+    // Determine chat ID: for outgoing messages (fromMe: true), use 'to'; for incoming, use 'from'
+    const chatId = payload.fromMe ? payload.to : payload.from
+
+    // Update message ack in conversation view if it's the current chat
+    if (state.currentChatId === chatId) {
+      appState.updateMessageAck(chatId, payload.id, payload.ack, payload.ackName)
     }
+
+    // Always update the chat list's lastMessage ack for real-time read receipts
+    appState.updateChatLastMessageAck(chatId, payload.id, payload.ack, payload.ackName)
   }
 
   private handleMessageReaction(data: WAHAWebhookMessageReaction) {
@@ -297,15 +305,58 @@ export class WebSocketService {
     )
 
     if (payload && payload.id) {
-      // Log the presence data
-      const presenceInfo = payload.presences?.[0]
-      if (presenceInfo) {
-        debugLog(
-          "WebSocket",
-          `Presence: ${presenceInfo.participant} -> ${presenceInfo.lastKnownPresence}`
-        )
+      // Filter out presence updates from ourselves
+      const myProfileId = state.myProfile?.id
+      if (myProfileId) {
+        // Normalize IDs for comparison (handle both @c.us and @lid formats)
+        const myIdBase = normalizeId(myProfileId)
+        const chatIdBase = normalizeId(payload.id)
+
+        // Skip presence updates for self-chat entirely
+        if (chatIdBase === myIdBase) {
+          debugLog("WebSocket", "Skipping presence update for self-chat")
+          return
+        }
       }
-      appState.updateChatPresence(payload.id, payload)
+
+      if (myProfileId && payload.presences) {
+        // Normalize myProfileId for comparison (handle both @c.us and @lid formats)
+        const myIdBase = normalizeId(myProfileId)
+
+        // Filter out our own presence updates
+        const filteredPresences = payload.presences.filter((p) => {
+          const participantBase = normalizeId(p.participant)
+          return participantBase !== myIdBase
+        })
+
+        // If all presences were filtered out, don't update
+        if (filteredPresences.length === 0) {
+          debugLog("WebSocket", "Filtered out own presence update")
+          return
+        }
+
+        // Create filtered payload
+        const filteredPayload = { ...payload, presences: filteredPresences }
+
+        const presenceInfo = filteredPayload.presences?.[0]
+        if (presenceInfo) {
+          debugLog(
+            "WebSocket",
+            `Presence: ${presenceInfo.participant} -> ${presenceInfo.lastKnownPresence}`
+          )
+        }
+        appState.updateChatPresence(payload.id, filteredPayload)
+      } else {
+        // Log the presence data
+        const presenceInfo = payload.presences?.[0]
+        if (presenceInfo) {
+          debugLog(
+            "WebSocket",
+            `Presence: ${presenceInfo.participant} -> ${presenceInfo.lastKnownPresence}`
+          )
+        }
+        appState.updateChatPresence(payload.id, payload)
+      }
     }
   }
 }
