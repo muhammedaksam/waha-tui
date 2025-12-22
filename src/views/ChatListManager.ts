@@ -20,6 +20,7 @@ import {
   getInitials,
   isSelfChat,
   getChatIdString,
+  type MessagePreview,
 } from "../utils/formatters"
 import { debugLog } from "../utils/debug"
 import { appState } from "../state/AppState"
@@ -36,6 +37,8 @@ interface ChatRowData {
   timeText: TextRenderable
   chatInfo: BoxRenderable
   messageRow: BoxRenderable
+  messageLeftGroup: BoxRenderable
+  ackText: TextRenderable | null
   messageText: TextRenderable
 }
 
@@ -326,12 +329,12 @@ class ChatListManager {
     })
 
     // Add Ack Status if message is from me
+    let ackText: TextRenderable | null = null
     if (preview.isFromMe) {
-      messageLeftGroup.add(
-        new TextRenderable(renderer, {
-          content: t`${formatAckStatus(preview.ack, { side: "right", disableSpace: true })}`,
-        })
-      )
+      ackText = new TextRenderable(renderer, {
+        content: t`${formatAckStatus(preview.ack, { side: "right", disableSpace: true })}`,
+      })
+      messageLeftGroup.add(ackText)
     }
 
     // Check if someone is typing in this chat
@@ -381,6 +384,8 @@ class ChatListManager {
       timeText,
       chatInfo,
       messageRow,
+      messageLeftGroup,
+      ackText,
       messageText,
     })
   }
@@ -434,14 +439,8 @@ class ChatListManager {
       rowData.messageText.content = isTyping ? "typing..." : truncate(lastMessageText, 50)
       rowData.messageText.fg = isTyping ? WhatsAppTheme.green : WhatsAppTheme.textSecondary
 
-      // Note: We are currently NOT updating the timestamp text or ack status text dynamically
-      // because we didn't store references to them in ChatRowData interface.
-      // This is a limitation. If we want full in-place updates, we need to store them too.
-      // But re-creating the whole list is what causes glitches.
-      // Let's at least try to update what we can.
-
-      // Actually, since we need to update timestamp and ack, maybe we SHOULD destroy children of specific containers and re-add them?
-      // Or better, update ChatRowData interface to include them.
+      // 4. Update Ack Status
+      this.updateAckStatus(rowData, preview, this.renderer!)
     }
   }
 
@@ -480,12 +479,12 @@ class ChatListManager {
 
       // Update typing status for message text
       const isTyping = appState.isChatTyping(chatId)
+      const preview = extractMessagePreview(chat.lastMessage)
       if (isTyping) {
         rowData.messageText.content = "typing..."
         rowData.messageText.fg = WhatsAppTheme.green
       } else {
         // Always restore the message preview when not typing
-        const preview = extractMessagePreview(chat.lastMessage)
         const isGroupChat = chatId.endsWith("@g.us")
         let lastMessageText = preview.text
         if (isGroupChat && preview.text !== "No messages" && preview.isFromMe) {
@@ -494,9 +493,55 @@ class ChatListManager {
         rowData.messageText.content = truncate(lastMessageText, 50)
         rowData.messageText.fg = WhatsAppTheme.textSecondary
       }
+
+      // Update ack status
+      if (this.renderer) {
+        this.updateAckStatus(rowData, preview, this.renderer)
+      }
     }
 
     this.currentSelectedIndex = newSelectedIndex
+  }
+
+  /**
+   * Update ack status text for a chat row
+   * Creates/updates/removes ack text based on isFromMe and ack value
+   */
+  private updateAckStatus(
+    rowData: ChatRowData,
+    preview: MessagePreview,
+    renderer: CliRenderer
+  ): void {
+    if (preview.isFromMe) {
+      const ackContent = t`${formatAckStatus(preview.ack, { side: "right", disableSpace: true })}`
+      if (rowData.ackText) {
+        // Update existing ack text
+        rowData.ackText.content = ackContent
+      } else {
+        // Create new ack text
+        const ackText = new TextRenderable(renderer, {
+          content: ackContent,
+        })
+        // Add to messageLeftGroup - we need to add at beginning
+        // Since BoxRenderable doesn't have insertChild, we'll destroy message text,
+        // add ack, then re-add message text
+        rowData.messageText.destroy()
+        rowData.messageLeftGroup.add(ackText)
+        const newMessageText = new TextRenderable(renderer, {
+          content: rowData.messageText.content,
+          fg: rowData.messageText.fg,
+        })
+        rowData.messageLeftGroup.add(newMessageText)
+        rowData.ackText = ackText
+        rowData.messageText = newMessageText
+      }
+    } else {
+      // Remove ack text if message is not from me
+      if (rowData.ackText) {
+        rowData.ackText.destroy()
+        rowData.ackText = null
+      }
+    }
   }
 
   /**
