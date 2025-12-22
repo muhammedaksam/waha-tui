@@ -12,6 +12,7 @@ import type {
 } from "@muhammedaksam/waha-node"
 import type { WahaTuiConfig } from "./config/schema"
 import { debugLog, debugRequest, debugResponse, DEBUG_ENABLED } from "./utils/debug"
+import { isGroupChat } from "./utils/formatters"
 import type { InternalAxiosRequestConfig, AxiosResponse, AxiosError } from "axios"
 import { appState } from "./state/AppState"
 import type { WAMessageExtended } from "./types"
@@ -648,7 +649,7 @@ export async function loadLidMappings(): Promise<void> {
 // ============================================
 
 export async function loadChatDetails(chatId: string): Promise<void> {
-  const isGroup = chatId.endsWith("@g.us")
+  const isGroup = isGroupChat(chatId)
   const session = getSession()
   const wahaClient = getClient()
 

@@ -32,6 +32,7 @@ import {
   isGroupChat,
   isSelfChat,
   getChatIdString,
+  getPhoneNumber,
 } from "../utils/formatters"
 
 // Cache for conversation scroll box and input
@@ -117,7 +118,7 @@ export function ConversationView() {
         ...state.currentChatParticipants.map((p) => {
           const contactName = appState.getContactName(p.id)
           if (contactName) return contactName
-          return p.id.split("@")[0]
+          return getPhoneNumber(p.id)
         })
       )
 
@@ -130,7 +131,7 @@ export function ConversationView() {
       if (typingParticipants.length > 0) {
         const typingNames = typingParticipants.map((p) => {
           const contactName = appState.getContactName(p.participant)
-          return contactName || p.participant.split("@")[0]
+          return contactName || getPhoneNumber(p.participant)
         })
 
         if (typingNames.length === 1) {
@@ -936,7 +937,7 @@ function getSenderInfo(
       }
     } else {
       // 1:1 Chat sender name
-      senderName = appState.getContactName(senderId) || senderId.split("@")[0]
+      senderName = appState.getContactName(senderId) || getPhoneNumber(senderId)
     }
   }
 

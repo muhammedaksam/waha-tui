@@ -12,7 +12,7 @@ import type {
   MyProfile,
 } from "@muhammedaksam/waha-node"
 import { debugLog } from "../utils/debug"
-import { getChatIdString } from "../utils/formatters"
+import { getChatIdString, normalizeId } from "../utils/formatters"
 import type { WAMessageExtended } from "../types"
 
 // Context menu types
@@ -579,10 +579,10 @@ class StateManager {
   isChatTyping(chatId: string): boolean {
     // Get my profile ID to filter out self-typing
     const myProfileId = this.state.myProfile?.id
-    const myIdBase = myProfileId?.replace(/@(c\.us|lid)$/, "") || ""
+    const myIdBase = normalizeId(myProfileId)
 
     // Filter out typing for self-chat entirely
-    if (myIdBase && chatId.replace(/@(c\.us|lid)$/, "") === myIdBase) {
+    if (myIdBase && normalizeId(chatId) === myIdBase) {
       return false
     }
 
@@ -593,7 +593,7 @@ class StateManager {
       )
       if (typingPresence) {
         // Skip if this is our own typing
-        const participantBase = typingPresence.participant?.replace(/@(c\.us|lid)$/, "") || ""
+        const participantBase = normalizeId(typingPresence.participant)
         if (myIdBase && participantBase === myIdBase) {
           continue // Skip our own typing
         }

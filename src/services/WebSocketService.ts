@@ -5,6 +5,7 @@
 
 import { appState } from "../state/AppState"
 import { debugLog } from "../utils/debug"
+import { normalizeId } from "../utils/formatters"
 import type { WahaTuiConfig } from "../config/schema"
 import { loadChats } from "../client"
 import {
@@ -308,8 +309,8 @@ export class WebSocketService {
       const myProfileId = state.myProfile?.id
       if (myProfileId) {
         // Normalize IDs for comparison (handle both @c.us and @lid formats)
-        const myIdBase = myProfileId.replace(/@(c\.us|lid)$/, "")
-        const chatIdBase = payload.id.replace(/@(c\.us|lid)$/, "")
+        const myIdBase = normalizeId(myProfileId)
+        const chatIdBase = normalizeId(payload.id)
 
         // Skip presence updates for self-chat entirely
         if (chatIdBase === myIdBase) {
@@ -320,11 +321,11 @@ export class WebSocketService {
 
       if (myProfileId && payload.presences) {
         // Normalize myProfileId for comparison (handle both @c.us and @lid formats)
-        const myIdBase = myProfileId.replace(/@(c\.us|lid)$/, "")
+        const myIdBase = normalizeId(myProfileId)
 
         // Filter out our own presence updates
         const filteredPresences = payload.presences.filter((p) => {
-          const participantBase = p.participant?.replace(/@(c\.us|lid)$/, "") || ""
+          const participantBase = normalizeId(p.participant)
           return participantBase !== myIdBase
         })
 
