@@ -1,0 +1,6 @@
+{
+  "MD013": false,
+  "MD033": {
+    "allowed_elements": ["p", "img", "br", "details", "summary", "video"]
+  }
+}

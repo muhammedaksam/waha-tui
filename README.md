@@ -12,6 +12,10 @@
 
 A beautiful Terminal User Interface for WhatsApp using [WAHA (WhatsApp HTTP API)](https://github.com/devlikeapro/waha). Manage your WhatsApp sessions, chats, and messages directly from your terminal with an intuitive TUI powered by [OpenTUI](https://opentui.app).
 
+<p align="center">
+  <video src=".github/media/videos/01-introduction.mp4" width="90%" autoplay loop muted></video>
+</p>
+
 ## Features
 
 - 📱 **Session Management** - Create, view, and manage WAHA sessions with QR code login
@@ -21,6 +25,21 @@ A beautiful Terminal User Interface for WhatsApp using [WAHA (WhatsApp HTTP API)
 - ⚡ **Fast & Lightweight** - Built with Bun for blazing-fast performance
 - 🔒 **Secure** - All configuration stored locally in `~/.waha-tui/`
 - 🔄 **Auto-Refresh** - QR codes refresh automatically, status updates in real-time
+
+## Screenshots
+
+<p align="center">
+  <img src=".github/media/images/01-configuration.png" width="45%" alt="Configuration" />
+  <img src=".github/media/images/02-connect.png" width="45%" alt="Connect" />
+</p>
+<p align="center">
+  <img src=".github/media/images/03-qr-code-login.png" width="45%" alt="QR Code Login" />
+  <img src=".github/media/images/04-loading.png" width="45%" alt="Loading" />
+</p>
+<p align="center">
+  <img src=".github/media/images/05-main-screen.png" width="45%" alt="Main Screen" />
+  <img src=".github/media/images/06-conversation-view.png" width="45%" alt="Conversation View" />
+</p>
 
 ## Quick Start
 
