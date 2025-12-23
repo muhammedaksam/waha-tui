@@ -10,7 +10,7 @@
 
 > ⚠️ **Work In Progress** - This project is in early experimental development. Features may be incomplete, unstable, or change without notice.
 
-A beautiful Terminal User Interface for WhatsApp using [WAHA (WhatsApp HTTP API)](https://github.com/devlikeapro/waha). Manage your WhatsApp sessions, chats, and messages directly from your terminal with an intuitive TUI powered by [OpenTUI](https://opentui.app).
+A beautiful Terminal User Interface for WhatsApp using [WAHA (WhatsApp HTTP API)](https://github.com/devlikeapro/waha). Manage your WhatsApp sessions, chats, and messages directly from your terminal with an intuitive TUI powered by [OpenTUI](https://opentui.com).
 
 <p align="center">
   <video src="https://github.com/user-attachments/assets/151a3ce4-fbf2-477a-83e7-3bc77e59a980" width="90%" autoplay loop muted></video>
@@ -218,7 +218,7 @@ waha-tui/
 ## Technologies
 
 - **Runtime**: [Bun](https://bun.sh)
-- **UI Framework**: [OpenTUI](https://opentui.app)
+- **UI Framework**: [OpenTUI](https://opentui.com)
 - **WAHA SDK**: [@muhammedaksam/waha-node](https://www.npmjs.com/package/@muhammedaksam/waha-node)
 - **TypeScript**: Type-safe development
 
@@ -244,4 +244,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [WAHA HTTP API](https://github.com/devlikeapro/waha) - WhatsApp HTTP API
 - [WAHA Node SDK](https://github.com/muhammedaksam/waha-node) - TypeScript SDK for WAHA
-- [OpenTUI](https://opentui.app) - Terminal UI framework used by waha-tui
+- [OpenTUI](https://opentui.com) - Terminal UI framework used by waha-tui
