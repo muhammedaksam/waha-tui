@@ -18,12 +18,12 @@ A beautiful Terminal User Interface for WhatsApp using [WAHA (WhatsApp HTTP API)
 
 ## Features
 
-- 📱 **Session Management** - Create, view, and manage WAHA sessions with QR code login
+- 📱 **Session Management** - Create, view, and manage WAHA sessions with QR code or phone number pairing
 - 💬 **Chat Interface** - Browse chats with WhatsApp-style layout and real-time updates
 - ✉️ **Messaging** - Send and receive messages with read receipts
 - 🎨 **Beautiful UI** - WhatsApp Web-inspired interface with colors and icons
 - ⚡ **Fast & Lightweight** - Built with Bun for blazing-fast performance
-- 🔒 **Secure** - All configuration stored locally in `~/.waha-tui/`
+- 🔒 **Secure** - All configuration stored locally in `$XDG_CONFIG_HOME/waha-tui/`
 - 🔄 **Auto-Refresh** - QR codes refresh automatically, status updates in real-time
 
 ## Screenshots
@@ -91,9 +91,9 @@ If you're using the **WEBJS** engine (default for WAHA CORE), you must enable `t
 
 On first run, WAHA TUI will prompt you for configuration with a beautiful setup wizard.
 
-Configuration is stored in `~/.waha-tui/` with secrets separated from metadata:
+Configuration is stored in `$XDG_CONFIG_HOME/waha-tui/` (defaults to `~/.config/waha-tui/`) with secrets separated from metadata:
 
-### ~/.waha-tui/.env (Secrets)
+### $XDG_CONFIG_HOME/waha-tui/.env (Secrets)
 
 ```env
 # WAHA TUI Configuration
@@ -103,7 +103,7 @@ WAHA_URL=http://localhost:3000
 WAHA_API_KEY=your-api-key-here
 ```
 
-### ~/.waha-tui/config.json (Metadata)
+### $XDG_CONFIG_HOME/waha-tui/config.json (Metadata)
 
 ```json
 {
@@ -126,18 +126,19 @@ WAHA_API_KEY=your-api-key-here
 
 ### Keyboard Shortcuts
 
-| Key      | Action                                |
-| -------- | ------------------------------------- |
-| `↑/↓`    | Navigate lists                        |
-| `Enter`  | Select item / Open chat               |
-| `Esc`    | Go back                               |
-| `i`      | Enter input mode (in conversation)    |
-| `r`      | Refresh current view                  |
-| `n`      | Create new session (in Sessions view) |
-| `1`      | Go to Sessions view                   |
-| `2`      | Go to Chats view                      |
-| `q`      | Quit / Go back                        |
-| `Ctrl+C` | Exit immediately                      |
+| Key      | Action                                        |
+| -------- | --------------------------------------------- |
+| `↑/↓`    | Navigate lists                                |
+| `Enter`  | Select item / Open chat / Submit phone number |
+| `Esc`    | Go back / Cancel phone pairing                |
+| `i`      | Enter input mode (in conversation)            |
+| `r`      | Refresh current view                          |
+| `n`      | Create new session (in Sessions view)         |
+| `p`      | Switch to phone pairing mode (in QR view)     |
+| `1`      | Go to Sessions view                           |
+| `2`      | Go to Chats view                              |
+| `q`      | Quit / Go back / Switch to QR mode            |
+| `Ctrl+C` | Exit immediately                              |
 
 ### Debug Logging
 
@@ -151,7 +152,7 @@ WAHA_TUI_DEBUG=1 bun dev
 bun dev --debug
 ```
 
-Debug logs are saved to `~/.waha-tui/debug.log` with automatic sanitization of sensitive data.
+Debug logs are saved to `$XDG_CONFIG_HOME/waha-tui/debug.log` with automatic sanitization of sensitive data.
 
 ## Development
 

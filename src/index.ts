@@ -54,7 +54,13 @@ import { webSocketService } from "./services/WebSocketService"
 import { ConfigView } from "./views/ConfigView"
 import type { CliRenderer } from "@opentui/core"
 import { setRenderer } from "./state/RendererContext"
-import { showQRCode } from "./views/QRCodeView"
+import {
+  showQRCode,
+  toggleAuthMode,
+  handlePhoneInput,
+  handlePhoneBackspace,
+  submitPhoneNumber,
+} from "./views/QRCodeView"
 import { chatListManager } from "./views/ChatListManager"
 import { getClient } from "./client"
 
@@ -152,11 +158,58 @@ async function main() {
   initDebug()
   debugLog("App", "WAHA TUI starting...")
 
+  // Run migrations (e.g., move config from ~/.waha-tui to XDG location)
+  const { runMigrations } = await import("./utils/migrations")
+  await runMigrations()
+
   // Create renderer FIRST so we can use it for everything including config
   const renderer = await createCliRenderer({ exitOnCtrlC: true })
 
   // Set renderer context for imperative API usage
   setRenderer(renderer)
+
+  // Cleanup function to properly restore terminal state
+  let isCleanedUp = false
+  const cleanup = () => {
+    if (isCleanedUp) return
+    isCleanedUp = true
+
+    try {
+      // Stop presence management
+      stopPresenceManagement()
+
+      // Disconnect WebSocket
+      webSocketService.disconnect()
+
+      // Destroy renderer to restore terminal state (disables mouse tracking, restores cursor, etc.)
+      if (renderer && typeof renderer.destroy === "function") {
+        renderer.destroy()
+      }
+    } catch (error) {
+      debugLog("App", `Error during cleanup: ${error}`)
+    }
+  }
+
+  // Register cleanup handlers for various exit scenarios
+  process.on("exit", cleanup)
+  process.on("SIGINT", () => {
+    cleanup()
+    process.exit(0)
+  })
+  process.on("SIGTERM", () => {
+    cleanup()
+    process.exit(0)
+  })
+  process.on("uncaughtException", (error) => {
+    cleanup()
+    console.error("Uncaught exception:", error)
+    process.exit(1)
+  })
+  process.on("unhandledRejection", (reason) => {
+    cleanup()
+    console.error("Unhandled rejection:", reason)
+    process.exit(1)
+  })
 
   let config: WahaTuiConfig | null = null
   let needsConfig = false
@@ -406,7 +459,7 @@ async function main() {
       }
     }
 
-    // Quit with 'q' key
+    // Quit with 'q' key (or switch to QR mode in phone pairing)
     if (key.name === "q" && !state.inputMode && !state.contextMenu?.visible) {
       if (state.currentView === "sessions") {
         // Quit the app from sessions view
@@ -414,8 +467,47 @@ async function main() {
         await deleteSession()
         // process.exit(0)
       } else if (state.currentView === "qr") {
-        // Go back to sessions from QR view
-        appState.setCurrentView("sessions")
+        // In phone mode, Q switches back to QR mode
+        if (state.authMode === "phone") {
+          toggleAuthMode()
+        } else {
+          // In QR mode, Q goes back to sessions
+          appState.setCurrentView("sessions")
+        }
+      }
+    }
+
+    // 'p' key - switch to phone pairing mode in QR view
+    if (key.name === "p" && state.currentView === "qr" && state.authMode === "qr") {
+      debugLog("Auth", "Switching to phone pairing mode")
+      toggleAuthMode()
+      return
+    }
+
+    // Phone number input handling in QR view phone mode
+    if (state.currentView === "qr" && state.authMode === "phone") {
+      // Digit keys for phone number input
+      if (/^[0-9]$/.test(key.name)) {
+        handlePhoneInput(key.name)
+        return
+      }
+
+      // Backspace to delete digits
+      if (key.name === "backspace") {
+        handlePhoneBackspace()
+        return
+      }
+
+      // Enter to submit phone number
+      if (key.name === "return" || key.name === "enter") {
+        await submitPhoneNumber()
+        return
+      }
+
+      // Escape to go back to QR mode
+      if (key.name === "escape") {
+        toggleAuthMode()
+        return
       }
     }
 

@@ -16,12 +16,13 @@ import { DEFAULT_ENV, DEFAULT_CONFIG_META } from "./schema"
 import { debugLog } from "../utils/debug"
 import { VersionInfo } from "./version"
 
-const CONFIG_DIR_NAME = ".waha-tui"
+const CONFIG_DIR_NAME = "waha-tui"
 const ENV_FILE_NAME = ".env"
 const CONFIG_FILE_NAME = "config.json"
 
 export function getConfigDir(): string {
-  return join(homedir(), CONFIG_DIR_NAME)
+  const xdgConfigHome = process.env.XDG_CONFIG_HOME || join(homedir(), ".config")
+  return join(xdgConfigHome, CONFIG_DIR_NAME)
 }
 
 export function getEnvPath(): string {

@@ -29,7 +29,7 @@ If you discover a security vulnerability in waha-tui, please report it responsib
 
 ### Configuration Security
 
-waha-tui stores configuration in `~/.waha-tui/`:
+waha-tui stores configuration in `$XDG_CONFIG_HOME/waha-tui/` (defaults to `~/.config/waha-tui/`):
 
 - **`.env`** - Contains secrets (WAHA_URL, WAHA_API_KEY)
 - **`config.json`** - Contains metadata (version, timestamps)
@@ -40,8 +40,8 @@ Always:
 - Set restrictive file permissions:
 
   ```bash
-  chmod 600 ~/.waha-tui/.env
-  chmod 600 ~/.waha-tui/config.json
+  chmod 600 ~/.config/waha-tui/.env
+  chmod 600 ~/.config/waha-tui/config.json
   ```
 
 - Use strong API keys for your WAHA server
@@ -58,16 +58,16 @@ Always:
 
 Debug logs may contain sensitive information:
 
-- Debug logs are saved to `~/.waha-tui/debug.log`
+- Debug logs are saved to `$XDG_CONFIG_HOME/waha-tui/debug.log`
 - Review logs before sharing for troubleshooting
-- Clear debug logs periodically: `rm ~/.waha-tui/debug.log`
+- Clear debug logs periodically: `rm ~/.config/waha-tui/debug.log`
 
 ## Scope
 
 This security policy applies to:
 
 - The waha-tui npm package (@muhammedaksam/waha-tui)
-- Configuration files in `~/.waha-tui/`
+- Configuration files in `$XDG_CONFIG_HOME/waha-tui/`
 - The waha-tui TUI application
 
 ## Out of Scope

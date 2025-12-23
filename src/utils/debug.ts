@@ -16,8 +16,14 @@ const hasEnvDebug = process.env.WAHA_TUI_DEBUG === "1" || process.env.WAHA_TUI_D
 
 export const DEBUG_ENABLED = hasDebugFlag || hasEnvDebug
 
-// Save debug log to ~/.waha-tui/ like other config files
-const wahaTuiDir = join(homedir(), ".waha-tui")
+// Compute XDG path locally to avoid circular dependency with manager.ts
+function getXdgConfigDir(): string {
+  const xdgConfigHome = process.env.XDG_CONFIG_HOME || join(homedir(), ".config")
+  return join(xdgConfigHome, "waha-tui")
+}
+
+// Save debug log to XDG config dir like other config files
+const wahaTuiDir = getXdgConfigDir()
 const logFile = join(wahaTuiDir, "debug.log")
 
 /**
