@@ -152,6 +152,10 @@ async function main() {
   initDebug()
   debugLog("App", "WAHA TUI starting...")
 
+  // Run migrations (e.g., move config from ~/.waha-tui to XDG location)
+  const { runMigrations } = await import("./utils/migrations")
+  await runMigrations()
+
   // Create renderer FIRST so we can use it for everything including config
   const renderer = await createCliRenderer({ exitOnCtrlC: true })
 

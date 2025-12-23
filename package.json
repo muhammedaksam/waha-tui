@@ -43,7 +43,8 @@
     "fix": "bun lint:fix && bun format",
     "start": "bun src/index.ts",
     "link:waha-node": "bash scripts/link-waha-node.sh",
-    "unlink:waha-node": "bash scripts/unlink-waha-node.sh"
+    "unlink:waha-node": "bash scripts/unlink-waha-node.sh",
+    "migration:create": "bun run scripts/create-migration.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
