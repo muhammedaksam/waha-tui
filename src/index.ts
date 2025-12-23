@@ -172,7 +172,7 @@ async function main() {
       webSocketService.disconnect()
 
       // Destroy renderer to restore terminal state (disables mouse tracking, restores cursor, etc.)
-      if (renderer && typeof renderer.destroy === 'function') {
+      if (renderer && typeof renderer.destroy === "function") {
         renderer.destroy()
       }
     } catch (error) {
@@ -181,23 +181,23 @@ async function main() {
   }
 
   // Register cleanup handlers for various exit scenarios
-  process.on('exit', cleanup)
-  process.on('SIGINT', () => {
+  process.on("exit", cleanup)
+  process.on("SIGINT", () => {
     cleanup()
     process.exit(0)
   })
-  process.on('SIGTERM', () => {
+  process.on("SIGTERM", () => {
     cleanup()
     process.exit(0)
   })
-  process.on('uncaughtException', (error) => {
+  process.on("uncaughtException", (error) => {
     cleanup()
-    console.error('Uncaught exception:', error)
+    console.error("Uncaught exception:", error)
     process.exit(1)
   })
-  process.on('unhandledRejection', (reason) => {
+  process.on("unhandledRejection", (reason) => {
     cleanup()
-    console.error('Unhandled rejection:', reason)
+    console.error("Unhandled rejection:", reason)
     process.exit(1)
   })
 
