@@ -14,6 +14,7 @@ import type {
 import { debugLog } from "../utils/debug"
 import { getChatIdString, normalizeId } from "../utils/formatters"
 import type { WAMessageExtended } from "../types"
+import type { QRCode } from "qrcode"
 
 // Context menu types
 export type ContextMenuType = "chat" | "message" | null
@@ -42,6 +43,8 @@ export type ViewType =
   | "loading"
 
 export type ActiveFilter = "all" | "unread" | "favorites" | "groups"
+export type AuthMode = "qr" | "phone"
+export type PairingStatus = "idle" | "requesting" | "success" | "error"
 export type ActiveIcon = "chats" | "status" | "profile" | "settings" | "channels" | "communities"
 
 // Type of state change - enables render optimization
@@ -62,8 +65,13 @@ export interface AppState {
   currentChatId: string | null
   sessions: SessionDTO[]
   chats: ChatSummary[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  qrCodeMatrix: any | null // QRCode type from qrcode library
+  qrCodeMatrix: QRCode | null // QRCode type from qrcode library
+  // Phone pairing state
+  authMode: AuthMode
+  phoneNumber: string
+  pairingCode: string | null
+  pairingStatus: PairingStatus
+  pairingError: string | null
   messages: Map<string, WAMessageExtended[]>
   contactsCache: Map<string, string> // Maps contact ID to name
   allContacts: Map<string, string> // Full phonebook contacts for search
@@ -117,6 +125,12 @@ class StateManager {
     sessions: [],
     chats: [],
     qrCodeMatrix: null,
+    // Phone pairing state
+    authMode: "qr",
+    phoneNumber: "",
+    pairingCode: null,
+    pairingStatus: "idle",
+    pairingError: null,
     messages: new Map(),
     contactsCache: new Map(),
     allContacts: new Map(),

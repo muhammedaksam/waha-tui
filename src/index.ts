@@ -54,7 +54,13 @@ import { webSocketService } from "./services/WebSocketService"
 import { ConfigView } from "./views/ConfigView"
 import type { CliRenderer } from "@opentui/core"
 import { setRenderer } from "./state/RendererContext"
-import { showQRCode } from "./views/QRCodeView"
+import {
+  showQRCode,
+  toggleAuthMode,
+  handlePhoneInput,
+  handlePhoneBackspace,
+  submitPhoneNumber,
+} from "./views/QRCodeView"
 import { chatListManager } from "./views/ChatListManager"
 import { getClient } from "./client"
 
@@ -410,7 +416,7 @@ async function main() {
       }
     }
 
-    // Quit with 'q' key
+    // Quit with 'q' key (or switch to QR mode in phone pairing)
     if (key.name === "q" && !state.inputMode && !state.contextMenu?.visible) {
       if (state.currentView === "sessions") {
         // Quit the app from sessions view
@@ -418,8 +424,47 @@ async function main() {
         await deleteSession()
         // process.exit(0)
       } else if (state.currentView === "qr") {
-        // Go back to sessions from QR view
-        appState.setCurrentView("sessions")
+        // In phone mode, Q switches back to QR mode
+        if (state.authMode === "phone") {
+          toggleAuthMode()
+        } else {
+          // In QR mode, Q goes back to sessions
+          appState.setCurrentView("sessions")
+        }
+      }
+    }
+
+    // 'p' key - switch to phone pairing mode in QR view
+    if (key.name === "p" && state.currentView === "qr" && state.authMode === "qr") {
+      debugLog("Auth", "Switching to phone pairing mode")
+      toggleAuthMode()
+      return
+    }
+
+    // Phone number input handling in QR view phone mode
+    if (state.currentView === "qr" && state.authMode === "phone") {
+      // Digit keys for phone number input
+      if (/^[0-9]$/.test(key.name)) {
+        handlePhoneInput(key.name)
+        return
+      }
+
+      // Backspace to delete digits
+      if (key.name === "backspace") {
+        handlePhoneBackspace()
+        return
+      }
+
+      // Enter to submit phone number
+      if (key.name === "return" || key.name === "enter") {
+        await submitPhoneNumber()
+        return
+      }
+
+      // Escape to go back to QR mode
+      if (key.name === "escape") {
+        toggleAuthMode()
+        return
       }
     }
 
