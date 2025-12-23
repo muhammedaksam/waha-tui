@@ -18,14 +18,26 @@ bun run dev
 
 ## Development Commands
 
-| Command          | Description                                    |
-| ---------------- | ---------------------------------------------- |
-| `bun run dev`    | Start in development mode                      |
-| `bun run build`  | Build for production                           |
-| `bun run check`  | Run all checks (typecheck, lint, format, test) |
-| `bun run test`   | Run tests                                      |
-| `bun run lint`   | Run ESLint                                     |
-| `bun run format` | Format code with Prettier                      |
+| Command                           | Description                                    |
+| --------------------------------- | ---------------------------------------------- |
+| `bun run dev`                     | Start in development mode                      |
+| `bun run build`                   | Build for production                           |
+| `bun run check`                   | Run all checks (typecheck, lint, format, test) |
+| `bun run test`                    | Run tests                                      |
+| `bun run lint`                    | Run ESLint                                     |
+| `bun run format`                  | Format code with Prettier                      |
+| `bun run migration:create <name>` | Create a new migration                         |
+
+## Migrations
+
+WAHA TUI uses a Sequelize-style migration system for config changes. Migrations run automatically on startup.
+
+```bash
+# Create a new migration
+bun run migration:create my_migration_name
+```
+
+This creates `src/utils/migrations/{timestamp}_my_migration_name.ts` and registers it automatically.
 
 ## Pull Request Process
 
