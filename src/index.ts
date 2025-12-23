@@ -168,6 +168,49 @@ async function main() {
   // Set renderer context for imperative API usage
   setRenderer(renderer)
 
+  // Cleanup function to properly restore terminal state
+  let isCleanedUp = false
+  const cleanup = () => {
+    if (isCleanedUp) return
+    isCleanedUp = true
+
+    try {
+      // Stop presence management
+      stopPresenceManagement()
+
+      // Disconnect WebSocket
+      webSocketService.disconnect()
+
+      // Destroy renderer to restore terminal state (disables mouse tracking, restores cursor, etc.)
+      if (renderer && typeof renderer.destroy === "function") {
+        renderer.destroy()
+      }
+    } catch (error) {
+      // Ignore cleanup errors
+    }
+  }
+
+  // Register cleanup handlers for various exit scenarios
+  process.on("exit", cleanup)
+  process.on("SIGINT", () => {
+    cleanup()
+    process.exit(0)
+  })
+  process.on("SIGTERM", () => {
+    cleanup()
+    process.exit(0)
+  })
+  process.on("uncaughtException", (error) => {
+    cleanup()
+    console.error("Uncaught exception:", error)
+    process.exit(1)
+  })
+  process.on("unhandledRejection", (reason) => {
+    cleanup()
+    console.error("Unhandled rejection:", reason)
+    process.exit(1)
+  })
+
   let config: WahaTuiConfig | null = null
   let needsConfig = false
 
