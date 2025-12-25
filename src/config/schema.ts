@@ -18,12 +18,24 @@ export interface WahaTuiEnv {
 }
 
 /**
+ * User settings stored in config.json
+ */
+export interface WahaTuiSettings {
+  enterIsSend: boolean // Enter key sends message (vs Shift+Enter)
+}
+
+export const DEFAULT_SETTINGS: WahaTuiSettings = {
+  enterIsSend: true,
+}
+
+/**
  * Config metadata stored in config.json
  */
 export interface WahaTuiConfigMeta {
   version: string
   createdAt: string
   updatedAt: string
+  settings?: WahaTuiSettings
 }
 
 /**

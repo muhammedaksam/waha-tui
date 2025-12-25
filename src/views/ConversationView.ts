@@ -44,6 +44,7 @@ let messageInputComponent: TextareaRenderable | null = null
 let inputContainer: BoxRenderable | null = null
 let inputScrollBar: ScrollBarRenderable | null = null
 let typingTimeout: ReturnType<typeof setTimeout> | null = null
+let lastEnterIsSend: boolean | null = null // Track enterIsSend setting to recreate input when changed
 
 // Expose input focus control
 export function focusMessageInput(): void {
@@ -377,13 +378,58 @@ export function ConversationView() {
 
   // Update container height from state on each render
   inputContainer.height = state.inputHeight
-  inputContainer.title = state.inputMode ? "Type a message (Enter to send)" : "Press 'i' to type"
+  const sendHint = state.enterIsSend ? "Enter" : "Ctrl+Enter"
+  inputContainer.title = state.inputMode
+    ? `Type a message (${sendHint} to send)`
+    : "Press 'i' to type"
   inputContainer.borderColor = state.inputMode ? WhatsAppTheme.green : WhatsAppTheme.borderLight
   // Remove margin when reply preview is shown (it connects to reply bar)
   // inputContainer.marginTop = state.replyingToMessage ? 0 : 0
 
+  // Recreate input component if enterIsSend setting changed
+  if (messageInputComponent && lastEnterIsSend !== null && lastEnterIsSend !== state.enterIsSend) {
+    // Setting changed - destroy and recreate the input
+    const currentText = messageInputComponent.plainText
+    if (!messageInputComponent.isDestroyed) {
+      messageInputComponent.destroy()
+    }
+    messageInputComponent = null
+    // Will be recreated below with new keybindings
+    // Restore text after recreation
+    setTimeout(() => {
+      if (messageInputComponent) {
+        messageInputComponent.setText(currentText)
+      }
+    }, 0)
+  }
+
   // Initialize input component
   if (!messageInputComponent) {
+    // Get enterIsSend setting from state
+    const { enterIsSend } = state
+    lastEnterIsSend = enterIsSend
+
+    // Dynamic key bindings based on setting
+    const keyBindings = enterIsSend
+      ? [
+          // Enter is send mode: Enter = submit, Shift/Ctrl+Enter = newline
+          { name: "return" as const, shift: true, action: "newline" as const },
+          { name: "return" as const, ctrl: true, action: "newline" as const },
+          { name: "return" as const, action: "submit" as const },
+          { name: "linefeed" as const, shift: true, action: "newline" as const },
+          { name: "linefeed" as const, ctrl: true, action: "newline" as const },
+          { name: "linefeed" as const, action: "submit" as const },
+        ]
+      : [
+          // Enter is newline mode: Ctrl/Shift+Enter = submit, Enter = newline
+          { name: "return" as const, shift: true, action: "submit" as const },
+          { name: "return" as const, ctrl: true, action: "submit" as const },
+          { name: "return" as const, action: "newline" as const },
+          { name: "linefeed" as const, shift: true, action: "submit" as const },
+          { name: "linefeed" as const, ctrl: true, action: "submit" as const },
+          { name: "linefeed" as const, action: "newline" as const },
+        ]
+
     messageInputComponent = new TextareaRenderable(renderer, {
       id: "message-input",
       flexGrow: 1,
@@ -396,15 +442,7 @@ export function ConversationView() {
       cursorColor: WhatsAppTheme.green,
       initialValue: state.messageInput,
       wrapMode: "word",
-      // Override keybindings: Enter = submit, Shift+Enter or Ctrl+Enter = newline
-      keyBindings: [
-        { name: "return", shift: true, action: "newline" },
-        { name: "return", ctrl: true, action: "newline" },
-        { name: "return", action: "submit" },
-        { name: "linefeed", shift: true, action: "newline" },
-        { name: "linefeed", ctrl: true, action: "newline" },
-        { name: "linefeed", action: "submit" },
-      ],
+      keyBindings,
     })
 
     // Event Handlers

@@ -4,7 +4,14 @@
  */
 
 import { Box, createCliRenderer, Text, type KeyEvent, BoxRenderable } from "@opentui/core"
-import { loadConfig, saveConfig, configExists, createDefaultConfig } from "./config/manager"
+import {
+  loadConfig,
+  saveConfig,
+  configExists,
+  createDefaultConfig,
+  saveSettings,
+  getSettings,
+} from "./config/manager"
 import { validateConfig } from "./config/schema"
 import {
   initializeClient,
@@ -44,6 +51,9 @@ import { createNewSession } from "./views/SessionCreate"
 import { QRCodeView } from "./views/QRCodeView"
 import { LoadingView } from "./views/LoadingView"
 import { MainLayout } from "./views/MainLayout"
+import { SettingsView, getSettingsMenuItems } from "./views/SettingsView"
+import { LogoutConfirmModal, UpdateAvailableModal } from "./components/Modal"
+import { checkForUpdates } from "./utils/update-checker"
 import type { WahaTuiConfig } from "./config/schema"
 import { initDebug, debugLog } from "./utils/debug"
 import { calculateChatListScrollOffset } from "./utils/chatListScroll"
@@ -281,6 +291,15 @@ async function main() {
     debugLog("App", `Failed to fetch WAHA version: ${error}`)
   }
 
+  // Load saved settings
+  try {
+    const savedSettings = await getSettings()
+    appState.setState({ enterIsSend: savedSettings.enterIsSend })
+    debugLog("Settings", `Loaded settings: enterIsSend=${savedSettings.enterIsSend}`)
+  } catch (error) {
+    debugLog("Settings", `Failed to load settings: ${error}`)
+  }
+
   // Load initial sessions
   await loadSessions()
 
@@ -359,22 +378,27 @@ async function main() {
     })
 
     // Main Content Area - WhatsApp Layout or Legacy Views
-    rootWrapper.add(
-      Box(
-        { flexGrow: 1 },
-        state.currentView === "config"
-          ? ConfigView()
-          : state.currentView === "sessions"
-            ? SessionsView()
-            : state.currentView === "qr"
-              ? QRCodeView()
-              : state.currentView === "loading"
-                ? LoadingView()
-                : state.currentView === "chats" || state.currentView === "conversation"
-                  ? MainLayout()
-                  : Text({ content: `View: ${state.currentView} (Coming soon)` })
-      )
-    )
+    const getViewContent = () => {
+      switch (state.currentView) {
+        case "config":
+          return ConfigView()
+        case "sessions":
+          return SessionsView()
+        case "qr":
+          return QRCodeView()
+        case "loading":
+          return LoadingView()
+        case "chats":
+        case "conversation":
+          return MainLayout()
+        case "settings":
+          return SettingsView()
+        default:
+          return Text({ content: `View: ${state.currentView} (Coming soon)` })
+      }
+    }
+
+    rootWrapper.add(Box({ flexGrow: 1 }, getViewContent()))
 
     // Footer with styled keyboard hints
     rootWrapper.add(Footer())
@@ -387,6 +411,20 @@ async function main() {
     if (contextMenuBox) {
       renderer.root.add(contextMenuBox)
     }
+
+    // Render logout confirmation modal if visible
+    if (state.showLogoutModal) {
+      LogoutConfirmModal({
+        onConfirm: async () => {
+          appState.setState({ showLogoutModal: false })
+          await logoutSession()
+          appState.setCurrentView("sessions")
+        },
+        onCancel: () => {
+          appState.setState({ showLogoutModal: false })
+        },
+      })
+    }
   }
 
   // Subscribe to state changes
@@ -396,6 +434,21 @@ async function main() {
 
   // Initial render (force rebuild)
   renderApp(true)
+
+  // Check for updates
+  try {
+    const updateInfo = await checkForUpdates()
+    if (updateInfo.updateAvailable) {
+      UpdateAvailableModal({
+        updateInfo: updateInfo,
+        onDismiss: () => {
+          renderApp(true)
+        },
+      })
+    }
+  } catch (error) {
+    debugLog("Update", `Error checking for updates: ${error}`)
+  }
 
   // Register context menu action callback for mouse clicks (must be before keypress handler)
   appState.setContextMenuActionCallback((actionId) => {
@@ -443,6 +496,23 @@ async function main() {
         renderApp(true)
         return
       }
+    }
+
+    // Modal keyboard handling - takes priority when modal is visible
+    if (state.showLogoutModal) {
+      if (key.name === "escape") {
+        appState.setState({ showLogoutModal: false })
+        return
+      }
+      if (key.name === "return" || key.name === "enter") {
+        // Confirm logout
+        appState.setState({ showLogoutModal: false })
+        await logoutSession()
+        appState.setCurrentView("sessions")
+        return
+      }
+      // Block other keys when modal is visible
+      return
     }
 
     // Quit (Ctrl+C only)
@@ -815,6 +885,80 @@ async function main() {
           appState.setCurrentView("sessions")
         }
         appState.setSelectedSessionIndex(0) // Reset session selection
+      } else if (state.currentView === "settings") {
+        if (state.settingsPage === "main") {
+          // Go back to chats from settings main menu
+          appState.setState({
+            currentView: "chats",
+            activeIcon: "chats",
+          })
+        } else {
+          // Go back to main settings menu
+          appState.setState({ settingsPage: "main", settingsSelectedIndex: 0 })
+        }
+      }
+    }
+
+    // 's' key - open settings (from chats view, not in input mode)
+    if (key.name === "s" && !state.inputMode && state.currentView === "chats") {
+      appState.setState({
+        currentView: "settings",
+        activeIcon: "settings",
+        settingsPage: "main",
+        settingsSelectedIndex: 0,
+        lastChangeType: "view",
+      })
+      return
+    }
+
+    // Settings view navigation
+    if (state.currentView === "settings" && state.settingsPage === "main") {
+      const menuLength = getSettingsMenuItems().length
+
+      // j/k or up/down for menu navigation
+      if (key.name === "j" || key.name === "down") {
+        const newIndex = Math.min(menuLength - 1, state.settingsSelectedIndex + 1)
+        appState.setState({ settingsSelectedIndex: newIndex })
+        return
+      }
+      if (key.name === "k" || key.name === "up") {
+        const newIndex = Math.max(0, state.settingsSelectedIndex - 1)
+        appState.setState({ settingsSelectedIndex: newIndex })
+        return
+      }
+
+      // Enter to select menu item
+      if (key.name === "return" || key.name === "enter") {
+        const items = getSettingsMenuItems()
+        const selectedItem = items[state.settingsSelectedIndex]
+
+        if (selectedItem === "logout") {
+          // Show logout confirmation modal
+          debugLog("Settings", "Logout selected - showing confirmation")
+          appState.setState({ showLogoutModal: true })
+        } else if (selectedItem) {
+          // Navigate to sub-page, reset sub-index
+          appState.setState({ settingsPage: selectedItem, settingsSubIndex: 0 })
+        }
+        return
+      }
+    }
+
+    // Settings sub-page key handlers (when in a sub-page, not main menu)
+    if (state.currentView === "settings" && state.settingsPage !== "main") {
+      // Toggle settings with Enter or Space
+      if (key.name === "return" || key.name === "enter" || key.name === "space") {
+        if (state.settingsPage === "chats") {
+          // Toggle "Enter is send" setting
+          if (state.settingsSubIndex === 0) {
+            const newValue = !state.enterIsSend
+            appState.setState({ enterIsSend: newValue })
+            debugLog("Settings", `Enter is send: ${newValue}`)
+            // Persist to config
+            await saveSettings({ enterIsSend: newValue })
+          }
+        }
+        return
       }
     }
 
