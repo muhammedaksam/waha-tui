@@ -9,11 +9,12 @@
  */
 
 import { Box, BoxRenderable, ProxiedVNode, Renderable, TextRenderable } from "@opentui/core"
-import { appState } from "../state/AppState"
+
 import { WhatsAppTheme } from "../config/theme"
-import { IconSidebar } from "./IconSidebar"
+import { appState } from "../state/AppState"
 import { ChatsView } from "./ChatsView"
 import { ConversationView } from "./ConversationView"
+import { IconSidebar } from "./IconSidebar"
 import { WelcomeView } from "./WelcomeView"
 
 type LayoutChild =

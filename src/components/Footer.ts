@@ -4,9 +4,10 @@
  */
 
 import { Box, Text, TextNodeRenderable } from "@opentui/core"
+
 import { WhatsAppTheme } from "../config/theme"
-import { appState } from "../state/AppState"
 import { getVersion } from "../config/version"
+import { appState } from "../state/AppState"
 
 interface KeyHint {
   key: string | string[]

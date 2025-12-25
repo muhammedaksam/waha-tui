@@ -4,6 +4,7 @@
  */
 
 import { Box, Text, TextAttributes } from "@opentui/core"
+
 import { appState } from "../state/AppState"
 import { getConnectionStatusIcon } from "../utils/formatters"
 

@@ -5,37 +5,38 @@
 
 import {
   Box,
+  BoxRenderable,
+  fg,
+  RenderableEvents,
+  ScrollBarRenderable,
+  ScrollBoxRenderable,
+  t,
   Text,
+  TextareaRenderable,
   TextAttributes,
   TextRenderable,
-  BoxRenderable,
-  t,
-  TextareaRenderable,
-  RenderableEvents,
-  fg,
-  ScrollBarRenderable,
 } from "@opentui/core"
-import { ScrollBoxRenderable } from "@opentui/core"
+
+import { loadChatDetails, sendMessage, sendTypingState } from "../client"
+import { Icons, WhatsAppTheme } from "../config/theme"
 import { appState } from "../state/AppState"
 import { getRenderer } from "../state/RendererContext"
-import { WhatsAppTheme, Icons } from "../config/theme"
 import { debugLog } from "../utils/debug"
-import { sendMessage, loadChatDetails, sendTypingState } from "../client"
 import {
   formatLastSeen,
-  truncate,
+  getChatIdString,
+  getContactName,
   getInitials,
   isGroupChat,
   isSelfChat,
-  getChatIdString,
-  getPhoneNumber,
+  truncate,
 } from "../utils/formatters"
 import {
-  renderMessage,
-  formatDateSeparator,
   DaySeparator,
+  formatDateSeparator,
   getSenderColor,
   getSenderInfo,
+  renderMessage,
 } from "./conversation"
 
 // Cache for conversation scroll box and input
@@ -89,7 +90,11 @@ export function ConversationView() {
 
   // Get current chat info
   const currentChat = state.chats.find((chat) => getChatIdString(chat.id) === state.currentChatId)
-  const baseChatName = currentChat?.name || state.currentChatId
+  const baseChatName = getContactName(
+    state.currentChatId,
+    state.allContacts,
+    currentChat?.name || undefined
+  )
   // Add "(You)" suffix for self-chat
   const chatName = isSelf ? `${baseChatName} (You)` : baseChatName
 
@@ -120,9 +125,7 @@ export function ConversationView() {
       // Build list of names
       participantNames.push(
         ...state.currentChatParticipants.map((p) => {
-          const contactName = appState.getContactName(p.id)
-          if (contactName) return contactName
-          return getPhoneNumber(p.id)
+          return getContactName(p.id, state.allContacts)
         })
       )
 
@@ -134,8 +137,7 @@ export function ConversationView() {
 
       if (typingParticipants.length > 0) {
         const typingNames = typingParticipants.map((p) => {
-          const contactName = appState.getContactName(p.participant)
-          return contactName || getPhoneNumber(p.participant)
+          return getContactName(p.participant, state.allContacts)
         })
 
         if (typingNames.length === 1) {
@@ -598,21 +600,11 @@ export function ConversationView() {
       }
 
       if (senderId) {
-        // Priority 1: Check contacts cache (user-saved names)
-        const cachedName = state.contactsCache.get(senderId)
-        if (cachedName) {
-          senderName = cachedName
-        } else if (replyMsg._data?.notifyName) {
-          // Priority 2: Use notifyName from message data
-          senderName = replyMsg._data.notifyName
-        } else if (replyMsg._data?.pushName) {
-          // Priority 3: Use pushName from message data
-          senderName = replyMsg._data.pushName
-        } else {
-          // Priority 4: Fallback to phone number
-          const parts = senderId.split("@")
-          senderName = parts[0]
-        }
+        senderName = getContactName(
+          senderId,
+          state.allContacts,
+          replyMsg._data?.notifyName || replyMsg._data?.pushName
+        )
       }
     }
 
@@ -622,7 +614,7 @@ export function ConversationView() {
       : getSenderColor(
           senderId || replyMsg.from || "",
           participantIds,
-          appState.getState().currentChatId || undefined
+          state.currentChatId || undefined
         )
 
     // Create reply preview bar imperatively for click handler

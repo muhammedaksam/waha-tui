@@ -5,14 +5,16 @@
 
 import type {
   ChatSummary,
-  SessionInfo,
   GroupParticipant,
+  SessionInfo,
   WAHAChatPresences,
 } from "@muhammedaksam/waha-node"
+
+import { appState } from "../state/AppState"
 import { debugLog } from "../utils/debug"
 import { isGroupChat } from "../utils/formatters"
-import { appState } from "../state/AppState"
 import { getClient, getSession } from "./core"
+import { prefetchMessagesForTopChats } from "./messageActions"
 
 // ============================================
 // Session Management
@@ -134,6 +136,12 @@ export async function loadChats(): Promise<void> {
 
     const allContacts = await loadAllContacts()
     appState.setAllContacts(allContacts)
+
+    // Trigger background sync to pre-fetch messages for top chats
+    // Run in background (don't await) so UI isn't blocked
+    prefetchMessagesForTopChats(5).catch((error) => {
+      debugLog("Chats", `Failed to pre-fetch messages for top chats: ${error}`)
+    })
   } catch (error) {
     debugLog("Chats", `Failed to load chats: ${error}`)
     appState.setChats([])

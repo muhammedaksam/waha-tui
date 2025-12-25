@@ -18,14 +18,46 @@ export interface WahaTuiEnv {
 }
 
 /**
+ * Notification settings for a specific category (messages or groups)
+ */
+export interface NotificationCategorySettings {
+  showNotifications: boolean
+  showReactionNotifications: boolean
+  playSound: boolean
+}
+
+/**
  * User settings stored in config.json
  */
 export interface WahaTuiSettings {
   enterIsSend: boolean // Enter key sends message (vs Shift+Enter)
+  // Notification settings
+  messageNotifications: NotificationCategorySettings
+  groupNotifications: NotificationCategorySettings
+  statusNotifications: NotificationCategorySettings
+  showPreviews: boolean // Preview message text inside notifications (global)
+  backgroundSync: boolean // Keep syncing messages in background for faster performance
 }
 
 export const DEFAULT_SETTINGS: WahaTuiSettings = {
   enterIsSend: true,
+  messageNotifications: {
+    showNotifications: true,
+    showReactionNotifications: false,
+    playSound: true,
+  },
+  groupNotifications: {
+    showNotifications: true,
+    showReactionNotifications: false,
+    playSound: true,
+  },
+  statusNotifications: {
+    showNotifications: false,
+    showReactionNotifications: false,
+    playSound: false,
+  },
+  showPreviews: true,
+  backgroundSync: true,
 }
 
 /**

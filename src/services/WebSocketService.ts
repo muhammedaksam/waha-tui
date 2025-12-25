@@ -3,20 +3,22 @@
  * Manages real-time event updates from WAHA
  */
 
-import { appState } from "../state/AppState"
-import { debugLog } from "../utils/debug"
-import { normalizeId } from "../utils/formatters"
-import type { WahaTuiConfig } from "../config/schema"
-import { loadChats } from "../client"
 import {
-  WAHAWebhookSessionStatus,
+  WAHAChatPresences,
   WAHAWebhookMessage,
   WAHAWebhookMessageAck,
+  WAHAWebhookMessageAny,
   WAHAWebhookMessageReaction,
   WAHAWebhookMessageRevoked,
-  WAHAWebhookMessageAny,
-  WAHAChatPresences,
+  WAHAWebhookSessionStatus,
 } from "@muhammedaksam/waha-node"
+
+import type { WahaTuiConfig } from "../config/schema"
+import { loadChats } from "../client"
+import { appState } from "../state/AppState"
+import { debugLog } from "../utils/debug"
+import { getContactName, isGroupChat, isStatusBroadcast, normalizeId } from "../utils/formatters"
+import { notifyNewMessage } from "../utils/notifications"
 
 // Standard WebSocket close codes
 const CLOSE_NORMAL = 1000
@@ -197,7 +199,6 @@ export class WebSocketService {
         this.handleSessionStatus(data as WAHAWebhookSessionStatus)
         break
       case "message":
-      case "message.any":
         await this.handleMessageEvent(data as WAHAWebhookMessage)
         break
       case "message.ack":
@@ -246,6 +247,55 @@ export class WebSocketService {
     } else {
       debugLog("WebSocket", `New message in other chat: ${chatId}`)
       loadChats()
+
+      // Send desktop notification for messages not from self
+      if (!payload.fromMe) {
+        try {
+          const isGroup = chatId ? isGroupChat(chatId) : false
+          const isStatus = chatId ? isStatusBroadcast(chatId) : false
+
+          debugLog("Notifications", `Processing notification for ${chatId} (isGroup: ${isGroup})`)
+
+          // Cast _data to access internal WhatsApp properties
+          const messageData = payload._data as
+            | { notifyName?: string; chat?: { name?: string } }
+            | undefined
+
+          // Check if we have a name for this chat in our cached chat list
+          // Use normalizeId to ensure we match even if suffixes differ
+          const normalizedChatId = normalizeId(chatId)
+          const cachedChat = state.chats.find((c) => normalizeId(c.id) === normalizedChatId)
+
+          if (cachedChat) {
+            debugLog("Notifications", `Found cached chat: ${cachedChat.name || cachedChat.id}`)
+          } else {
+            debugLog(
+              "Notifications",
+              `Chat not found in cache for ${chatId} (normalized: ${normalizedChatId})`
+            )
+          }
+
+          const knownName =
+            cachedChat?.name && cachedChat.name !== chatId && cachedChat.name !== cachedChat.id
+              ? cachedChat.name
+              : undefined
+
+          // Get sender name using utility (saved name → cached chat name → notifyName → phone)
+          const senderName = getContactName(
+            payload.from,
+            state.allContacts,
+            knownName || messageData?.notifyName || messageData?.chat?.name
+          )
+
+          debugLog("Notifications", `Resolved sender name: ${senderName}`)
+
+          const messageBody = payload.body || "[Media]"
+          const groupName = isGroup ? messageData?.chat?.name : undefined
+          await notifyNewMessage(senderName, messageBody, isGroup, groupName, isStatus)
+        } catch (error) {
+          debugLog("Notifications", `Error processing notification: ${error}`)
+        }
+      }
     }
   }
 

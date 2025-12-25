@@ -1,39 +1,14 @@
+import type { TextChunk } from "@opentui/core"
+
+import { fg } from "@opentui/core"
+
+import { Icons, WhatsAppTheme } from "../config/theme"
+import { debugLog } from "./debug"
+
 /**
  * Formatting Utilities
  * Helper functions for formatting data in the TUI
  */
-import { fg, type TextChunk } from "@opentui/core"
-import { WhatsAppTheme, Icons } from "../config/theme"
-
-/**
- * Format a timestamp to relative time (e.g., "2m ago", "yesterday")
- */
-export function formatRelativeTime(timestamp: number | string): string {
-  const date = typeof timestamp === "number" ? new Date(timestamp * 1000) : new Date(timestamp)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const seconds = Math.floor(diff / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
-
-  if (seconds < 60) return "just now"
-  if (minutes < 60) return `${minutes}m ago`
-  if (hours < 24) return `${hours}h ago`
-  if (days === 1) return "yesterday"
-  if (days < 7) return `${days}d ago`
-
-  // Format as date for older messages
-  return date.toLocaleDateString()
-}
-
-/**
- * Format a timestamp to time (e.g., "14:30")
- */
-export function formatTime(timestamp: number | string): string {
-  const date = typeof timestamp === "number" ? new Date(timestamp * 1000) : new Date(timestamp)
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-}
 
 /**
  * Truncate text with ellipsis
@@ -321,6 +296,13 @@ export function isGroupChat(chatId: string): boolean {
 }
 
 /**
+ * Check if a chat ID is a status broadcast (WhatsApp Status updates)
+ */
+export function isStatusBroadcast(chatId: string): boolean {
+  return chatId === "status@broadcast"
+}
+
+/**
  * Check if a chat ID is the user's own self-chat (Saved Messages)
  * Normalizes IDs by stripping @c.us and @lid suffixes for proper comparison
  * Note: WhatsApp uses different ID formats:
@@ -328,6 +310,7 @@ export function isGroupChat(chatId: string): boolean {
  *   - @lid: Linked Identity suffix (used in self-chats and some internal references)
  */
 export function isSelfChat(chatId: string, myProfileId: string | null): boolean {
+  debugLog("isSelfChat", `chatId ${chatId}, myProfileId ${myProfileId}`)
   if (!myProfileId) return false
   return normalizeId(chatId) === normalizeId(myProfileId)
 }
@@ -351,9 +334,12 @@ export function getChatIdString(
  * @example normalizeId("1234567890@c.us") → "1234567890"
  * @example normalizeId("1234567890@lid") → "1234567890"
  */
-export function normalizeId(id: string | undefined | null): string {
-  if (!id) return ""
-  return id.replace(/@(c\.us|lid)$/, "")
+export function normalizeId(
+  id: string | { _serialized: string; [key: string]: unknown } | undefined | null
+): string {
+  const idStr = getChatIdString(id)
+  if (!idStr) return ""
+  return idStr.replace(/@(c\.us|lid)$/, "")
 }
 
 /**
@@ -364,4 +350,37 @@ export function normalizeId(id: string | undefined | null): string {
 export function getPhoneNumber(id: string | undefined | null): string {
   if (!id) return ""
   return id.split("@")[0]
+}
+
+/**
+ * Get contact display name with fallbacks
+ * Priority: saved contact name → notifyName → phone number → "Unknown"
+ * @param contactId - The WhatsApp contact ID (e.g., "1234567890@c.us")
+ * @param contacts - Map of contact IDs to saved names
+ * @param notifyName - Optional notifyName from message data (WhatsApp push name)
+ * @returns The best available display name
+ */
+export function getContactName(
+  contactId: string | undefined | null,
+  contacts: Map<string, string>,
+  notifyName?: string
+): string {
+  if (!contactId) return "Unknown"
+
+  // Try saved contact name first
+  const savedName = contacts.get(contactId)
+  // Only use saved name if it's not just the phone number (unless no other name available)
+  const phoneNumber = getPhoneNumber(contactId)
+  if (savedName && savedName !== phoneNumber && savedName !== contactId) {
+    return savedName
+  }
+
+  // Fallback to notifyName (WhatsApp push name) or known chat name
+  if (notifyName) return notifyName
+
+  // If saved name exists (even if it's the number), return it now as fallback
+  if (savedName) return savedName
+
+  // Fallback to phone number
+  return phoneNumber || "Unknown"
 }

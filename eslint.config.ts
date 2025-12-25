@@ -1,6 +1,7 @@
-import eslint from "@eslint/js";
-import tseslint from "typescript-eslint";
-import { defineConfig, globalIgnores } from "eslint/config";
+import eslint from "@eslint/js"
+import importPlugin from "eslint-plugin-import"
+import { defineConfig, globalIgnores } from "eslint/config"
+import tseslint from "typescript-eslint"
 
 export default defineConfig([
   globalIgnores(["dist/", "node_modules/"]),
@@ -11,6 +12,7 @@ export default defineConfig([
     plugins: {
       js: eslint,
       "@typescript-eslint": tseslint.plugin,
+      import: importPlugin,
     },
     extends: [eslint.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
@@ -22,13 +24,13 @@ export default defineConfig([
     },
     rules: {
       // TypeScript specific
-      "@typescript-eslint/no-unused-vars": [
-        "warn",
-        { argsIgnorePattern: "^_" },
-      ],
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/explicit-function-return-type": "off",
       "@typescript-eslint/no-non-null-assertion": "off",
+
+      // Import ordering
+      "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
 
       // General
       "no-console": "off",
@@ -36,4 +38,4 @@ export default defineConfig([
       "no-var": "error",
     },
   },
-]);
+])

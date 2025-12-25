@@ -3,16 +3,18 @@
  * WhatsApp Web-style login page with QR code and phone number pairing option
  */
 
-import { Box, Text, TextAttributes } from "@opentui/core"
-import { appState } from "../state/AppState"
-import { getQRCode } from "../utils/qr"
-import { requestPairingCode } from "../utils/pairing"
-import { WhatsAppTheme, Icons } from "../config/theme"
-import QRCode from "qrcode"
 import type { QRCode as QRCodeType } from "qrcode"
-import { Logo } from "../components/Logo"
+
+import { Box, Text, TextAttributes } from "@opentui/core"
+import QRCode from "qrcode"
+
 import { getClient, loadChats } from "../client"
+import { Logo } from "../components/Logo"
+import { Icons, WhatsAppTheme } from "../config/theme"
+import { appState } from "../state/AppState"
 import { debugLog } from "../utils/debug"
+import { requestPairingCode } from "../utils/pairing"
+import { getQRCode } from "../utils/qr"
 import { createNewSession } from "./SessionCreate"
 
 // Module-level intervals for QR refresh and status checking

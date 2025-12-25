@@ -3,12 +3,13 @@
  * Renders the quoted/reply context box above a reply message
  */
 
-import { BoxRenderable, CliRenderer, TextRenderable, TextAttributes } from "@opentui/core"
+import { BoxRenderable, CliRenderer, TextAttributes, TextRenderable } from "@opentui/core"
+
+import type { WAMessageExtended } from "../../types"
 import { WhatsAppTheme } from "../../config/theme"
 import { appState } from "../../state/AppState"
-import { truncate, isSelfChat } from "../../utils/formatters"
 import { debugLog } from "../../utils/debug"
-import type { WAMessageExtended } from "../../types"
+import { isSelfChat, truncate } from "../../utils/formatters"
 import { getSenderColor } from "./MessageHelpers"
 
 /**
@@ -64,7 +65,8 @@ export function renderReplyContext(
 
   // WAHA CORE workaround: Look up the original message by ID to find the sender
   // This is more reliable than inference because it finds the actual message
-  const myProfileId = appState.getState().myProfile?.id
+  const state = appState.getState()
+  const myProfileId = state.myProfile?.id
   // Use isSelfChat for proper ID comparison (handles @c.us suffix differences)
   // In self-chats, ALL quoted messages are from "me" since it's a chat with yourself
   // Also use replyToFromMe flag from replyTo object (handles group chat quotes with @lid IDs)
@@ -75,7 +77,6 @@ export function renderReplyContext(
 
   // Always try to find the quoted message in cache - fromMe is the authoritative source
   if (replyTo.id) {
-    const state = appState.getState()
     const messages = state.messages.get(state.currentChatId || "") || []
     const quotedMessage = messages.find(
       (msg) => msg.id === replyTo.id || msg.id?.endsWith(replyTo.id)

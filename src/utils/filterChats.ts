@@ -4,9 +4,10 @@
  */
 
 import type { ChatSummary } from "@muhammedaksam/waha-node"
+
 import type { ActiveFilter } from "../state/AppState"
 import { debugLog } from "./debug"
-import { getChatIdString } from "./formatters"
+import { getChatIdString, isGroupChat } from "./formatters"
 
 interface ExtendedChat {
   archived?: boolean
@@ -58,14 +59,6 @@ function getChatProperties(chat: ChatSummary): ExtendedChat {
 export function isArchived(chat: ChatSummary): boolean {
   const props = getChatProperties(chat)
   return !!props.archived
-}
-
-/**
- * Check if a chat is a group chat
- */
-export function isGroupChat(chat: ChatSummary): boolean {
-  const id = getChatIdString(chat.id)
-  return id.endsWith("@g.us")
 }
 
 /**
@@ -129,7 +122,7 @@ export function filterChats(
       filtered = filtered.filter(isFavorite)
       break
     case "groups":
-      filtered = filtered.filter(isGroupChat)
+      filtered = filtered.filter((chat) => isGroupChat(getChatIdString(chat.id)))
       break
   }
 

@@ -5,8 +5,9 @@
  */
 
 import { Box, Text } from "@opentui/core"
-import { WhatsAppTheme } from "../config/theme"
+
 import { Logo } from "../components/Logo"
+import { WhatsAppTheme } from "../config/theme"
 
 export function WelcomeView() {
   return Box(

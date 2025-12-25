@@ -7,8 +7,8 @@
  */
 
 import { appendFileSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
 import { homedir } from "node:os"
+import { join } from "node:path"
 
 // Check CLI args for --debug flag
 const hasDebugFlag = process.argv.includes("--debug") || process.argv.includes("-d")

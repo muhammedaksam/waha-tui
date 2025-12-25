@@ -4,17 +4,18 @@
  */
 
 import type {
-  SessionDTO,
   ChatSummary,
-  WAMessage,
-  WAHAChatPresences,
   GroupParticipant,
   MyProfile,
+  SessionDTO,
+  WAHAChatPresences,
+  WAMessage,
 } from "@muhammedaksam/waha-node"
+import type { QRCode } from "qrcode"
+
+import type { WAMessageExtended } from "../types"
 import { debugLog } from "../utils/debug"
 import { getChatIdString, normalizeId } from "../utils/formatters"
-import type { WAMessageExtended } from "../types"
-import type { QRCode } from "qrcode"
 
 // Context menu types
 export type ContextMenuType = "chat" | "message" | null
@@ -48,7 +49,15 @@ export type PairingStatus = "idle" | "requesting" | "success" | "error"
 export type ActiveIcon = "chats" | "status" | "profile" | "settings" | "channels" | "communities"
 
 // Settings navigation
-export type SettingsPage = "main" | "chats" | "shortcuts" | "help"
+export type SettingsPage =
+  | "main"
+  | "chats"
+  | "notifications"
+  | "notifications-messages"
+  | "notifications-groups"
+  | "notifications-status"
+  | "shortcuts"
+  | "help"
 
 // Type of state change - enables render optimization
 export type ChangeType = "selection" | "scroll" | "data" | "view" | "other"
@@ -124,6 +133,24 @@ export interface AppState {
   settingsSelectedIndex: number
   settingsSubIndex: number // Selection index within sub-pages
   enterIsSend: boolean // Cached setting for UI
+  // Notification settings (cached for UI)
+  messageNotifications: {
+    showNotifications: boolean
+    showReactionNotifications: boolean
+    playSound: boolean
+  }
+  groupNotifications: {
+    showNotifications: boolean
+    showReactionNotifications: boolean
+    playSound: boolean
+  }
+  statusNotifications: {
+    showNotifications: boolean
+    showReactionNotifications: boolean
+    playSound: boolean
+  }
+  showPreviews: boolean
+  backgroundSync: boolean
 
   // Modal state
   showLogoutModal: boolean
@@ -192,6 +219,24 @@ class StateManager {
     settingsSelectedIndex: 0,
     settingsSubIndex: 0,
     enterIsSend: true,
+    // Notification settings
+    messageNotifications: {
+      showNotifications: true,
+      showReactionNotifications: false,
+      playSound: true,
+    },
+    groupNotifications: {
+      showNotifications: true,
+      showReactionNotifications: false,
+      playSound: true,
+    },
+    statusNotifications: {
+      showNotifications: false,
+      showReactionNotifications: false,
+      playSound: false,
+    },
+    showPreviews: true,
+    backgroundSync: true,
 
     // Modal state
     showLogoutModal: false,

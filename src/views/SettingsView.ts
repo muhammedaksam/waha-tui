@@ -4,14 +4,15 @@
  */
 
 import { Box, BoxRenderable, Text, TextAttributes, TextRenderable } from "@opentui/core"
-import { appState, type SettingsPage } from "../state/AppState"
-import { WhatsAppTheme, Icons } from "../config/theme"
-import { getInitials } from "../utils/formatters"
-import { VersionInfo } from "../config/version"
-import { ThreePanelLayout } from "./MainLayout"
-import { getRenderer } from "../state/RendererContext"
-import { WDSColors } from "../config/theme"
+
+import type { SettingsPage } from "../state/AppState"
 import { Logo } from "../components/Logo"
+import { Icons, WDSColors, WhatsAppTheme } from "../config/theme"
+import { VersionInfo } from "../config/version"
+import { appState } from "../state/AppState"
+import { getRenderer } from "../state/RendererContext"
+import { getInitials } from "../utils/formatters"
+import { ThreePanelLayout } from "./MainLayout"
 
 interface SettingsMenuItem {
   id: SettingsPage | "logout"
@@ -22,6 +23,7 @@ interface SettingsMenuItem {
 
 const menuItems: SettingsMenuItem[] = [
   { id: "chats", icon: "💬", label: "Chats", description: "Enter is send" },
+  { id: "notifications", icon: "🔔", label: "Notifications", description: "Desktop alerts" },
   { id: "shortcuts", icon: "⌨️", label: "Keyboard shortcuts", description: "Quick actions" },
   { id: "help", icon: "❓", label: "Help and About", description: "Version info" },
   { id: "logout", icon: "🚪", label: "Log out", description: "" },
@@ -166,6 +168,184 @@ function ChatsSettingsPage() {
       hasToggle: true,
       toggleValue: enterIsSend,
       isSelected: settingsSubIndex === 0,
+    })
+  )
+}
+
+function NotificationsSettingsPage() {
+  const state = appState.getState()
+  const {
+    messageNotifications,
+    groupNotifications,
+    statusNotifications,
+    showPreviews,
+    backgroundSync,
+    settingsSubIndex,
+  } = state
+
+  // Get status text for notification categories
+  const messagesStatus = messageNotifications.showNotifications ? "On" : "Off"
+  const groupsStatus = groupNotifications.showNotifications ? "On" : "Off"
+  const statusStatus = statusNotifications.showNotifications ? "On" : "Off"
+
+  return Box(
+    {
+      flexDirection: "column",
+      flexGrow: 1,
+    },
+    // Header
+    Box(
+      {
+        height: 4,
+        paddingLeft: 2,
+        paddingTop: 1,
+        alignItems: "flex-start",
+        backgroundColor: WhatsAppTheme.panelDark,
+      },
+      Text({
+        content: "← Notifications",
+        fg: WhatsAppTheme.textPrimary,
+        attributes: TextAttributes.BOLD,
+      })
+    ),
+    // Notification categories
+    Box(
+      {
+        flexDirection: "row",
+        width: "100%",
+        justifyContent: "space-between",
+        alignItems: "center",
+        height: 3,
+        paddingLeft: 2,
+        paddingRight: 2,
+        backgroundColor: settingsSubIndex === 0 ? WhatsAppTheme.selectedBg : undefined,
+      },
+      Box(
+        { flexDirection: "row", alignItems: "center", gap: 2 },
+        Text({ content: "💬", fg: WhatsAppTheme.textSecondary }),
+        Box(
+          { flexDirection: "column" },
+          Text({ content: "Messages", fg: WhatsAppTheme.textPrimary }),
+          Text({ content: messagesStatus, fg: WhatsAppTheme.textSecondary })
+        )
+      ),
+      Text({ content: "›", fg: WhatsAppTheme.textSecondary })
+    ),
+    Box(
+      {
+        flexDirection: "row",
+        width: "100%",
+        justifyContent: "space-between",
+        alignItems: "center",
+        height: 3,
+        paddingLeft: 2,
+        paddingRight: 2,
+        backgroundColor: settingsSubIndex === 1 ? WhatsAppTheme.selectedBg : undefined,
+      },
+      Box(
+        { flexDirection: "row", alignItems: "center", gap: 2 },
+        Text({ content: "👥", fg: WhatsAppTheme.textSecondary }),
+        Box(
+          { flexDirection: "column" },
+          Text({ content: "Groups", fg: WhatsAppTheme.textPrimary }),
+          Text({ content: groupsStatus, fg: WhatsAppTheme.textSecondary })
+        )
+      ),
+      Text({ content: "›", fg: WhatsAppTheme.textSecondary })
+    ),
+    // Status row
+    Box(
+      {
+        flexDirection: "row",
+        width: "100%",
+        justifyContent: "space-between",
+        alignItems: "center",
+        height: 3,
+        paddingLeft: 2,
+        paddingRight: 2,
+        backgroundColor: settingsSubIndex === 2 ? WhatsAppTheme.selectedBg : undefined,
+      },
+      Box(
+        { flexDirection: "row", alignItems: "center", gap: 2 },
+        Text({ content: "⊙", fg: WhatsAppTheme.textSecondary }),
+        Box(
+          { flexDirection: "column" },
+          Text({ content: "Status", fg: WhatsAppTheme.textPrimary }),
+          Text({ content: statusStatus, fg: WhatsAppTheme.textSecondary })
+        )
+      ),
+      Text({ content: "›", fg: WhatsAppTheme.textSecondary })
+    ),
+    // Global settings section
+    SectionHeader(""),
+    SettingsRow({
+      label: "Show previews",
+      description: "Preview message text inside notifications",
+      hasToggle: true,
+      toggleValue: showPreviews,
+      isSelected: settingsSubIndex === 3,
+    }),
+    SectionHeader(""),
+    SettingsRow({
+      label: "Background sync",
+      description: "Get faster performance by syncing messages in the background.",
+      hasToggle: true,
+      toggleValue: backgroundSync,
+      isSelected: settingsSubIndex === 4,
+    })
+  )
+}
+
+function NotificationsCategoryPage(category: "messages" | "groups" | "status") {
+  const state = appState.getState()
+  const { messageNotifications, groupNotifications, statusNotifications, settingsSubIndex } = state
+  const settings =
+    category === "messages"
+      ? messageNotifications
+      : category === "groups"
+        ? groupNotifications
+        : statusNotifications
+  const title = category === "messages" ? "Messages" : category === "groups" ? "Groups" : "Status"
+
+  return Box(
+    {
+      flexDirection: "column",
+      flexGrow: 1,
+    },
+    // Header
+    Box(
+      {
+        height: 4,
+        paddingLeft: 2,
+        paddingTop: 1,
+        alignItems: "flex-start",
+        backgroundColor: WhatsAppTheme.panelDark,
+      },
+      Text({
+        content: `← ${title}`,
+        fg: WhatsAppTheme.textPrimary,
+        attributes: TextAttributes.BOLD,
+      })
+    ),
+    // Settings
+    SettingsRow({
+      label: "Show notifications",
+      hasToggle: true,
+      toggleValue: settings.showNotifications,
+      isSelected: settingsSubIndex === 0,
+    }),
+    SettingsRow({
+      label: "Show reaction notifications",
+      hasToggle: true,
+      toggleValue: settings.showReactionNotifications,
+      isSelected: settingsSubIndex === 1,
+    }),
+    SectionHeader(""),
+    SettingsRow({
+      label: "Play sound",
+      hasToggle: true,
+      toggleValue: settings.playSound,
+      isSelected: settingsSubIndex === 2,
     })
   )
 }
@@ -394,16 +574,29 @@ export function SettingsView() {
   )
 
   // Left panel content - either main menu or sub-page
-  const leftPanelContent =
-    settingsPage === "main"
-      ? mainMenuContent
-      : settingsPage === "chats"
-        ? ChatsSettingsPage()
-        : settingsPage === "shortcuts"
-          ? KeyboardShortcutsPage()
-          : settingsPage === "help"
-            ? HelpAboutPage()
-            : mainMenuContent
+  const getLeftPanelContent = () => {
+    switch (settingsPage) {
+      case "main":
+        return mainMenuContent
+      case "chats":
+        return ChatsSettingsPage()
+      case "notifications":
+        return NotificationsSettingsPage()
+      case "notifications-messages":
+        return NotificationsCategoryPage("messages")
+      case "notifications-groups":
+        return NotificationsCategoryPage("groups")
+      case "notifications-status":
+        return NotificationsCategoryPage("status")
+      case "shortcuts":
+        return KeyboardShortcutsPage()
+      case "help":
+        return HelpAboutPage()
+      default:
+        return mainMenuContent
+    }
+  }
+  const leftPanelContent = getLeftPanelContent()
 
   // Right panel always shows placeholder
   const rightPanelContent = Box(

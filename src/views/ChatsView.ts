@@ -3,24 +3,33 @@
  * WhatsApp-style chat list with search, filters, and styled rows
  */
 
-import { Box, Text, BoxRenderable, TextRenderable, ProxiedVNode } from "@opentui/core"
-import { InputRenderable, InputRenderableEvents } from "@opentui/core"
+import type { ChatSummary } from "@muhammedaksam/waha-node"
+
+import {
+  Box,
+  BoxRenderable,
+  InputRenderable,
+  InputRenderableEvents,
+  ProxiedVNode,
+  Text,
+  TextRenderable,
+} from "@opentui/core"
+
+import type { ActiveFilter } from "../state/AppState"
+import { Logo } from "../components/Logo"
+import { Icons, WhatsAppTheme } from "../config/theme"
 import { appState } from "../state/AppState"
 import { getRenderer } from "../state/RendererContext"
-import { WhatsAppTheme, Icons } from "../config/theme"
+import { startNewChat } from "../utils/createChat"
 import { debugLog } from "../utils/debug"
-import type { ActiveFilter } from "../state/AppState"
-import type { ChatSummary } from "@muhammedaksam/waha-node"
-import { chatListManager } from "./ChatListManager"
-import { Logo } from "../components/Logo"
-import { filterChats, countUnreadInArchived, isArchived } from "../utils/filterChats"
 import {
-  searchChatsWithSections,
   flattenSearchResults,
   getSectionBoundaries,
+  searchChatsWithSections,
 } from "../utils/enhancedSearch"
+import { countUnreadInArchived, filterChats, isArchived } from "../utils/filterChats"
 import { looksLikePhoneNumber, validateWhatsAppNumber } from "../utils/phoneValidation"
-import { startNewChat } from "../utils/createChat"
+import { chatListManager } from "./ChatListManager"
 
 // Module-level search input component for focus management
 let searchInputComponent: InputRenderable | null = null

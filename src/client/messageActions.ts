@@ -4,9 +4,11 @@
  */
 
 import type { WAMessage } from "@muhammedaksam/waha-node"
-import { debugLog } from "../utils/debug"
-import { appState } from "../state/AppState"
+
 import type { WAMessageExtended } from "../types"
+import { appState } from "../state/AppState"
+import { debugLog } from "../utils/debug"
+import { getChatIdString } from "../utils/formatters"
 import { getClient, getSession } from "./core"
 
 export async function starMessage(
@@ -279,4 +281,62 @@ export async function sendTypingState(
   } catch (error) {
     debugLog("Typing", `Failed to send typing state: ${error}`)
   }
+}
+
+/**
+ * Pre-fetch messages for top N chats in the background
+ * This improves chat switching performance by having messages ready
+ * Only runs if backgroundSync setting is enabled
+ */
+export async function prefetchMessagesForTopChats(count: number = 5): Promise<void> {
+  const state = appState.getState()
+
+  // Check if background sync is enabled
+  if (!state.backgroundSync) {
+    debugLog("BackgroundSync", "Background sync disabled, skipping prefetch")
+    return
+  }
+
+  const chats = state.chats.slice(0, count)
+  if (chats.length === 0) {
+    debugLog("BackgroundSync", "No chats to prefetch")
+    return
+  }
+
+  debugLog("BackgroundSync", `Pre-fetching messages for top ${chats.length} chats`)
+
+  // Process chats sequentially to avoid overwhelming the API
+  for (const chat of chats) {
+    const chatId = getChatIdString(chat.id)
+    if (!chatId) continue
+
+    // Skip if already cached
+    if (state.messages.has(chatId) && (state.messages.get(chatId)?.length ?? 0) > 0) {
+      debugLog("BackgroundSync", `Chat ${chatId} already cached, skipping`)
+      continue
+    }
+
+    try {
+      const wahaClient = getClient()
+      const session = getSession()
+      const response = await wahaClient.chats.chatsControllerGetChatMessages(session, chatId, {
+        limit: 50,
+        downloadMedia: false,
+        sortBy: "messageTimestamp",
+        sortOrder: "desc",
+      })
+      const messages = (response.data as unknown as WAMessage[]) || []
+
+      // Store in state without triggering UI update for non-current chat
+      appState.setMessages(chatId, messages as WAMessageExtended[])
+      debugLog("BackgroundSync", `Pre-fetched ${messages.length} messages for ${chatId}`)
+
+      // Small delay between requests to be nice to the API
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    } catch (error) {
+      debugLog("BackgroundSync", `Failed to prefetch messages for ${chatId}: ${error}`)
+    }
+  }
+
+  debugLog("BackgroundSync", "Pre-fetch complete")
 }

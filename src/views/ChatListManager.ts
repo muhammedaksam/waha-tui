@@ -3,31 +3,36 @@
  * Manages persistent chat list renderables to avoid rebuilding on every state change
  */
 
+import type { ChatSummary } from "@muhammedaksam/waha-node"
+import type { CliRenderer } from "@opentui/core"
+
 import {
   BoxRenderable,
-  TextRenderable,
   ScrollBoxRenderable,
-  TextAttributes,
   t,
+  TextAttributes,
+  TextRenderable,
 } from "@opentui/core"
-import type { CliRenderer } from "@opentui/core"
-import type { ChatSummary } from "@muhammedaksam/waha-node"
-import { WhatsAppTheme, Icons } from "../config/theme"
+
+import type { AppState } from "../state/AppState"
+import type { MessagePreview } from "../utils/formatters"
+import { loadContacts, loadMessages, startPresenceManagement } from "../client"
+import { Icons, WhatsAppTheme } from "../config/theme"
+import { appState } from "../state/AppState"
+import { ROW_HEIGHT } from "../utils/chatListScroll"
+import { debugLog } from "../utils/debug"
+import { isPinned } from "../utils/filterChats"
 import {
-  truncate,
   extractMessagePreview,
   formatAckStatus,
-  getInitials,
-  isSelfChat,
   getChatIdString,
-  type MessagePreview,
+  getContactName,
+  getInitials,
+  isGroupChat,
+  isSelfChat,
+  truncate,
 } from "../utils/formatters"
-import { debugLog } from "../utils/debug"
-import { appState } from "../state/AppState"
 import { destroyConversationScrollBox } from "./ConversationView"
-import { ROW_HEIGHT } from "../utils/chatListScroll"
-import { loadContacts, loadMessages, startPresenceManagement } from "../client"
-import { isPinned } from "../utils/filterChats"
 
 interface ChatRowData {
   box: BoxRenderable
@@ -78,30 +83,33 @@ class ChatListManager {
   }
 
   // Hash for content (ids + message timestamps + active/selected state + last message content)
-  private getChatsContentHash(chats: ChatSummary[]): string {
-    return (chats as unknown as ExtendedChatSummary[])
-      .map((c) => `${c.id}:${c.lastMessage?.timestamp || 0}:${c.lastMessage?.id || ""}`)
-      .join(",")
+  private getChatsContentHash(chats: ChatSummary[], state: AppState): string {
+    const myId = state.myProfile?.id || "null"
+    return (
+      (chats as unknown as ExtendedChatSummary[])
+        .map((c) => `${c.id}:${c.lastMessage?.timestamp || 0}:${c.lastMessage?.id || ""}`)
+        .join(",") + `:${myId}`
+    )
   }
 
   /**
    * Build the chat list - only called when chats are loaded or data changes
    */
   public buildChatList(renderer: CliRenderer, chats: ChatSummary[]): ScrollBoxRenderable {
+    const state = appState.getState()
     const newStructureHash = this.getChatsStructureHash(chats)
-    const newContentHash = this.getChatsContentHash(chats)
+    const newContentHash = this.getChatsContentHash(chats, state)
 
     // CASE 1: exact same content (no changes)
     if (this.scrollBox && newContentHash === this.currentChatsHash) {
       // debugLog("ChatListManager", "Using cached chat list (exact match)")
       // Still need to update selection/active styling as those may have changed
-      const state = appState.getState()
       this.updateSelectionAndActive(state.selectedChatIndex, state.currentChatId, chats)
       return this.scrollBox
     }
 
     this.currentChatsHash = newContentHash
-    this.currentSelectedIndex = appState.getState().selectedChatIndex
+    this.currentSelectedIndex = state.selectedChatIndex
 
     // CASE 2: same structure (same chats, same order), just content update (new message)
     if (
@@ -143,11 +151,10 @@ class ChatListManager {
     })
 
     // Build chat rows
-    const state = appState.getState()
 
     for (let index = 0; index < chats.length; index++) {
       const chat = chats[index]
-      this.createChatRow(renderer, chat, index, state.currentChatId === chat.id)
+      this.createChatRow(renderer, chat, index, state.currentChatId === chat.id, state)
     }
 
     // Apply initial scroll position
@@ -175,7 +182,8 @@ class ChatListManager {
     renderer: CliRenderer,
     chat: ChatSummary,
     index: number,
-    isCurrentChat: boolean
+    isCurrentChat: boolean,
+    state: AppState
   ) {
     if (!this.scrollBox) return
 
@@ -184,13 +192,12 @@ class ChatListManager {
     // Extract message preview
     const preview = extractMessagePreview(chat.lastMessage)
     const chatIdStr = getChatIdString(chat.id)
-    const isGroupChat = chatIdStr.endsWith("@g.us")
-    const isSelf = isSelfChat(chatIdStr, appState.getState().myProfile?.id ?? null)
+    const isSelf = isSelfChat(chatIdStr, state.myProfile?.id ?? null)
+    const contactName = getContactName(chatIdStr, state.allContacts, chat.name || undefined)
+    const displayName = isSelf ? `${contactName} (You)` : contactName
     let lastMessageText = preview.text
-    // Add "(You)" suffix for self-chat
-    const displayName = isSelf ? `${chat.name || chat.id} (You)` : chat.name || chat.id
 
-    if (isGroupChat && preview.text !== "No messages") {
+    if (isGroupChat(chatIdStr) && preview.text !== "No messages") {
       if (preview.isFromMe) {
         lastMessageText = `You: ${preview.text}`
       }
@@ -416,18 +423,18 @@ class ChatListManager {
       // Prepare data
       const preview = extractMessagePreview(chat.lastMessage)
       const chatIdStr = getChatIdString(chat.id)
-      const isGroupChat = chatIdStr.endsWith("@g.us")
-      const isSelf = isSelfChat(chatIdStr, appState.getState().myProfile?.id ?? null)
-      const displayName = isSelf ? `${chat.name || chat.id} (You)` : chat.name || chat.id
+      const isSelf = isSelfChat(chatIdStr, state.myProfile?.id ?? null)
+      const contactName = getContactName(chatIdStr, state.allContacts, chat.name || undefined)
+      const displayName = isSelf ? `${contactName} (You)` : contactName
       let lastMessageText = preview.text
-      if (isGroupChat && preview.text !== "No messages" && preview.isFromMe) {
+      if (isGroupChat(chatIdStr) && preview.text !== "No messages" && preview.isFromMe) {
         lastMessageText = `You: ${preview.text}`
       }
 
       // Update Text Content directly
       // 1. Avatar Initials
 
-      rowData.avatarText.content = getInitials(chat.name || "")
+      rowData.avatarText.content = getInitials(contactName)
       rowData.avatarText.attributes = isSelected ? TextAttributes.BOLD : TextAttributes.NONE
 
       // 2. Name
@@ -485,9 +492,8 @@ class ChatListManager {
         rowData.messageText.fg = WhatsAppTheme.green
       } else {
         // Always restore the message preview when not typing
-        const isGroupChat = chatId.endsWith("@g.us")
         let lastMessageText = preview.text
-        if (isGroupChat && preview.text !== "No messages" && preview.isFromMe) {
+        if (isGroupChat(chatId) && preview.text !== "No messages" && preview.isFromMe) {
           lastMessageText = `You: ${preview.text}`
         }
         rowData.messageText.content = truncate(lastMessageText, 50)

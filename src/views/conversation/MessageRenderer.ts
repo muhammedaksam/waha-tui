@@ -3,14 +3,16 @@
  * Renders individual message bubbles in the conversation view
  */
 
-import { BoxRenderable, CliRenderer, TextRenderable, TextAttributes, t } from "@opentui/core"
+import type { WAMessage } from "@muhammedaksam/waha-node"
+
+import { BoxRenderable, CliRenderer, t, TextAttributes, TextRenderable } from "@opentui/core"
+
+import type { WAMessageExtended } from "../../types"
 import { WhatsAppTheme } from "../../config/theme"
 import { appState } from "../../state/AppState"
-import { formatAckStatus, getInitials, isSelfChat } from "../../utils/formatters"
 import { debugLog } from "../../utils/debug"
-import type { WAMessage } from "@muhammedaksam/waha-node"
-import type { WAMessageExtended } from "../../types"
-import { getSenderInfo, centerText } from "./MessageHelpers"
+import { formatAckStatus, getInitials, isSelfChat } from "../../utils/formatters"
+import { centerText, getSenderInfo } from "./MessageHelpers"
 import { renderReplyContext } from "./ReplyContext"
 
 /**
@@ -208,8 +210,9 @@ export function renderMessage(
   if (message.replyTo) {
     const msgChatId = message.from || message.to || ""
     // Check if this is a self-chat (chatting with yourself)
-    const currentChatId = appState.getState().currentChatId || ""
-    const myId = appState.getState().myProfile?.id || null
+    const state = appState.getState()
+    const currentChatId = state.currentChatId || ""
+    const myId = state.myProfile?.id || null
     const isSelfChatFlag = isSelfChat(currentChatId, myId)
     const replyContext = renderReplyContext(
       renderer,

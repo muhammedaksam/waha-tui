@@ -2,77 +2,77 @@
 /**
  * WAHA TUI - Terminal User Interface for WhatsApp via WAHA
  */
+import type { CliRenderer, KeyEvent } from "@opentui/core"
 
-import { Box, createCliRenderer, Text, type KeyEvent, BoxRenderable } from "@opentui/core"
+import { Box, BoxRenderable, createCliRenderer, Text } from "@opentui/core"
+
+import type { WahaTuiConfig } from "./config/schema"
 import {
-  loadConfig,
-  saveConfig,
-  configExists,
-  createDefaultConfig,
-  saveSettings,
-  getSettings,
-} from "./config/manager"
-import { validateConfig } from "./config/schema"
-import {
+  deleteSession,
+  fetchMyProfile,
+  getClient,
   initializeClient,
-  testConnection,
-  loadMessages,
   loadChats,
+  loadContacts,
+  loadLidMappings,
+  loadMessages,
+  loadOlderMessages,
   loadSessions,
   logoutSession,
-  deleteSession,
-  loadContacts,
-  loadOlderMessages,
-  fetchMyProfile,
+  markActivity,
   startPresenceManagement,
   stopPresenceManagement,
-  markActivity,
-  loadLidMappings,
+  testConnection,
 } from "./client"
-import { executeContextMenuAction } from "./handlers"
-import { appState } from "./state/AppState"
-import { Footer } from "./components/Footer"
 import {
-  ContextMenu,
-  handleContextMenuKey,
-  getSelectedMenuItem,
-  isClickOutsideContextMenu,
   clearMenuBounds,
+  ContextMenu,
+  getSelectedMenuItem,
+  handleContextMenuKey,
+  isClickOutsideContextMenu,
 } from "./components/ContextMenu"
-import { SessionsView } from "./views/SessionsView"
-import { focusSearchInput, blurSearchInput, clearSearchInput } from "./views/ChatsView"
-import {
-  scrollConversation,
-  destroyConversationScrollBox,
-  focusMessageInput,
-  blurMessageInput,
-} from "./views/ConversationView"
-import { createNewSession } from "./views/SessionCreate"
-import { QRCodeView } from "./views/QRCodeView"
-import { LoadingView } from "./views/LoadingView"
-import { MainLayout } from "./views/MainLayout"
-import { SettingsView, getSettingsMenuItems } from "./views/SettingsView"
+import { Footer } from "./components/Footer"
 import { LogoutConfirmModal, UpdateAvailableModal } from "./components/Modal"
-import { checkForUpdates } from "./utils/update-checker"
-import type { WahaTuiConfig } from "./config/schema"
-import { initDebug, debugLog } from "./utils/debug"
+import {
+  configExists,
+  createDefaultConfig,
+  getSettings,
+  loadConfig,
+  saveConfig,
+  saveSettings,
+} from "./config/manager"
+import { validateConfig } from "./config/schema"
+import { executeContextMenuAction } from "./handlers"
+import { webSocketService } from "./services/WebSocketService"
+import { appState } from "./state/AppState"
+import { setRenderer } from "./state/RendererContext"
 import { calculateChatListScrollOffset } from "./utils/chatListScroll"
+import { debugLog, initDebug } from "./utils/debug"
 import { filterChats, isArchived } from "./utils/filterChats"
 import { getChatIdString } from "./utils/formatters"
-
-import { webSocketService } from "./services/WebSocketService"
-import { ConfigView } from "./views/ConfigView"
-import type { CliRenderer } from "@opentui/core"
-import { setRenderer } from "./state/RendererContext"
-import {
-  showQRCode,
-  toggleAuthMode,
-  handlePhoneInput,
-  handlePhoneBackspace,
-  submitPhoneNumber,
-} from "./views/QRCodeView"
+import { checkForUpdates } from "./utils/update-checker"
 import { chatListManager } from "./views/ChatListManager"
-import { getClient } from "./client"
+import { blurSearchInput, clearSearchInput, focusSearchInput } from "./views/ChatsView"
+import { ConfigView } from "./views/ConfigView"
+import {
+  blurMessageInput,
+  destroyConversationScrollBox,
+  focusMessageInput,
+  scrollConversation,
+} from "./views/ConversationView"
+import { LoadingView } from "./views/LoadingView"
+import { MainLayout } from "./views/MainLayout"
+import {
+  handlePhoneBackspace,
+  handlePhoneInput,
+  QRCodeView,
+  showQRCode,
+  submitPhoneNumber,
+  toggleAuthMode,
+} from "./views/QRCodeView"
+import { createNewSession } from "./views/SessionCreate"
+import { SessionsView } from "./views/SessionsView"
+import { getSettingsMenuItems, SettingsView } from "./views/SettingsView"
 
 /**
  * Run the configuration wizard using the TUI
@@ -294,8 +294,18 @@ async function main() {
   // Load saved settings
   try {
     const savedSettings = await getSettings()
-    appState.setState({ enterIsSend: savedSettings.enterIsSend })
-    debugLog("Settings", `Loaded settings: enterIsSend=${savedSettings.enterIsSend}`)
+    appState.setState({
+      enterIsSend: savedSettings.enterIsSend,
+      messageNotifications: savedSettings.messageNotifications,
+      groupNotifications: savedSettings.groupNotifications,
+      statusNotifications: savedSettings.statusNotifications,
+      showPreviews: savedSettings.showPreviews,
+      backgroundSync: savedSettings.backgroundSync,
+    })
+    debugLog(
+      "Settings",
+      `Loaded settings: enterIsSend=${savedSettings.enterIsSend}, msgNotif=${savedSettings.messageNotifications.showNotifications}`
+    )
   } catch (error) {
     debugLog("Settings", `Failed to load settings: ${error}`)
   }
@@ -892,6 +902,13 @@ async function main() {
             currentView: "chats",
             activeIcon: "chats",
           })
+        } else if (
+          state.settingsPage === "notifications-messages" ||
+          state.settingsPage === "notifications-groups" ||
+          state.settingsPage === "notifications-status"
+        ) {
+          // Go back to notifications page
+          appState.setState({ settingsPage: "notifications", settingsSubIndex: 0 })
         } else {
           // Go back to main settings menu
           appState.setState({ settingsPage: "main", settingsSelectedIndex: 0 })
@@ -946,6 +963,39 @@ async function main() {
 
     // Settings sub-page key handlers (when in a sub-page, not main menu)
     if (state.currentView === "settings" && state.settingsPage !== "main") {
+      // Determine max items based on current page
+      const getMaxItems = () => {
+        switch (state.settingsPage) {
+          case "chats":
+            return 1 // Only "Enter is send"
+          case "notifications":
+            return 5 // Messages, Groups, Status, Show previews, Background sync
+          case "notifications-messages":
+          case "notifications-groups":
+          case "notifications-status":
+            return 3 // Show notifications, Show reaction notifications, Play sound
+          default:
+            return 0
+        }
+      }
+      const maxItems = getMaxItems()
+
+      // j/k or up/down for navigation within sub-page
+      if (key.name === "j" || key.name === "down") {
+        if (maxItems > 0) {
+          const newIndex = Math.min(maxItems - 1, state.settingsSubIndex + 1)
+          appState.setState({ settingsSubIndex: newIndex })
+        }
+        return
+      }
+      if (key.name === "k" || key.name === "up") {
+        if (maxItems > 0) {
+          const newIndex = Math.max(0, state.settingsSubIndex - 1)
+          appState.setState({ settingsSubIndex: newIndex })
+        }
+        return
+      }
+
       // Toggle settings with Enter or Space
       if (key.name === "return" || key.name === "enter" || key.name === "space") {
         if (state.settingsPage === "chats") {
@@ -957,6 +1007,84 @@ async function main() {
             // Persist to config
             await saveSettings({ enterIsSend: newValue })
           }
+        } else if (state.settingsPage === "notifications") {
+          // Navigation to sub-pages or toggle showPreviews
+          if (state.settingsSubIndex === 0) {
+            // Navigate to Messages settings
+            appState.setState({ settingsPage: "notifications-messages", settingsSubIndex: 0 })
+          } else if (state.settingsSubIndex === 1) {
+            // Navigate to Groups settings
+            appState.setState({ settingsPage: "notifications-groups", settingsSubIndex: 0 })
+          } else if (state.settingsSubIndex === 2) {
+            // Navigate to Status settings
+            appState.setState({ settingsPage: "notifications-status", settingsSubIndex: 0 })
+          } else if (state.settingsSubIndex === 3) {
+            // Toggle "Show previews"
+            const newValue = !state.showPreviews
+            appState.setState({ showPreviews: newValue })
+            debugLog("Settings", `Show previews: ${newValue}`)
+            await saveSettings({ showPreviews: newValue })
+          } else if (state.settingsSubIndex === 4) {
+            // Toggle "Background sync"
+            const newValue = !state.backgroundSync
+            appState.setState({ backgroundSync: newValue })
+            debugLog("Settings", `Background sync: ${newValue}`)
+            await saveSettings({ backgroundSync: newValue })
+          }
+        } else if (state.settingsPage === "notifications-messages") {
+          // Message notification toggles
+          const current = { ...state.messageNotifications }
+          if (state.settingsSubIndex === 0) {
+            current.showNotifications = !current.showNotifications
+            debugLog("Settings", `Message notifications: ${current.showNotifications}`)
+          } else if (state.settingsSubIndex === 1) {
+            current.showReactionNotifications = !current.showReactionNotifications
+            debugLog(
+              "Settings",
+              `Message reaction notifications: ${current.showReactionNotifications}`
+            )
+          } else if (state.settingsSubIndex === 2) {
+            current.playSound = !current.playSound
+            debugLog("Settings", `Message play sound: ${current.playSound}`)
+          }
+          appState.setState({ messageNotifications: current })
+          await saveSettings({ messageNotifications: current })
+        } else if (state.settingsPage === "notifications-groups") {
+          // Group notification toggles
+          const current = { ...state.groupNotifications }
+          if (state.settingsSubIndex === 0) {
+            current.showNotifications = !current.showNotifications
+            debugLog("Settings", `Group notifications: ${current.showNotifications}`)
+          } else if (state.settingsSubIndex === 1) {
+            current.showReactionNotifications = !current.showReactionNotifications
+            debugLog(
+              "Settings",
+              `Group reaction notifications: ${current.showReactionNotifications}`
+            )
+          } else if (state.settingsSubIndex === 2) {
+            current.playSound = !current.playSound
+            debugLog("Settings", `Group play sound: ${current.playSound}`)
+          }
+          appState.setState({ groupNotifications: current })
+          await saveSettings({ groupNotifications: current })
+        } else if (state.settingsPage === "notifications-status") {
+          // Status notification toggles
+          const current = { ...state.statusNotifications }
+          if (state.settingsSubIndex === 0) {
+            current.showNotifications = !current.showNotifications
+            debugLog("Settings", `Status notifications: ${current.showNotifications}`)
+          } else if (state.settingsSubIndex === 1) {
+            current.showReactionNotifications = !current.showReactionNotifications
+            debugLog(
+              "Settings",
+              `Status reaction notifications: ${current.showReactionNotifications}`
+            )
+          } else if (state.settingsSubIndex === 2) {
+            current.playSound = !current.playSound
+            debugLog("Settings", `Status play sound: ${current.playSound}`)
+          }
+          appState.setState({ statusNotifications: current })
+          await saveSettings({ statusNotifications: current })
         }
         return
       }

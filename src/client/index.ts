@@ -21,6 +21,7 @@ export {
   loadOlderMessages,
   sendMessage,
   sendTypingState,
+  prefetchMessagesForTopChats,
 } from "./messageActions"
 
 // Session & data loading actions

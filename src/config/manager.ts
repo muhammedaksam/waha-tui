@@ -7,13 +7,14 @@
  * - ~/.waha-tui/config.json - Metadata (version, timestamps, settings)
  */
 
-import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { existsSync } from "node:fs"
+import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import type { WahaTuiConfig, WahaTuiEnv, WahaTuiConfigMeta, WahaTuiSettings } from "./schema"
-import { DEFAULT_ENV, DEFAULT_CONFIG_META, DEFAULT_SETTINGS } from "./schema"
+
+import type { WahaTuiConfig, WahaTuiConfigMeta, WahaTuiEnv, WahaTuiSettings } from "./schema"
 import { debugLog } from "../utils/debug"
+import { DEFAULT_CONFIG_META, DEFAULT_ENV, DEFAULT_SETTINGS } from "./schema"
 import { VersionInfo } from "./version"
 
 const CONFIG_DIR_NAME = "waha-tui"

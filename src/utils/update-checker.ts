@@ -3,10 +3,11 @@
  * Check GitHub releases for new waha-tui versions
  */
 
-import { VersionInfo } from "../config/version"
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
-import { join } from "node:path"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
+import { join } from "node:path"
+
+import { VersionInfo } from "../config/version"
 
 const GITHUB_REPO = "muhammedaksam/waha-tui"
 
