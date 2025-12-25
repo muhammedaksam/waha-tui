@@ -4,14 +4,15 @@
  */
 
 import { Box, BoxRenderable, Text, TextAttributes, TextRenderable } from "@opentui/core"
-import { appState, type SettingsPage } from "../state/AppState"
-import { WhatsAppTheme, Icons } from "../config/theme"
-import { getInitials } from "../utils/formatters"
-import { VersionInfo } from "../config/version"
-import { ThreePanelLayout } from "./MainLayout"
-import { getRenderer } from "../state/RendererContext"
-import { WDSColors } from "../config/theme"
+
+import type { SettingsPage } from "../state/AppState"
 import { Logo } from "../components/Logo"
+import { Icons, WDSColors, WhatsAppTheme } from "../config/theme"
+import { VersionInfo } from "../config/version"
+import { appState } from "../state/AppState"
+import { getRenderer } from "../state/RendererContext"
+import { getInitials } from "../utils/formatters"
+import { ThreePanelLayout } from "./MainLayout"
 
 interface SettingsMenuItem {
   id: SettingsPage | "logout"

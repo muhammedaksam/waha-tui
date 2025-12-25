@@ -3,14 +3,16 @@
  * Renders individual message bubbles in the conversation view
  */
 
-import { BoxRenderable, CliRenderer, TextRenderable, TextAttributes, t } from "@opentui/core"
+import type { WAMessage } from "@muhammedaksam/waha-node"
+
+import { BoxRenderable, CliRenderer, t, TextAttributes, TextRenderable } from "@opentui/core"
+
+import type { WAMessageExtended } from "../../types"
 import { WhatsAppTheme } from "../../config/theme"
 import { appState } from "../../state/AppState"
-import { formatAckStatus, getInitials, isSelfChat } from "../../utils/formatters"
 import { debugLog } from "../../utils/debug"
-import type { WAMessage } from "@muhammedaksam/waha-node"
-import type { WAMessageExtended } from "../../types"
-import { getSenderInfo, centerText } from "./MessageHelpers"
+import { formatAckStatus, getInitials, isSelfChat } from "../../utils/formatters"
+import { centerText, getSenderInfo } from "./MessageHelpers"
 import { renderReplyContext } from "./ReplyContext"
 
 /**

@@ -3,33 +3,36 @@
  * Manages persistent chat list renderables to avoid rebuilding on every state change
  */
 
+import type { ChatSummary } from "@muhammedaksam/waha-node"
+import type { CliRenderer } from "@opentui/core"
+
 import {
   BoxRenderable,
-  TextRenderable,
   ScrollBoxRenderable,
-  TextAttributes,
   t,
+  TextAttributes,
+  TextRenderable,
 } from "@opentui/core"
-import type { CliRenderer } from "@opentui/core"
-import type { ChatSummary } from "@muhammedaksam/waha-node"
-import { WhatsAppTheme, Icons } from "../config/theme"
+
+import type { AppState } from "../state/AppState"
+import type { MessagePreview } from "../utils/formatters"
+import { loadContacts, loadMessages, startPresenceManagement } from "../client"
+import { Icons, WhatsAppTheme } from "../config/theme"
+import { appState } from "../state/AppState"
+import { ROW_HEIGHT } from "../utils/chatListScroll"
+import { debugLog } from "../utils/debug"
+import { isPinned } from "../utils/filterChats"
 import {
-  truncate,
   extractMessagePreview,
   formatAckStatus,
-  getInitials,
-  isSelfChat,
   getChatIdString,
-  type MessagePreview,
-  isGroupChat,
   getContactName,
+  getInitials,
+  isGroupChat,
+  isSelfChat,
+  truncate,
 } from "../utils/formatters"
-import { debugLog } from "../utils/debug"
-import { appState, type AppState } from "../state/AppState"
 import { destroyConversationScrollBox } from "./ConversationView"
-import { ROW_HEIGHT } from "../utils/chatListScroll"
-import { loadContacts, loadMessages, startPresenceManagement } from "../client"
-import { isPinned } from "../utils/filterChats"
 
 interface ChatRowData {
   box: BoxRenderable

@@ -4,9 +4,10 @@
  */
 
 import { Box, Text, TextAttributes } from "@opentui/core"
-import { appState } from "../state/AppState"
-import { WhatsAppTheme, Icons, Layout } from "../config/theme"
+
 import type { ActiveIcon } from "../state/AppState"
+import { Icons, Layout, WhatsAppTheme } from "../config/theme"
+import { appState } from "../state/AppState"
 import { getInitials } from "../utils/formatters"
 
 export function IconSidebar() {

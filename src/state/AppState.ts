@@ -4,17 +4,18 @@
  */
 
 import type {
-  SessionDTO,
   ChatSummary,
-  WAMessage,
-  WAHAChatPresences,
   GroupParticipant,
   MyProfile,
+  SessionDTO,
+  WAHAChatPresences,
+  WAMessage,
 } from "@muhammedaksam/waha-node"
+import type { QRCode } from "qrcode"
+
+import type { WAMessageExtended } from "../types"
 import { debugLog } from "../utils/debug"
 import { getChatIdString, normalizeId } from "../utils/formatters"
-import type { WAMessageExtended } from "../types"
-import type { QRCode } from "qrcode"
 
 // Context menu types
 export type ContextMenuType = "chat" | "message" | null

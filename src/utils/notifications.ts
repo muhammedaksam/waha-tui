@@ -11,6 +11,7 @@
  */
 
 import notifier from "node-notifier"
+
 import { getSettings } from "../config/manager"
 import { debugLog } from "./debug"
 

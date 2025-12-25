@@ -1,25 +1,27 @@
+import type { WAMessage } from "@muhammedaksam/waha-node"
+
+import type { ContextMenuState } from "../state/AppState"
+import {
+  archiveChat,
+  copyToClipboard,
+  deleteChat,
+  deleteMessage,
+  loadChats,
+  loadMessages,
+  markChatUnread,
+  pinMessage,
+  reactToMessage,
+  starMessage,
+  unarchiveChat,
+} from "../client"
+import { appState } from "../state/AppState"
+import { debugLog } from "../utils/debug"
+import { focusMessageInput } from "../views/ConversationView"
+
 /**
  * Context Menu Actions Handler
  * Executes actions triggered from context menus (chat and message context menus)
  */
-
-import { appState, type ContextMenuState } from "../state/AppState"
-import { debugLog } from "../utils/debug"
-import {
-  archiveChat,
-  unarchiveChat,
-  markChatUnread,
-  deleteChat,
-  loadChats,
-  loadMessages,
-  copyToClipboard,
-  starMessage,
-  pinMessage,
-  reactToMessage,
-  deleteMessage,
-} from "../client"
-import { focusMessageInput } from "../views/ConversationView"
-import type { WAMessage } from "@muhammedaksam/waha-node"
 
 /**
  * Execute a context menu action based on the action ID and context

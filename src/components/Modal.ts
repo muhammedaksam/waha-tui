@@ -3,8 +3,9 @@
  * A reusable modal dialog overlay
  */
 
-import { TextAttributes, BoxRenderable, TextRenderable } from "@opentui/core"
-import { WhatsAppTheme, WDSColors } from "../config/theme"
+import { BoxRenderable, TextAttributes, TextRenderable } from "@opentui/core"
+
+import { WDSColors, WhatsAppTheme } from "../config/theme"
 import { getRenderer } from "../state/RendererContext"
 import { type UpdateInfo } from "../utils/update-checker"
 

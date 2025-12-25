@@ -2,77 +2,77 @@
 /**
  * WAHA TUI - Terminal User Interface for WhatsApp via WAHA
  */
+import type { CliRenderer, KeyEvent } from "@opentui/core"
 
-import { Box, createCliRenderer, Text, type KeyEvent, BoxRenderable } from "@opentui/core"
+import { Box, BoxRenderable, createCliRenderer, Text } from "@opentui/core"
+
+import type { WahaTuiConfig } from "./config/schema"
 import {
-  loadConfig,
-  saveConfig,
-  configExists,
-  createDefaultConfig,
-  saveSettings,
-  getSettings,
-} from "./config/manager"
-import { validateConfig } from "./config/schema"
-import {
+  deleteSession,
+  fetchMyProfile,
+  getClient,
   initializeClient,
-  testConnection,
-  loadMessages,
   loadChats,
+  loadContacts,
+  loadLidMappings,
+  loadMessages,
+  loadOlderMessages,
   loadSessions,
   logoutSession,
-  deleteSession,
-  loadContacts,
-  loadOlderMessages,
-  fetchMyProfile,
+  markActivity,
   startPresenceManagement,
   stopPresenceManagement,
-  markActivity,
-  loadLidMappings,
+  testConnection,
 } from "./client"
-import { executeContextMenuAction } from "./handlers"
-import { appState } from "./state/AppState"
-import { Footer } from "./components/Footer"
 import {
-  ContextMenu,
-  handleContextMenuKey,
-  getSelectedMenuItem,
-  isClickOutsideContextMenu,
   clearMenuBounds,
+  ContextMenu,
+  getSelectedMenuItem,
+  handleContextMenuKey,
+  isClickOutsideContextMenu,
 } from "./components/ContextMenu"
-import { SessionsView } from "./views/SessionsView"
-import { focusSearchInput, blurSearchInput, clearSearchInput } from "./views/ChatsView"
-import {
-  scrollConversation,
-  destroyConversationScrollBox,
-  focusMessageInput,
-  blurMessageInput,
-} from "./views/ConversationView"
-import { createNewSession } from "./views/SessionCreate"
-import { QRCodeView } from "./views/QRCodeView"
-import { LoadingView } from "./views/LoadingView"
-import { MainLayout } from "./views/MainLayout"
-import { SettingsView, getSettingsMenuItems } from "./views/SettingsView"
+import { Footer } from "./components/Footer"
 import { LogoutConfirmModal, UpdateAvailableModal } from "./components/Modal"
-import { checkForUpdates } from "./utils/update-checker"
-import type { WahaTuiConfig } from "./config/schema"
-import { initDebug, debugLog } from "./utils/debug"
+import {
+  configExists,
+  createDefaultConfig,
+  getSettings,
+  loadConfig,
+  saveConfig,
+  saveSettings,
+} from "./config/manager"
+import { validateConfig } from "./config/schema"
+import { executeContextMenuAction } from "./handlers"
+import { webSocketService } from "./services/WebSocketService"
+import { appState } from "./state/AppState"
+import { setRenderer } from "./state/RendererContext"
 import { calculateChatListScrollOffset } from "./utils/chatListScroll"
+import { debugLog, initDebug } from "./utils/debug"
 import { filterChats, isArchived } from "./utils/filterChats"
 import { getChatIdString } from "./utils/formatters"
-
-import { webSocketService } from "./services/WebSocketService"
-import { ConfigView } from "./views/ConfigView"
-import type { CliRenderer } from "@opentui/core"
-import { setRenderer } from "./state/RendererContext"
-import {
-  showQRCode,
-  toggleAuthMode,
-  handlePhoneInput,
-  handlePhoneBackspace,
-  submitPhoneNumber,
-} from "./views/QRCodeView"
+import { checkForUpdates } from "./utils/update-checker"
 import { chatListManager } from "./views/ChatListManager"
-import { getClient } from "./client"
+import { blurSearchInput, clearSearchInput, focusSearchInput } from "./views/ChatsView"
+import { ConfigView } from "./views/ConfigView"
+import {
+  blurMessageInput,
+  destroyConversationScrollBox,
+  focusMessageInput,
+  scrollConversation,
+} from "./views/ConversationView"
+import { LoadingView } from "./views/LoadingView"
+import { MainLayout } from "./views/MainLayout"
+import {
+  handlePhoneBackspace,
+  handlePhoneInput,
+  QRCodeView,
+  showQRCode,
+  submitPhoneNumber,
+  toggleAuthMode,
+} from "./views/QRCodeView"
+import { createNewSession } from "./views/SessionCreate"
+import { SessionsView } from "./views/SessionsView"
+import { getSettingsMenuItems, SettingsView } from "./views/SettingsView"
 
 /**
  * Run the configuration wizard using the TUI

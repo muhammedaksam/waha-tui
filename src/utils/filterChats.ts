@@ -4,6 +4,7 @@
  */
 
 import type { ChatSummary } from "@muhammedaksam/waha-node"
+
 import type { ActiveFilter } from "../state/AppState"
 import { debugLog } from "./debug"
 import { getChatIdString, isGroupChat } from "./formatters"

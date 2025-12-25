@@ -4,10 +4,11 @@
  */
 
 import { BoxRenderable, CliRenderer, TextRenderable } from "@opentui/core"
+
+import type { WAMessageExtended } from "../../types"
 import { WhatsAppTheme } from "../../config/theme"
 import { appState } from "../../state/AppState"
 import { getPhoneNumber } from "../../utils/formatters"
-import type { WAMessageExtended } from "../../types"
 
 /**
  * Simple string hash function for consistent color assignment

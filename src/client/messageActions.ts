@@ -4,10 +4,11 @@
  */
 
 import type { WAMessage } from "@muhammedaksam/waha-node"
+
+import type { WAMessageExtended } from "../types"
+import { appState } from "../state/AppState"
 import { debugLog } from "../utils/debug"
 import { getChatIdString } from "../utils/formatters"
-import { appState } from "../state/AppState"
-import type { WAMessageExtended } from "../types"
 import { getClient, getSession } from "./core"
 
 export async function starMessage(

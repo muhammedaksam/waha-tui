@@ -3,9 +3,10 @@
  * Handle creating new WAHA sessions without blocking the TUI
  */
 
+import type { SessionCreateRequest } from "@muhammedaksam/waha-node"
+
 import { getClient } from "../client"
 import { appState } from "../state/AppState"
-import type { SessionCreateRequest } from "@muhammedaksam/waha-node"
 import { debugLog } from "../utils/debug"
 import { showQRCode } from "./QRCodeView"
 

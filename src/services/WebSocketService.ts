@@ -3,21 +3,22 @@
  * Manages real-time event updates from WAHA
  */
 
-import { appState } from "../state/AppState"
-import { debugLog } from "../utils/debug"
-import { normalizeId, isGroupChat, getContactName, isStatusBroadcast } from "../utils/formatters"
-import { notifyNewMessage } from "../utils/notifications"
-import type { WahaTuiConfig } from "../config/schema"
-import { loadChats } from "../client"
 import {
-  WAHAWebhookSessionStatus,
+  WAHAChatPresences,
   WAHAWebhookMessage,
   WAHAWebhookMessageAck,
+  WAHAWebhookMessageAny,
   WAHAWebhookMessageReaction,
   WAHAWebhookMessageRevoked,
-  WAHAWebhookMessageAny,
-  WAHAChatPresences,
+  WAHAWebhookSessionStatus,
 } from "@muhammedaksam/waha-node"
+
+import type { WahaTuiConfig } from "../config/schema"
+import { loadChats } from "../client"
+import { appState } from "../state/AppState"
+import { debugLog } from "../utils/debug"
+import { getContactName, isGroupChat, isStatusBroadcast, normalizeId } from "../utils/formatters"
+import { notifyNewMessage } from "../utils/notifications"
 
 // Standard WebSocket close codes
 const CLOSE_NORMAL = 1000

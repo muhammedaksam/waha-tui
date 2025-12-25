@@ -3,12 +3,13 @@
  * Renders the quoted/reply context box above a reply message
  */
 
-import { BoxRenderable, CliRenderer, TextRenderable, TextAttributes } from "@opentui/core"
+import { BoxRenderable, CliRenderer, TextAttributes, TextRenderable } from "@opentui/core"
+
+import type { WAMessageExtended } from "../../types"
 import { WhatsAppTheme } from "../../config/theme"
 import { appState } from "../../state/AppState"
-import { truncate, isSelfChat } from "../../utils/formatters"
 import { debugLog } from "../../utils/debug"
-import type { WAMessageExtended } from "../../types"
+import { isSelfChat, truncate } from "../../utils/formatters"
 import { getSenderColor } from "./MessageHelpers"
 
 /**

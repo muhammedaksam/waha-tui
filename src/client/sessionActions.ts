@@ -5,13 +5,14 @@
 
 import type {
   ChatSummary,
-  SessionInfo,
   GroupParticipant,
+  SessionInfo,
   WAHAChatPresences,
 } from "@muhammedaksam/waha-node"
+
+import { appState } from "../state/AppState"
 import { debugLog } from "../utils/debug"
 import { isGroupChat } from "../utils/formatters"
-import { appState } from "../state/AppState"
 import { getClient, getSession } from "./core"
 import { prefetchMessagesForTopChats } from "./messageActions"
 

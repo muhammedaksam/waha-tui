@@ -3,8 +3,8 @@
  * Functions for session presence and activity management
  */
 
-import { debugLog } from "../utils/debug"
 import { appState } from "../state/AppState"
+import { debugLog } from "../utils/debug"
 import { getClient, getSession } from "./core"
 
 // State for presence management

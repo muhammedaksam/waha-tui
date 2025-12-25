@@ -5,37 +5,38 @@
 
 import {
   Box,
+  BoxRenderable,
+  fg,
+  RenderableEvents,
+  ScrollBarRenderable,
+  ScrollBoxRenderable,
+  t,
   Text,
+  TextareaRenderable,
   TextAttributes,
   TextRenderable,
-  BoxRenderable,
-  t,
-  TextareaRenderable,
-  RenderableEvents,
-  fg,
-  ScrollBarRenderable,
 } from "@opentui/core"
-import { ScrollBoxRenderable } from "@opentui/core"
+
+import { loadChatDetails, sendMessage, sendTypingState } from "../client"
+import { Icons, WhatsAppTheme } from "../config/theme"
 import { appState } from "../state/AppState"
 import { getRenderer } from "../state/RendererContext"
-import { WhatsAppTheme, Icons } from "../config/theme"
 import { debugLog } from "../utils/debug"
-import { sendMessage, loadChatDetails, sendTypingState } from "../client"
 import {
   formatLastSeen,
-  truncate,
+  getChatIdString,
+  getContactName,
   getInitials,
   isGroupChat,
   isSelfChat,
-  getChatIdString,
-  getContactName,
+  truncate,
 } from "../utils/formatters"
 import {
-  renderMessage,
-  formatDateSeparator,
   DaySeparator,
+  formatDateSeparator,
   getSenderColor,
   getSenderInfo,
+  renderMessage,
 } from "./conversation"
 
 // Cache for conversation scroll box and input

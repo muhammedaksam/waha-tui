@@ -1,10 +1,14 @@
+import type { TextChunk } from "@opentui/core"
+
+import { fg } from "@opentui/core"
+
+import { Icons, WhatsAppTheme } from "../config/theme"
+import { debugLog } from "./debug"
+
 /**
  * Formatting Utilities
  * Helper functions for formatting data in the TUI
  */
-import { fg, type TextChunk } from "@opentui/core"
-import { WhatsAppTheme, Icons } from "../config/theme"
-import { debugLog } from "./debug"
 
 /**
  * Truncate text with ellipsis
