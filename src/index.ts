@@ -52,7 +52,8 @@ import { QRCodeView } from "./views/QRCodeView"
 import { LoadingView } from "./views/LoadingView"
 import { MainLayout } from "./views/MainLayout"
 import { SettingsView, getSettingsMenuItems } from "./views/SettingsView"
-import { LogoutConfirmModal } from "./components/Modal"
+import { LogoutConfirmModal, UpdateAvailableModal } from "./components/Modal"
+import { checkForUpdates } from "./utils/update-checker"
 import type { WahaTuiConfig } from "./config/schema"
 import { initDebug, debugLog } from "./utils/debug"
 import { calculateChatListScrollOffset } from "./utils/chatListScroll"
@@ -433,6 +434,21 @@ async function main() {
 
   // Initial render (force rebuild)
   renderApp(true)
+
+  // Check for updates
+  try {
+    const updateInfo = await checkForUpdates()
+    if (updateInfo.updateAvailable) {
+      UpdateAvailableModal({
+        updateInfo: updateInfo,
+        onDismiss: () => {
+          renderApp(true)
+        },
+      })
+    }
+  } catch (error) {
+    debugLog("Update", `Error checking for updates: ${error}`)
+  }
 
   // Register context menu action callback for mouse clicks (must be before keypress handler)
   appState.setContextMenuActionCallback((actionId) => {
