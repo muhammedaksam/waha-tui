@@ -11,8 +11,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { existsSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import type { WahaTuiConfig, WahaTuiEnv, WahaTuiConfigMeta } from "./schema"
-import { DEFAULT_ENV, DEFAULT_CONFIG_META } from "./schema"
+import type { WahaTuiConfig, WahaTuiEnv, WahaTuiConfigMeta, WahaTuiSettings } from "./schema"
+import { DEFAULT_ENV, DEFAULT_CONFIG_META, DEFAULT_SETTINGS } from "./schema"
 import { debugLog } from "../utils/debug"
 import { VersionInfo } from "./version"
 
@@ -202,11 +202,43 @@ export async function saveConfig(config: WahaTuiConfig): Promise<void> {
     version: config.version,
     createdAt: config.createdAt,
     updatedAt: config.updatedAt,
+    settings: config.settings,
   }
 
   await saveEnvFile(env)
   await saveConfigMeta(meta)
   debugLog("Config", "Config saved successfully")
+}
+
+/**
+ * Get current settings (with defaults applied)
+ */
+export async function getSettings(): Promise<WahaTuiSettings> {
+  const config = await loadConfig()
+  return {
+    ...DEFAULT_SETTINGS,
+    ...config?.settings,
+  }
+}
+
+/**
+ * Save just the settings portion of config
+ */
+export async function saveSettings(settings: Partial<WahaTuiSettings>): Promise<void> {
+  const config = await loadConfig()
+  if (!config) {
+    debugLog("Config", "Cannot save settings - no config loaded")
+    return
+  }
+
+  config.settings = {
+    ...DEFAULT_SETTINGS,
+    ...config.settings,
+    ...settings,
+  }
+
+  await saveConfig(config)
+  debugLog("Config", `Settings saved: ${JSON.stringify(settings)}`)
 }
 
 /**

@@ -9,7 +9,7 @@ import { appState } from "../state/AppState"
 import { getVersion } from "../config/version"
 
 interface KeyHint {
-  key: string
+  key: string | string[]
   label: string
   keyColor?: string
 }
@@ -31,15 +31,23 @@ export function Footer() {
     hints.push(
       { key: "↑↓", label: "Navigate" },
       { key: "Enter", label: "Open Chat" },
-      { key: "Ctrl + F | /", label: "Search" },
-      { key: "Tab | Shift+Tab", label: "Filter" },
-      { key: "Ctrl + A | Meta + A", label: "Toggle Archived" },
+      { key: ["Ctrl + F", "/"], label: "Search" },
+      { key: ["Tab", "Shift+Tab"], label: "Filter" },
+      { key: ["Ctrl + A", "Meta + A"], label: "Toggle Archived" },
+      { key: "s", label: "Settings" },
       { key: "Esc", label: "Back" },
       { key: "1", label: "Sessions" }
     )
   } else if (state.currentView === "conversation") {
     if (state.inputMode) {
-      hints.push({ key: "i", label: "Typing..." }, { key: "Esc", label: "Cancel" })
+      hints.push(
+        { key: "i", label: "Typing..." },
+        {
+          key: state.enterIsSend ? "Enter" : ["Ctrl+Enter", "Shift+Enter"],
+          label: "Send",
+        },
+        { key: "Esc", label: "Cancel" }
+      )
     } else {
       hints.push(
         { key: "↑↓", label: "Scroll" },
@@ -51,7 +59,7 @@ export function Footer() {
 
   // Always available
   hints.push(
-    { key: "R", label: "Refresh" },
+    { key: "r", label: "Refresh" },
     { key: "Ctrl + C", label: "Quit", keyColor: "#ef5350" }
   )
 
@@ -63,7 +71,11 @@ export function Footer() {
     const keyNode = new TextNodeRenderable({
       fg: hint.keyColor || WhatsAppTheme.green,
     })
-    keyNode.add(hint.key)
+    if (Array.isArray(hint.key)) {
+      keyNode.add(hint.key.join(", "))
+    } else {
+      keyNode.add(hint.key)
+    }
     hintText.add(keyNode)
 
     // Label (dim)

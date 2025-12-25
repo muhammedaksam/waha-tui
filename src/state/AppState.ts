@@ -47,6 +47,9 @@ export type AuthMode = "qr" | "phone"
 export type PairingStatus = "idle" | "requesting" | "success" | "error"
 export type ActiveIcon = "chats" | "status" | "profile" | "settings" | "channels" | "communities"
 
+// Settings navigation
+export type SettingsPage = "main" | "chats" | "shortcuts" | "help"
+
 // Type of state change - enables render optimization
 export type ChangeType = "selection" | "scroll" | "data" | "view" | "other"
 
@@ -115,6 +118,15 @@ export interface AppState {
 
   // Context menu state
   contextMenu: ContextMenuState | null
+
+  // Settings state
+  settingsPage: SettingsPage
+  settingsSelectedIndex: number
+  settingsSubIndex: number // Selection index within sub-pages
+  enterIsSend: boolean // Cached setting for UI
+
+  // Modal state
+  showLogoutModal: boolean
 }
 
 class StateManager {
@@ -174,6 +186,15 @@ class StateManager {
 
     // Reply state
     replyingToMessage: null,
+
+    // Settings state
+    settingsPage: "main",
+    settingsSelectedIndex: 0,
+    settingsSubIndex: 0,
+    enterIsSend: true,
+
+    // Modal state
+    showLogoutModal: false,
   }
 
   private listeners: Array<(state: AppState) => void> = []
