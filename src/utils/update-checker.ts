@@ -12,8 +12,6 @@ import { VersionInfo } from "../config/version"
 const GITHUB_REPO = "muhammedaksam/waha-tui"
 
 // Use XDG_CONFIG_HOME or fallback to ~/.config/waha-tui or ~/.waha-tui
-// Ideally we should use the ConfigManager path, but for simplicity we'll check common spots
-// Let's use os.homedir()/.config/waha-tui/ as per the migration plans
 const CONFIG_DIR = process.env.XDG_CONFIG_HOME
   ? join(process.env.XDG_CONFIG_HOME, "waha-tui")
   : join(homedir(), ".config", "waha-tui")

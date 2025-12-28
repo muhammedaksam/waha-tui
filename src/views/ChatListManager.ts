@@ -399,8 +399,7 @@ class ChatListManager {
 
   // Update existing rows in-place
   private updateExistingRows(chats: ChatSummary[]) {
-    // Only update structure hash if we are sure it matches, but here we assume it does based on Logic in buildChatList which should have verified it.
-    // Actually, we need to correct Logic in buildChatList to check structure hash property.
+    // Only update structure hash if we are sure it matches
 
     const state = appState.getState()
 

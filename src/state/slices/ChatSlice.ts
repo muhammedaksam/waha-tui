@@ -136,9 +136,7 @@ export function createChatSlice(): StateSlice<ChatState> & ChatActions {
 
     updateChatLastMessageAck(chatId: string, messageId: string, ack: number, ackName: string) {
       const chatIndex = state.chats.findIndex((c) => {
-        // Simple ID check, avoiding complex formatters here if possible,
-        // or ensure utilities are imported. Assuming simple string match or need helper
-        return c.id === chatId || c.id.replace(/@.*$/, "") === chatId.replace(/@.*$/, "")
+        return normalizeId(c.id) === normalizeId(chatId)
       })
 
       if (chatIndex === -1) return
@@ -200,10 +198,10 @@ export function createChatSlice(): StateSlice<ChatState> & ChatActions {
           if (phoneNumber === chatId) return true
 
           // Also try partial match (phone number without suffix)
-          if (phoneNumber && chatId.startsWith(phoneNumber.replace(/@c\.us$/, ""))) return true
+          if (phoneNumber && chatId.startsWith(normalizeId(phoneNumber))) return true
 
           // Fallback: if no mapping, check if participant starts with chatId base
-          const chatIdBase = chatId.replace(/@c\.us$/, "")
+          const chatIdBase = normalizeId(chatId)
           if (participantLid.includes(chatIdBase)) return true
         }
       }
@@ -211,34 +209,8 @@ export function createChatSlice(): StateSlice<ChatState> & ChatActions {
     },
 
     getTypingForChatList(chatId: string): string | null {
-      // In strict mode, we might want to check if chatId matches?
-      // The original impl iterated all presences.
-      // But typically we want typing for *specific* chat.
-      // The original `getTypingForChatList` didn't take an ID but used `currentChatId`.
-      // Here we probably want to support passing an ID or use internal logic.
-      // Let's assume we want to check typing for ANY chat for now if specific logic isn't passed,
-      // but typically list items check for themselves.
-
-      // CAUTION: Original logic:
-      // Returns true only for the current chat?! The original method doc said:
-      // "Returns true only for the current chat since we only subscribe to one chat's presence"
-      // BUT `chatPresences` contains multiple entries?
-      // Actually `getTypingForChatList` in AppState.ts used `state.currentChatId`.
-      // IF we are refactoring, we should make this generic for any chat if possible,
-      // OR keep it bound to `currentChatId` if that's the limitation.
-
-      // Re-implementing original logic (checking global presence map for match):
+      // Check if typing for the specific chat
       for (const [, presence] of state.chatPresences) {
-        // If we are strictly checking for the *current* chat like before, we rely on caller?
-        // Actually the caller usually is the chat list item.
-        // Let's assume the caller passes the chat ID they are interested in.
-
-        // Wait, original `getTypingForChatList` took NO arguments and returned string | null
-        // It returned the phone number of who is typing in the *current* chat.
-
-        // If we want to support the list item showing typing for *that specific item*,
-        // we should look up presence for that item.
-
         if (presence.id === chatId) {
           // Direct match
           const typingPresence = presence.presences?.find(
@@ -272,7 +244,7 @@ export function createChatSlice(): StateSlice<ChatState> & ChatActions {
             if (
               (senderLid && p.participant === senderLid) ||
               p.participant === senderId ||
-              p.participant.includes(senderId.replace(/@c\.us$/, ""))
+              p.participant.includes(normalizeId(senderId))
             ) {
               if (p.lastKnownPresence === "typing" || p.lastKnownPresence === "recording") {
                 hasChanges = true
@@ -294,7 +266,7 @@ export function createChatSlice(): StateSlice<ChatState> & ChatActions {
             if (
               (senderLid && p.participant === senderLid) ||
               p.participant === senderId ||
-              p.participant.includes(senderId.replace(/@c\.us$/, ""))
+              p.participant.includes(normalizeId(senderId))
             ) {
               if (p.lastKnownPresence === "typing" || p.lastKnownPresence === "recording") {
                 return { ...p, lastKnownPresence: "paused" as const }

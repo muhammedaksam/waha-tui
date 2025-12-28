@@ -149,7 +149,12 @@ export class WebSocketService {
   private handleMessage(event: MessageEvent) {
     try {
       const data = JSON.parse(event.data as string) as WahaEvent
-      this.processEvent(data)
+      this.processEvent(data).catch((error) => {
+        debugLog(
+          "WebSocket",
+          `Error processing event: ${error instanceof Error ? error.stack : error}`
+        )
+      })
     } catch (error) {
       debugLog("WebSocket", `Failed to parse message: ${error}`)
     }

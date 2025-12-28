@@ -6,7 +6,6 @@
 import type { ChatSummary } from "@muhammedaksam/waha-node"
 
 import type { ActiveFilter } from "../state/AppState"
-import { debugLog } from "./debug"
 import { getChatIdString, isGroupChat } from "./formatters"
 
 interface ExtendedChat {
@@ -28,9 +27,6 @@ function getChatProperties(chat: ChatSummary): ExtendedChat {
     unreadCount?: number
     star?: boolean
   }
-  if (c.pinned) {
-    debugLog("getChatProperties", `chat: ${JSON.stringify(chat, null, 2)}`)
-  }
   if (c.archived !== undefined) {
     return {
       archived: c.archived,
@@ -41,7 +37,6 @@ function getChatProperties(chat: ChatSummary): ExtendedChat {
   }
 
   const rawChat = chat._chat as Record<string, unknown> | undefined
-  debugLog("getChatProperties", `rawChat: ${JSON.stringify(rawChat, null, 2)}`)
   if (!rawChat) return {}
 
   return {
