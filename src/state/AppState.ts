@@ -11,251 +11,131 @@ import type {
   WAHAChatPresences,
   WAMessage,
 } from "@muhammedaksam/waha-node"
-import type { QRCode } from "qrcode"
 
 import type { WAMessageExtended } from "../types"
-import { debugLog } from "../utils/debug"
-import { getChatIdString, normalizeId } from "../utils/formatters"
+import type {
+  ActiveFilter,
+  ActiveIcon,
+  AuthMode,
+  AuthState,
+  ChangeType,
+  ChatState,
+  ConfigStep,
+  ContactState,
+  ContextMenuState,
+  ContextMenuType,
+  MessageState,
+  ModalState,
+  NavigationState,
+  NotificationSettings,
+  PairingStatus,
+  SessionState,
+  SettingsPage,
+  SettingsState,
+  UIState,
+  ViewType,
+} from "./slices"
+import { getChatIdString } from "../utils/formatters"
+import {
+  createAuthSlice,
+  createChatSlice,
+  createContactSlice,
+  createMessageSlice,
+  createModalSlice,
+  createNavigationSlice,
+  createSessionSlice,
+  createSettingsSlice,
+  createUISlice,
+} from "./slices"
 
-// Context menu types
-export type ContextMenuType = "chat" | "message" | null
-
-export interface ContextMenuState {
-  visible: boolean
-  type: ContextMenuType
-  targetId: string | null // Chat ID or Message ID
-  targetData?: ChatSummary | WAMessage | WAMessageExtended | null // The actual chat or message data
-  selectedIndex: number // Currently highlighted menu item
-  position: {
-    x: number
-    y: number
-    bubbleWidth?: number // For message bubbles - the width of the bubble
-    bubbleHeight?: number // For message bubbles - the height of the bubble
-  }
+// Re-export types for backward compatibility
+export type {
+  ActiveFilter,
+  ActiveIcon,
+  AuthMode,
+  ChangeType,
+  ConfigStep,
+  ContextMenuState,
+  ContextMenuType,
+  NotificationSettings,
+  PairingStatus,
+  SettingsPage,
+  ViewType,
 }
 
-export type ViewType =
-  | "config"
-  | "sessions"
-  | "chats"
-  | "conversation"
-  | "settings"
-  | "qr"
-  | "loading"
-
-export type ActiveFilter = "all" | "unread" | "favorites" | "groups"
-export type AuthMode = "qr" | "phone"
-export type PairingStatus = "idle" | "requesting" | "success" | "error"
-export type ActiveIcon = "chats" | "status" | "profile" | "settings" | "channels" | "communities"
-
-// Settings navigation
-export type SettingsPage =
-  | "main"
-  | "chats"
-  | "notifications"
-  | "notifications-messages"
-  | "notifications-groups"
-  | "notifications-status"
-  | "shortcuts"
-  | "help"
-
-// Type of state change - enables render optimization
-export type ChangeType = "selection" | "scroll" | "data" | "view" | "other"
-
-// Configuration wizard step state
-export interface ConfigStep {
-  step: 1 | 2 | 3
-  wahaUrl: string
-  wahaApiKey: string
-  status: "input" | "testing" | "success" | "error"
-  errorMessage?: string
-}
-
-export interface AppState {
-  currentView: ViewType
-  currentSession: string | null
-  currentChatId: string | null
-  sessions: SessionDTO[]
-  chats: ChatSummary[]
-  qrCodeMatrix: QRCode | null // QRCode type from qrcode library
-  // Phone pairing state
-  authMode: AuthMode
-  phoneNumber: string
-  pairingCode: string | null
-  pairingStatus: PairingStatus
-  pairingError: string | null
-  messages: Map<string, WAMessageExtended[]>
-  contactsCache: Map<string, string> // Maps contact ID to name
-  allContacts: Map<string, string> // Full phonebook contacts for search
-  connectionStatus: "connected" | "connecting" | "disconnected" | "error"
-  errorMessage: string | null
-  currentChatPresence: WAHAChatPresences | null
-  chatPresences: Map<string, WAHAChatPresences> // Track presence for all chats (for chat list typing)
-  lidToPhoneMap: Map<string, string> // Maps @lid IDs to @c.us IDs
-  currentChatParticipants: GroupParticipant[] | null
-  myProfile: MyProfile | null // Current user's profile (id, name, picture)
-  wahaTier: string | null // WAHA tier ("PLUS", "CORE", etc.)
-
-  // UI State for WhatsApp-style layout
-  activeFilter: ActiveFilter
-  activeIcon: ActiveIcon
-  searchQuery: string
-  showingArchivedChats: boolean // Toggle to show archived chats instead of main list
-  messageInput: string
-
-  // Conversation view state
-  scrollPosition: number
-  inputMode: boolean
-  isSending: boolean
-  inputHeight: number // Dynamic height for message input (1-8 lines)
-
-  // Keyboard navigation state
-  selectedSessionIndex: number
-  selectedChatIndex: number
-
-  // Chat list scroll state (item offset, not pixel offset)
-  chatListScrollOffset: number
-
-  // Optimization: track what kind of change occurred
-  lastChangeType: ChangeType
-
-  // Reply state
-  replyingToMessage: WAMessageExtended | WAMessage | null
-
-  // Config wizard state
-  configStep: ConfigStep | null
-
-  // Context menu state
-  contextMenu: ContextMenuState | null
-
-  // Settings state
-  settingsPage: SettingsPage
-  settingsSelectedIndex: number
-  settingsSubIndex: number // Selection index within sub-pages
-  enterIsSend: boolean // Cached setting for UI
-  // Notification settings (cached for UI)
-  messageNotifications: {
-    showNotifications: boolean
-    showReactionNotifications: boolean
-    playSound: boolean
-  }
-  groupNotifications: {
-    showNotifications: boolean
-    showReactionNotifications: boolean
-    playSound: boolean
-  }
-  statusNotifications: {
-    showNotifications: boolean
-    showReactionNotifications: boolean
-    playSound: boolean
-  }
-  showPreviews: boolean
-  backgroundSync: boolean
-
-  // Modal state
-  showLogoutModal: boolean
-}
+// Combined AppState interface
+export interface AppState
+  extends
+    SessionState,
+    ChatState,
+    MessageState,
+    UIState,
+    NavigationState,
+    SettingsState,
+    AuthState,
+    ModalState,
+    ContactState {}
 
 class StateManager {
-  private state: AppState = {
-    currentView: "sessions",
-    currentSession: null,
-    currentChatId: null,
-    sessions: [],
-    chats: [],
-    qrCodeMatrix: null,
-    // Phone pairing state
-    authMode: "qr",
-    phoneNumber: "",
-    pairingCode: null,
-    pairingStatus: "idle",
-    pairingError: null,
-    messages: new Map(),
-    contactsCache: new Map(),
-    allContacts: new Map(),
-    connectionStatus: "disconnected",
-    errorMessage: null,
-    currentChatPresence: null,
-    chatPresences: new Map(),
-    lidToPhoneMap: new Map(),
-    currentChatParticipants: null,
-    myProfile: null,
-    wahaTier: null,
+  // Slices
+  private sessionSlice = createSessionSlice()
+  private chatSlice = createChatSlice()
+  private messageSlice = createMessageSlice()
+  private uiSlice = createUISlice()
+  private navigationSlice = createNavigationSlice()
+  private settingsSlice = createSettingsSlice()
+  private authSlice = createAuthSlice()
+  private modalSlice = createModalSlice()
+  private contactSlice = createContactSlice()
 
-    // UI State
-    activeFilter: "all",
-    activeIcon: "chats",
-    searchQuery: "",
-    showingArchivedChats: false,
-    messageInput: "",
-
-    // Conversation view state
-    scrollPosition: 0,
-    inputMode: false,
-    isSending: false,
-    inputHeight: 3, // Default: 1 line + 2 for border
-
-    // Keyboard navigation
-    selectedSessionIndex: 0,
-    selectedChatIndex: 0,
-
-    // Chat list scroll state
-    chatListScrollOffset: 0,
-
-    // Optimization: track what kind of change
-    lastChangeType: "other",
-
-    // Config wizard
-    configStep: null,
-
-    // Context menu
-    contextMenu: null,
-
-    // Reply state
-    replyingToMessage: null,
-
-    // Settings state
-    settingsPage: "main",
-    settingsSelectedIndex: 0,
-    settingsSubIndex: 0,
-    enterIsSend: true,
-    // Notification settings
-    messageNotifications: {
-      showNotifications: true,
-      showReactionNotifications: false,
-      playSound: true,
-    },
-    groupNotifications: {
-      showNotifications: true,
-      showReactionNotifications: false,
-      playSound: true,
-    },
-    statusNotifications: {
-      showNotifications: false,
-      showReactionNotifications: false,
-      playSound: false,
-    },
-    showPreviews: true,
-    backgroundSync: true,
-
-    // Modal state
-    showLogoutModal: false,
-  }
+  // Aggregated state cache
+  private state: AppState
 
   private listeners: Array<(state: AppState) => void> = []
+
+  constructor() {
+    // Initialize aggregated state
+    this.state = this.buildState()
+
+    // Subscribe to all slices to update aggregated state
+    const updateState = () => {
+      this.state = this.buildState()
+      this.notifyListeners()
+    }
+
+    this.sessionSlice.subscribe(updateState)
+    this.chatSlice.subscribe(updateState)
+    this.messageSlice.subscribe(updateState)
+    this.uiSlice.subscribe(updateState)
+    this.navigationSlice.subscribe(updateState)
+    this.settingsSlice.subscribe(updateState)
+    this.authSlice.subscribe(updateState)
+    this.modalSlice.subscribe(updateState)
+    this.contactSlice.subscribe(updateState)
+  }
+
+  private buildState(): AppState {
+    return {
+      ...this.sessionSlice.get(),
+      ...this.chatSlice.get(),
+      ...this.messageSlice.get(),
+      ...this.uiSlice.get(),
+      ...this.navigationSlice.get(),
+      ...this.settingsSlice.get(),
+      ...this.authSlice.get(),
+      ...this.modalSlice.get(),
+      ...this.contactSlice.get(),
+    }
+  }
+
+  // --- Core API ---
 
   getState(): AppState {
     return { ...this.state }
   }
 
-  setState(updates: Partial<AppState>): void {
-    this.state = { ...this.state, ...updates }
-    this.notifyListeners()
-  }
-
   subscribe(listener: (state: AppState) => void): () => void {
     this.listeners.push(listener)
-    // Return unsubscribe function
     return () => {
       const index = this.listeners.indexOf(listener)
       if (index > -1) {
@@ -271,133 +151,151 @@ class StateManager {
     }
   }
 
-  // Helper methods
+  /**
+   * Reset all slices to their initial state.
+   * Used primarily for testing to ensure clean state between tests.
+   */
+  reset(): void {
+    this.sessionSlice.reset()
+    this.chatSlice.reset()
+    this.messageSlice.reset()
+    this.uiSlice.reset()
+    this.navigationSlice.reset()
+    this.settingsSlice.reset()
+    this.authSlice.reset()
+    this.modalSlice.reset()
+    this.contactSlice.reset()
+    // Rebuild the aggregated state
+    this.state = this.buildState()
+  }
+
+  // --- Helper Methods (Delegating to Slices) ---
+
+  // UI
   setCurrentView(currentView: ViewType): void {
-    this.setState({ currentView, lastChangeType: "view" })
+    this.uiSlice.setCurrentView(currentView)
+    this.navigationSlice.set({ lastChangeType: "view" }) // Cross-slice update
   }
 
+  setActiveFilter(activeFilter: ActiveFilter): void {
+    this.uiSlice.setActiveFilter(activeFilter)
+    this.navigationSlice.setSelectedChatIndex(0)
+    this.navigationSlice.setChatListScrollOffset(0)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  setSearchQuery(searchQuery: string): void {
+    this.uiSlice.setSearchQuery(searchQuery)
+    this.navigationSlice.setSelectedChatIndex(0)
+    this.navigationSlice.setChatListScrollOffset(0)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  setShowingArchivedChats(showingArchivedChats: boolean): void {
+    this.chatSlice.setShowingArchivedChats(showingArchivedChats)
+    this.navigationSlice.setSelectedChatIndex(0)
+    this.navigationSlice.setChatListScrollOffset(0)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  // Session
   setCurrentSession(currentSession: string | null): void {
-    this.setState({ currentSession })
-  }
-
-  setCurrentChat(currentChatId: string | null): void {
-    this.setState({
-      currentChatId,
-      currentView: currentChatId ? "conversation" : "chats",
-      currentChatPresence: null,
-      currentChatParticipants: null,
-    })
+    this.sessionSlice.setCurrentSession(currentSession)
   }
 
   setSessions(sessions: SessionDTO[]): void {
-    this.setState({ sessions })
+    this.sessionSlice.setSessions(sessions)
+  }
+
+  setConnectionStatus(
+    connectionStatus: SessionState["connectionStatus"],
+    errorMessage?: string
+  ): void {
+    this.sessionSlice.setConnectionStatus(connectionStatus, errorMessage)
+  }
+
+  // Chat
+  setCurrentChat(currentChatId: string | null): void {
+    this.chatSlice.setCurrentChat(currentChatId)
+    // Side effect: update view
+    this.uiSlice.setCurrentView(currentChatId ? "conversation" : "chats")
   }
 
   setChats(chats: ChatSummary[]): void {
-    this.setState({ chats, lastChangeType: "data" })
+    this.chatSlice.setChats(chats)
+    this.navigationSlice.set({ lastChangeType: "data" })
   }
 
+  setCurrentChatParticipants(currentChatParticipants: GroupParticipant[] | null): void {
+    this.chatSlice.setCurrentChatParticipants(currentChatParticipants)
+  }
+
+  setCurrentChatPresence(currentChatPresence: WAHAChatPresences | null): void {
+    this.chatSlice.setCurrentChatPresence(currentChatPresence)
+  }
+
+  // Alias for setCurrentChatPresence
+  setChatPresence(currentChatPresence: WAHAChatPresences | null): void {
+    this.chatSlice.setCurrentChatPresence(currentChatPresence)
+  }
+
+  setChatParticipants(participants: GroupParticipant[] | null): void {
+    this.chatSlice.set({ currentChatParticipants: participants })
+  }
+
+  updateChatPresence(chatId: string, presence: WAHAChatPresences): void {
+    this.chatSlice.updateChatPresence(chatId, presence)
+    // Check if update triggered a change in current chat presence or list
+    if (this.state.currentChatId === chatId || !this.state.currentChatId) {
+      this.navigationSlice.set({ lastChangeType: "data" })
+    }
+  }
+
+  updateChatLastMessageAck(chatId: string, messageId: string, ack: number, ackName: string): void {
+    this.chatSlice.updateChatLastMessageAck(chatId, messageId, ack, ackName)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  isChatTyping(chatId: string): boolean {
+    return this.chatSlice.isChatTyping(chatId, this.state.myProfile?.id)
+  }
+
+  getTypingForChatList(): string | null {
+    if (!this.state.currentChatId) return null
+    return this.chatSlice.getTypingForChatList(this.state.currentChatId)
+  }
+
+  clearTypingForSender(senderId: string): void {
+    this.chatSlice.clearTypingForSender(senderId)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  // Message
   setMessages(chatId: string, messagesToSet: WAMessageExtended[]): void {
-    const messagesMap = new Map(this.state.messages)
-    const existingMessages = messagesMap.get(chatId) || []
-
-    // Create a map of existing reactions by message ID to preserve them
-    const existingReactionsMap = new Map<string, WAMessageExtended["reactions"]>()
-    existingMessages.forEach((m) => {
-      if (m.reactions && m.reactions.length > 0) {
-        existingReactionsMap.set(m.id, m.reactions)
-      }
-    })
-
-    // Merge existing reactions into the new messages if they don't have their own
-    const mergedMessages = messagesToSet.map((m) => {
-      const existingReactions = existingReactionsMap.get(m.id)
-      if (existingReactions && (!m.reactions || m.reactions.length === 0)) {
-        return { ...m, reactions: existingReactions }
-      }
-      return m
-    })
-
-    messagesMap.set(chatId, mergedMessages)
-    this.setState({ messages: messagesMap })
+    this.messageSlice.setMessages(chatId, messagesToSet)
   }
 
   appendMessage(chatId: string, message: WAMessage): void {
-    const messagesMap = new Map(this.state.messages)
-    const existing = messagesMap.get(chatId) || []
+    this.messageSlice.appendMessage(chatId, message)
 
-    // Check if message already exists (deduplication)
-    const existingIdx = existing.findIndex((m) => m.id === message.id)
-    if (existingIdx !== -1) {
-      // If it exists, update it but preserve reactions
-      const currentMsg = existing[existingIdx]
-      const updatedMsg = { ...message, reactions: currentMsg.reactions } as WAMessageExtended
-      const nextMessages = [...existing]
-      nextMessages[existingIdx] = updatedMsg
-      messagesMap.set(chatId, nextMessages)
-      this.setState({ messages: messagesMap, lastChangeType: "data" })
-      return
-    }
-
-    const newMessages = [message, ...existing]
-    // Re-sort just in case to be safe
-    newMessages.sort((a, b) => b.timestamp - a.timestamp)
-
-    messagesMap.set(chatId, newMessages)
-
-    // Also update the chat list's lastMessage so the chat list shows the latest message
+    // Also update the chat list's lastMessage
     const chatIndex = this.state.chats.findIndex((c) => getChatIdString(c.id) === chatId)
     if (chatIndex !== -1) {
       const chat = this.state.chats[chatIndex]
       const updatedChat = { ...chat, lastMessage: message }
       const newChats = [...this.state.chats]
       newChats[chatIndex] = updatedChat
-      this.setState({ messages: messagesMap, chats: newChats, lastChangeType: "data" })
+      // Dispatch updates
+      this.chatSlice.setChats(newChats)
+      this.navigationSlice.set({ lastChangeType: "data" })
     } else {
-      this.setState({ messages: messagesMap, lastChangeType: "data" })
+      this.navigationSlice.set({ lastChangeType: "data" })
     }
   }
 
   updateMessageAck(chatId: string, messageId: string, ack: number, ackName: string): void {
-    const messages = new Map(this.state.messages)
-    const chatMessages = messages.get(chatId)
-
-    if (!chatMessages) return
-
-    const msgIndex = chatMessages.findIndex((m) => m.id === messageId)
-    if (msgIndex === -1) return
-
-    const updatedMsg = { ...chatMessages[msgIndex], ack: ack as WAMessage["ack"], ackName }
-    const newChatMessages = [...chatMessages]
-    newChatMessages[msgIndex] = updatedMsg
-
-    messages.set(chatId, newChatMessages)
-    this.setState({ messages, lastChangeType: "data" })
-  }
-
-  /**
-   * Update the ack status of a chat's lastMessage in the chat list
-   * This ensures the chat list shows updated read receipts in real-time
-   */
-  updateChatLastMessageAck(chatId: string, messageId: string, ack: number, ackName: string): void {
-    const chatIndex = this.state.chats.findIndex((c) => getChatIdString(c.id) === chatId)
-    if (chatIndex === -1) return
-
-    const chat = this.state.chats[chatIndex]
-    const lastMessage = chat.lastMessage as Record<string, unknown> | undefined
-    if (!lastMessage) return
-
-    // Only update if this is the last message of the chat
-    if (lastMessage.id !== messageId) return
-
-    // Create updated chat with new ack
-    const updatedLastMessage = { ...lastMessage, ack, ackName }
-    const updatedChat = { ...chat, lastMessage: updatedLastMessage }
-
-    const newChats = [...this.state.chats]
-    newChats[chatIndex] = updatedChat
-
-    this.setState({ chats: newChats, lastChangeType: "data" })
+    this.messageSlice.updateMessageAck(chatId, messageId, ack, ackName)
+    this.navigationSlice.set({ lastChangeType: "data" })
   }
 
   updateMessageReaction(
@@ -406,437 +304,204 @@ class StateManager {
     reaction: string,
     senderId?: string
   ): void {
-    const messages = new Map(this.state.messages)
-    const chatMessages = messages.get(chatId)
-    if (!chatMessages) return
-
-    const msgIndex = chatMessages.findIndex((m) => m.id === messageId)
-    if (msgIndex === -1) return
-
-    // Get the message and cast it to include reactions
-    const msg = chatMessages[msgIndex] as WAMessage & {
-      reactions?: Array<{ text: string; id: string; from?: string }>
-    }
-
-    // Initialize reactions array if needed
-    let newReactions = msg.reactions ? [...msg.reactions] : []
-
-    debugLog("AppState", `Reaction update for ${messageId}: ${reaction} from ${senderId}`)
-
-    // Logic:
-    // 1. If reaction is empty, it might mean removal (depending on WAHA payload, usually empty string implies revoke)
-    // 2. If senderId is known, we should look for existing reaction from this sender and update/remove it.
-    // 3. If senderId is unknown, we just append (naive) or try to find if we have this reaction already?
-    //    Ideally we should always have a senderId.
-
-    if (senderId) {
-      // Remove existing reaction from this sender
-      newReactions = newReactions.filter((r) => r.from !== senderId)
-
-      // Add new reaction if it's not empty (empty string = remove)
-      if (reaction) {
-        newReactions.push({
-          text: reaction,
-          id: Date.now().toString(),
-          from: senderId,
-        })
-      }
-    } else {
-      // Fallback for when we don't know the sender (shouldn't happen with correct implementation)
-      // Just add it if not empty
-      if (reaction) {
-        newReactions.push({
-          text: reaction,
-          id: Date.now().toString(),
-          from: "unknown",
-        })
-      }
-    }
-
-    const updatedMsg = { ...msg, reactions: newReactions }
-    const newChatMessages = [...chatMessages]
-    newChatMessages[msgIndex] = updatedMsg
-
-    messages.set(chatId, newChatMessages)
-    this.setState({ messages, lastChangeType: "data" })
+    this.messageSlice.updateMessageReaction(chatId, messageId, reaction, senderId)
+    this.navigationSlice.set({ lastChangeType: "data" })
   }
 
   markMessageRevoked(chatId: string, messageId: string): void {
-    const messages = new Map(this.state.messages)
-    const chatMessages = messages.get(chatId)
-    if (!chatMessages) return
-
-    const msgIndex = chatMessages.findIndex((m) => m.id === messageId)
-    if (msgIndex === -1) return
-
-    const updatedMsg = { ...chatMessages[msgIndex], body: "🚫 This message was deleted" }
-    const newChatMessages = [...chatMessages]
-    newChatMessages[msgIndex] = updatedMsg
-
-    messages.set(chatId, newChatMessages)
-    this.setState({ messages, lastChangeType: "data" })
-  }
-
-  setConnectionStatus(connectionStatus: AppState["connectionStatus"], errorMessage?: string): void {
-    this.setState({ connectionStatus, errorMessage })
-  }
-
-  setSelectedSessionIndex(selectedSessionIndex: number): void {
-    this.setState({ selectedSessionIndex })
-  }
-
-  setSelectedChatIndex(selectedChatIndex: number): void {
-    debugLog(
-      "[AppState]",
-      `setSelectedChatIndex: ${this.state.selectedChatIndex} -> ${selectedChatIndex}`
-    )
-    this.setState({ selectedChatIndex })
-    debugLog(
-      "[AppState]",
-      `State updated, selectedChatIndex is now: ${this.state.selectedChatIndex}`
-    )
-  }
-
-  setMessageInput(messageInput: string): void {
-    this.setState({ messageInput })
+    this.messageSlice.markMessageRevoked(chatId, messageId)
+    this.navigationSlice.set({ lastChangeType: "data" })
   }
 
   setScrollPosition(scrollPosition: number): void {
-    this.setState({ scrollPosition })
+    this.messageSlice.setScrollPosition(scrollPosition)
+  }
+
+  setMessageInput(messageInput: string): void {
+    this.messageSlice.setMessageInput(messageInput)
   }
 
   setInputMode(inputMode: boolean): void {
-    this.setState({ inputMode })
+    this.messageSlice.setInputMode(inputMode)
   }
 
   setIsSending(isSending: boolean): void {
-    this.setState({ isSending })
+    this.messageSlice.setIsSending(isSending)
   }
 
   setInputHeight(inputHeight: number): void {
-    if (this.state.inputHeight !== inputHeight) {
-      this.setState({ inputHeight })
-    }
+    this.messageSlice.setInputHeight(inputHeight)
   }
 
+  setReplyingToMessage(message: WAMessageExtended | WAMessage | null): void {
+    this.messageSlice.setReplyingToMessage(message)
+  }
+
+  // Navigation
+  setSelectedSessionIndex(selectedSessionIndex: number): void {
+    this.navigationSlice.setSelectedSessionIndex(selectedSessionIndex)
+  }
+
+  setSelectedChatIndex(selectedChatIndex: number): void {
+    this.navigationSlice.setSelectedChatIndex(selectedChatIndex)
+  }
+
+  // Contact
   setContactsCache(contactsCache: Map<string, string>): void {
-    this.setState({ contactsCache })
+    this.contactSlice.setContactsCache(contactsCache)
   }
 
   setAllContacts(allContacts: Map<string, string>): void {
-    this.setState({ allContacts })
+    this.contactSlice.setAllContacts(allContacts)
   }
 
   getContactName(contactId: string): string | undefined {
-    return this.state.contactsCache.get(contactId)
-  }
-
-  setCurrentChatPresence(currentChatPresence: WAHAChatPresences | null): void {
-    this.setState({ currentChatPresence })
-  }
-
-  /**
-   * Update presence for any chat (for chat list typing indicators)
-   * Also updates currentChatPresence if the chat is currently open
-   */
-  updateChatPresence(chatId: string, presence: WAHAChatPresences): void {
-    // Always store in global chatPresences Map (using the ID from the event)
-    const chatPresences = new Map(this.state.chatPresences)
-
-    // Merge with existing presence for this chat
-    const existing = chatPresences.get(chatId)
-    let newPresences = presence.presences
-
-    if (existing && existing.presences) {
-      const existingMap = new Map(existing.presences.map((p) => [p.participant, p]))
-      for (const p of presence.presences) {
-        existingMap.set(p.participant, p)
-      }
-      newPresences = Array.from(existingMap.values())
-    }
-
-    chatPresences.set(chatId, { id: chatId, presences: newPresences })
-
-    // If we're viewing a chat, also update currentChatPresence
-    if (this.state.currentChatId) {
-      const current = this.state.currentChatPresence
-      let currentNewPresences = presence.presences
-
-      if (current && current.presences) {
-        const existingMap = new Map(current.presences.map((p) => [p.participant, p]))
-        for (const p of presence.presences) {
-          existingMap.set(p.participant, p)
-        }
-        currentNewPresences = Array.from(existingMap.values())
-      }
-
-      this.setState({
-        chatPresences,
-        currentChatPresence: {
-          id: this.state.currentChatId,
-          presences: currentNewPresences,
-        },
-        lastChangeType: "data", // Trigger chat list refresh
-      })
-    } else {
-      this.setState({ chatPresences, lastChangeType: "data" })
-    }
-  }
-
-  /**
-   * Clear typing status for a sender when they send a message
-   * WhatsApp doesn't always send a "paused" presence update after sending
-   */
-  clearTypingForSender(senderId: string): void {
-    const chatPresences = new Map(this.state.chatPresences)
-    let hasChanges = false
-
-    // Find the LID for this sender (reverse lookup)
-    let senderLid: string | null = null
-    for (const [lid, phone] of this.state.lidToPhoneMap) {
-      if (phone === senderId) {
-        senderLid = lid
-        break
-      }
-    }
-
-    // Update all presences to remove typing for this sender
-    for (const [chatId, presence] of chatPresences) {
-      if (presence.presences) {
-        const updatedPresences = presence.presences.map((p) => {
-          // Match by LID or by phone ID directly
-          if (
-            (senderLid && p.participant === senderLid) ||
-            p.participant === senderId ||
-            p.participant.includes(senderId.replace(/@c\.us$/, ""))
-          ) {
-            if (p.lastKnownPresence === "typing" || p.lastKnownPresence === "recording") {
-              hasChanges = true
-              return { ...p, lastKnownPresence: "paused" as const }
-            }
-          }
-          return p
-        })
-        chatPresences.set(chatId, { ...presence, presences: updatedPresences })
-      }
-    }
-
-    if (hasChanges) {
-      debugLog("Presence", `Cleared typing for sender: ${senderId}`)
-      // Also update currentChatPresence if viewing the chat
-      if (this.state.currentChatPresence?.presences) {
-        const updatedCurrentPresences = this.state.currentChatPresence.presences.map((p) => {
-          if (
-            (senderLid && p.participant === senderLid) ||
-            p.participant === senderId ||
-            p.participant.includes(senderId.replace(/@c\.us$/, ""))
-          ) {
-            if (p.lastKnownPresence === "typing" || p.lastKnownPresence === "recording") {
-              return { ...p, lastKnownPresence: "paused" as const }
-            }
-          }
-          return p
-        })
-        this.setState({
-          chatPresences,
-          currentChatPresence: {
-            ...this.state.currentChatPresence,
-            presences: updatedCurrentPresences,
-          },
-          lastChangeType: "data",
-        })
-      } else {
-        this.setState({ chatPresences, lastChangeType: "data" })
-      }
-    }
-  }
-
-  /**
-   * Check if any participant in a chat is typing
-   * Uses LID mapping to match presence updates to chat IDs
-   * Filters out the current user's own typing
-   */
-  isChatTyping(chatId: string): boolean {
-    // Get my profile ID to filter out self-typing
-    const myProfileId = this.state.myProfile?.id
-    const myIdBase = normalizeId(myProfileId)
-
-    // Filter out typing for self-chat entirely
-    if (myIdBase && normalizeId(chatId) === myIdBase) {
-      return false
-    }
-
-    // Check all stored presences for typing status
-    for (const [, presence] of this.state.chatPresences) {
-      const typingPresence = presence.presences?.find(
-        (p) => p.lastKnownPresence === "typing" || p.lastKnownPresence === "recording"
-      )
-      if (typingPresence) {
-        // Skip if this is our own typing
-        const participantBase = normalizeId(typingPresence.participant)
-        if (myIdBase && participantBase === myIdBase) {
-          continue // Skip our own typing
-        }
-
-        // Try to map the LID participant to a phone number
-        const participantLid = typingPresence.participant
-        const phoneNumber = this.state.lidToPhoneMap.get(participantLid)
-
-        // Match if:
-        // 1. Phone number matches the chatId (1:1 chat)
-        if (phoneNumber === chatId) {
-          debugLog("Presence", `isChatTyping: MATCH by exact phone number`)
-          return true
-        }
-        // Also try partial match (phone number without suffix)
-        if (phoneNumber && chatId.startsWith(phoneNumber.replace(/@c\.us$/, ""))) {
-          debugLog("Presence", `isChatTyping: MATCH by partial phone number`)
-          return true
-        }
-        // Fallback: if no mapping, check if participant starts with chatId base
-        const chatIdBase = chatId.replace(/@c\.us$/, "")
-        if (participantLid.includes(chatIdBase)) {
-          debugLog("Presence", `isChatTyping: MATCH by chatId base in LID`)
-          return true
-        }
-      }
-    }
-    return false
-  }
-
-  /**
-   * Get the typing status for chat list display
-   * Returns true only for the current chat since we only subscribe to one chat's presence
-   */
-  getTypingForChatList(): string | null {
-    if (!this.state.currentChatId) return null
-
-    for (const [, presence] of this.state.chatPresences) {
-      const typingPresence = presence.presences?.find(
-        (p) => p.lastKnownPresence === "typing" || p.lastKnownPresence === "recording"
-      )
-      if (typingPresence) {
-        // Try to map the LID participant to a phone number
-        const participantLid = typingPresence.participant
-        const phoneNumber = this.state.lidToPhoneMap.get(participantLid) || participantLid
-        return phoneNumber
-      }
-    }
-    return null
-  }
-
-  /**
-   * Set the LID to phone number mapping
-   */
-  setLidToPhoneMap(lidToPhoneMap: Map<string, string>): void {
-    this.setState({ lidToPhoneMap })
-  }
-
-  /**
-   * Add entries to the LID to phone number mapping
-   */
-  addLidMappings(mappings: Array<{ lid?: string; pn?: string }>): void {
-    const newMap = new Map(this.state.lidToPhoneMap)
-    for (const mapping of mappings) {
-      if (mapping.lid && mapping.pn) {
-        newMap.set(mapping.lid, mapping.pn)
-      }
-    }
-    this.setState({ lidToPhoneMap: newMap })
-  }
-
-  /**
-   * Get phone number (@c.us) from LID (@lid)
-   */
-  getPhoneFromLid(lid: string): string | undefined {
-    return this.state.lidToPhoneMap.get(lid)
-  }
-
-  setCurrentChatParticipants(currentChatParticipants: GroupParticipant[] | null): void {
-    this.setState({ currentChatParticipants })
+    return this.contactSlice.getContactName(contactId)
   }
 
   setMyProfile(myProfile: MyProfile | null): void {
-    this.setState({ myProfile })
+    this.contactSlice.setMyProfile(myProfile)
   }
 
-  setActiveFilter(activeFilter: ActiveFilter): void {
-    this.setState({
-      activeFilter,
-      selectedChatIndex: 0,
-      chatListScrollOffset: 0,
-      lastChangeType: "data",
-    })
+  setLidToPhoneMap(lidToPhoneMap: Map<string, string>): void {
+    this.chatSlice.setLidToPhoneMap(lidToPhoneMap)
   }
 
-  setSearchQuery(searchQuery: string): void {
-    this.setState({
-      searchQuery,
-      selectedChatIndex: 0,
-      chatListScrollOffset: 0,
-      lastChangeType: "data",
-    })
+  addLidMappings(mappings: Array<{ lid?: string; pn?: string }>): void {
+    this.chatSlice.addLidMappings(mappings)
   }
 
-  setShowingArchivedChats(showingArchivedChats: boolean): void {
-    this.setState({
-      showingArchivedChats,
-      selectedChatIndex: 0,
-      chatListScrollOffset: 0,
-      lastChangeType: "data",
-    })
+  getPhoneFromLid(lid: string): string | undefined {
+    return this.chatSlice.getPhoneFromLid(lid)
   }
 
-  // Context menu methods
+  // Modal / Toast
+  showToast(
+    message: string,
+    type: "error" | "warning" | "success" | "info" = "info",
+    autoDismissMs: number = 5000
+  ): void {
+    this.modalSlice.showToast(message, type, autoDismissMs)
+  }
+
+  hideToast(): void {
+    this.modalSlice.hideToast()
+  }
+
+  // Context Menu
   openContextMenu(
     type: ContextMenuType,
     targetId: string,
     targetData?: ChatSummary | WAMessage | WAMessageExtended | null,
     position: { x: number; y: number } = { x: 10, y: 5 }
   ): void {
-    this.setState({
-      contextMenu: {
-        visible: true,
-        type,
-        targetId,
-        targetData,
-        selectedIndex: 0,
-        position,
-      },
-    })
+    this.modalSlice.openContextMenu(type, targetId, targetData, position)
   }
 
   closeContextMenu(): void {
-    this.setState({ contextMenu: null })
+    this.modalSlice.closeContextMenu()
   }
 
   setContextMenuSelectedIndex(selectedIndex: number): void {
-    if (this.state.contextMenu) {
-      this.setState({
-        contextMenu: {
-          ...this.state.contextMenu,
-          selectedIndex,
-        },
-      })
-    }
+    this.modalSlice.setContextMenuSelectedIndex(selectedIndex)
   }
 
-  // Context menu action callback (set by index.ts)
-  private contextMenuActionCallback: ((actionId: string) => void) | null = null
-
   setContextMenuActionCallback(callback: (actionId: string) => void): void {
-    this.contextMenuActionCallback = callback
+    this.modalSlice.setContextMenuActionCallback(callback)
   }
 
   triggerContextMenuAction(actionId: string): void {
-    if (this.contextMenuActionCallback) {
-      this.contextMenuActionCallback(actionId)
-    }
+    this.modalSlice.triggerContextMenuAction(actionId)
   }
 
-  // Reply methods
-  setReplyingToMessage(message: WAMessageExtended | WAMessage | null): void {
-    this.setState({ replyingToMessage: message })
+  // Modal
+  setShowLogoutModal(showLogoutModal: boolean): void {
+    this.modalSlice.set({ showLogoutModal })
+  }
+
+  setConfigStep(configStep: ConfigStep | null): void {
+    this.modalSlice.setConfigStep(configStep)
+  }
+
+  // Settings
+  setSettingsPage(settingsPage: SettingsPage): void {
+    this.settingsSlice.setSettingsPage(settingsPage)
+  }
+
+  setSettingsSelectedIndex(settingsSelectedIndex: number): void {
+    this.settingsSlice.setSettingsSelectedIndex(settingsSelectedIndex)
+  }
+
+  setSettingsSubIndex(settingsSubIndex: number): void {
+    this.settingsSlice.setSettingsSubIndex(settingsSubIndex)
+  }
+
+  setEnterIsSend(enterIsSend: boolean): void {
+    this.settingsSlice.setEnterIsSend(enterIsSend)
+  }
+
+  setMessageNotifications(settings: NotificationSettings): void {
+    this.settingsSlice.setMessageNotifications(settings)
+  }
+
+  setGroupNotifications(settings: NotificationSettings): void {
+    this.settingsSlice.setGroupNotifications(settings)
+  }
+
+  setStatusNotifications(settings: NotificationSettings): void {
+    this.settingsSlice.setStatusNotifications(settings)
+  }
+
+  setShowPreviews(showPreviews: boolean): void {
+    this.settingsSlice.setShowPreviews(showPreviews)
+  }
+
+  setBackgroundSync(backgroundSync: boolean): void {
+    this.settingsSlice.setBackgroundSync(backgroundSync)
+  }
+
+  // Auth
+  setAuthMode(authMode: AuthMode): void {
+    this.authSlice.setAuthMode(authMode)
+  }
+
+  setPhoneNumber(phoneNumber: string): void {
+    this.authSlice.setPhoneNumber(phoneNumber)
+  }
+
+  setPairingCode(pairingCode: string | null): void {
+    this.authSlice.setPairingCode(pairingCode)
+  }
+
+  setPairingStatus(pairingStatus: PairingStatus): void {
+    this.authSlice.setPairingStatus(pairingStatus)
+  }
+
+  setPairingError(pairingError: string | null): void {
+    this.authSlice.setPairingError(pairingError)
+  }
+
+  setQrCodeMatrix(qrCodeMatrix: AuthState["qrCodeMatrix"]): void {
+    this.authSlice.setQrCodeMatrix(qrCodeMatrix)
+  }
+
+  // Contact
+  setWahaTier(wahaTier: string | null): void {
+    this.contactSlice.setWahaTier(wahaTier)
+  }
+
+  // Session
+  setIsOffline(isOffline: boolean): void {
+    this.sessionSlice.set({ isOffline })
+  }
+
+  // Navigation
+  setChatListScrollOffset(chatListScrollOffset: number): void {
+    this.navigationSlice.setChatListScrollOffset(chatListScrollOffset)
+  }
+
+  setLastChangeType(lastChangeType: ChangeType): void {
+    this.navigationSlice.set({ lastChangeType })
   }
 }
 

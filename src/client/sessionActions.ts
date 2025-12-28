@@ -10,6 +10,9 @@ import type {
   WAHAChatPresences,
 } from "@muhammedaksam/waha-node"
 
+import { CacheKeys, cacheService } from "../services/CacheService"
+import { errorService } from "../services/ErrorService"
+import { RetryPresets, withRetry } from "../services/RetryService"
 import { appState } from "../state/AppState"
 import { debugLog } from "../utils/debug"
 import { isGroupChat } from "../utils/formatters"
@@ -20,22 +23,43 @@ import { prefetchMessagesForTopChats } from "./messageActions"
 // Session Management
 // ============================================
 
+/**
+ * Load all available WAHA sessions.
+ * Updates app state with session list and connection status.
+ * Includes automatic retry with exponential backoff on failure.
+ * @throws Never - errors are caught and handled internally
+ */
 export async function loadSessions(): Promise<void> {
   try {
     debugLog("Session", "Loading sessions from WAHA API")
     appState.setConnectionStatus("connecting")
     const wahaClient = getClient()
-    const { data: sessions } = await wahaClient.sessions.sessionsControllerList()
+
+    const { data: sessions } = await withRetry(() => wahaClient.sessions.sessionsControllerList(), {
+      ...RetryPresets.standard,
+      onRetry: (attempt, delay) => {
+        debugLog("Session", `Retry attempt ${attempt}, waiting ${delay}ms...`)
+      },
+    })
+
     debugLog("Session", `Loaded ${sessions?.length ?? 0} sessions`)
     appState.setSessions((sessions as SessionInfo[]) ?? [])
     appState.setConnectionStatus("connected")
   } catch (error) {
-    debugLog("Session", `Failed to load sessions: ${error}`)
-    appState.setConnectionStatus("error", `Failed to load sessions: ${error}`)
+    const appError = errorService.handle(error, {
+      notify: false,
+      log: true,
+      context: { action: "loadSessions" },
+    })
+    appState.setConnectionStatus("error", errorService.getUserMessage(appError))
     appState.setSessions([])
   }
 }
 
+/**
+ * Log out from the current WAHA session.
+ * Clears session state and returns to sessions view.
+ */
 export async function logoutSession(): Promise<void> {
   const state = appState.getState()
   const sessionName = state.currentSession
@@ -55,10 +79,14 @@ export async function logoutSession(): Promise<void> {
     appState.setCurrentView("sessions")
     await loadSessions()
   } catch (error) {
-    debugLog("Session", `Failed to logout: ${error}`)
+    errorService.handle(error, { context: { action: "logoutSession", sessionName } })
   }
 }
 
+/**
+ * Delete the current WAHA session permanently.
+ * Removes session from WAHA server and returns to sessions view.
+ */
 export async function deleteSession(): Promise<void> {
   const state = appState.getState()
   const sessionName = state.currentSession
@@ -78,7 +106,7 @@ export async function deleteSession(): Promise<void> {
     appState.setCurrentView("sessions")
     await loadSessions()
   } catch (error) {
-    debugLog("Session", `Failed to delete session: ${error}`)
+    errorService.handle(error, { context: { action: "deleteSession", sessionName } })
   }
 }
 
@@ -88,6 +116,14 @@ export async function deleteSession(): Promise<void> {
 
 export async function loadAllContacts(): Promise<Map<string, string>> {
   const session = getSession()
+  const cacheKey = CacheKeys.contacts(session)
+
+  // Check cache first (contacts change less frequently)
+  const cached = cacheService.get<Map<string, string>>(cacheKey)
+  if (cached) {
+    debugLog("Contacts", `Using cached ${cached.size} contacts`)
+    return cached
+  }
 
   debugLog("Contacts", `Loading all contacts for session: ${session}`)
 
@@ -117,9 +153,12 @@ export async function loadAllContacts(): Promise<Map<string, string>> {
     }
 
     debugLog("Contacts", `Loaded ${contactMap.size} contacts`)
+
+    // Cache contacts for 2 minutes (they change less frequently)
+    cacheService.set(cacheKey, contactMap, { ttlMs: 120000 })
     return contactMap
   } catch (error) {
-    debugLog("Contacts", `Error loading contacts: ${error}`)
+    errorService.handle(error, { context: { action: "loadAllContacts" } })
     return new Map()
   }
 }
@@ -127,11 +166,31 @@ export async function loadAllContacts(): Promise<Map<string, string>> {
 export async function loadChats(): Promise<void> {
   try {
     const session = getSession()
+    const cacheKey = CacheKeys.chats(session)
+
+    // Check cache first
+    const cached = cacheService.get<ChatSummary[]>(cacheKey)
+    if (cached) {
+      debugLog("Chats", `Using cached ${cached.length} chats`)
+      appState.setChats(cached)
+      return
+    }
+
     debugLog("Chats", `Loading chats for session: ${session}`)
     const wahaClient = getClient()
-    const response = await wahaClient.chats.chatsControllerGetChats(session, {})
+
+    const response = await withRetry(() => wahaClient.chats.chatsControllerGetChats(session, {}), {
+      ...RetryPresets.standard,
+      onRetry: (attempt, delay) => {
+        debugLog("Chats", `Retry attempt ${attempt}, waiting ${delay}ms...`)
+      },
+    })
+
     const chats = (response.data as unknown as ChatSummary[]) || []
     debugLog("Chats", `Loaded ${chats.length} chats`)
+
+    // Cache the result (30 second TTL)
+    cacheService.set(cacheKey, chats, { ttlMs: 30000 })
     appState.setChats(chats)
 
     const allContacts = await loadAllContacts()
@@ -143,7 +202,7 @@ export async function loadChats(): Promise<void> {
       debugLog("Chats", `Failed to pre-fetch messages for top chats: ${error}`)
     })
   } catch (error) {
-    debugLog("Chats", `Failed to load chats: ${error}`)
+    errorService.handle(error, { context: { action: "loadChats" } })
     appState.setChats([])
   }
 }
@@ -191,7 +250,7 @@ export async function loadContacts(): Promise<void> {
     debugLog("Contacts", `Cached ${contactsMap.size} contacts`)
     appState.setContactsCache(contactsMap)
   } catch (error) {
-    debugLog("Contacts", `Failed to load contacts: ${error}`)
+    errorService.handle(error, { context: { action: "loadContacts" } })
   }
 }
 
@@ -210,7 +269,7 @@ export async function loadLidMappings(): Promise<void> {
     appState.addLidMappings(mappings)
     debugLog("LID", `Loaded ${mappings.length} LID mappings`)
   } catch (error) {
-    debugLog("LID", `Failed to load LID mappings: ${error}`)
+    errorService.handle(error, { context: { action: "loadLidMappings" } })
   }
 }
 
@@ -241,7 +300,7 @@ export async function loadChatDetails(chatId: string): Promise<void> {
       // Subscription might fail if already subscribed or not supported
     }
   } catch (error) {
-    debugLog("Conversation", `Failed to load chat details: ${error}`)
+    errorService.handle(error, { context: { action: "loadChatDetails", chatId } })
   }
 }
 
@@ -258,6 +317,6 @@ export async function fetchMyProfile(): Promise<void> {
     appState.setMyProfile(response.data)
     debugLog("Profile", `My profile loaded: ${response.data?.id}`)
   } catch (error) {
-    debugLog("Profile", `Failed to fetch my profile: ${error}`)
+    errorService.handle(error, { context: { action: "fetchMyProfile" } })
   }
 }

@@ -3,27 +3,34 @@
  * Singleton client initialization and core utilities
  */
 
+import { spawn } from "child_process"
 import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from "axios"
 
 import { WahaClient } from "@muhammedaksam/waha-node"
 
 import type { WahaTuiConfig } from "../config/schema"
+import { errorService } from "../services/ErrorService"
 import { appState } from "../state/AppState"
 import { DEBUG_ENABLED, debugLog, debugRequest, debugResponse } from "../utils/debug"
 
 let client: WahaClient | null = null
 
+/**
+ * Initialize the WAHA client with configuration.
+ * Sets up axios interceptors for logging and error handling.
+ * @param config - WAHA TUI configuration containing URL and API key
+ * @returns Initialized WahaClient instance
+ */
 export function initializeClient(config: WahaTuiConfig): WahaClient {
   debugLog("Client", `Initializing WAHA client: ${config.wahaUrl}`)
   client = new WahaClient(config.wahaUrl, config.wahaApiKey)
 
-  // Add axios interceptors for automatic request/response logging
-  if (DEBUG_ENABLED) {
-    const httpClient = client.httpClient
+  const httpClient = client.httpClient
 
-    if (httpClient) {
+  if (httpClient) {
+    // Request interceptor for logging
+    if (DEBUG_ENABLED) {
       debugLog("Client", "Configuring axios interceptors for automatic API logging")
-      // Request interceptor
       httpClient.interceptors.request.use(
         (requestConfig: InternalAxiosRequestConfig) => {
           const method = requestConfig.method?.toUpperCase() || "UNKNOWN"
@@ -36,29 +43,44 @@ export function initializeClient(config: WahaTuiConfig): WahaClient {
           return Promise.reject(error)
         }
       )
+    }
 
-      // Response interceptor
-      httpClient.interceptors.response.use(
-        (response: AxiosResponse) => {
+    // Response interceptor for error handling and logging
+    httpClient.interceptors.response.use(
+      (response: AxiosResponse) => {
+        if (DEBUG_ENABLED) {
           const status = response.status
           const url = response.config.url || "unknown"
           const body =
             typeof response.data === "string" ? response.data : JSON.stringify(response.data)
           debugResponse(status, url, body)
-          return response
-        },
-        (error: AxiosError) => {
-          const status = error.response?.status || 0
-          const url = error.config?.url || "unknown"
-          debugLog("API", `Response error ${status} from ${url}: ${error.message}`)
-          return Promise.reject(error)
         }
-      )
+        return response
+      },
+      (error: AxiosError) => {
+        // Classify and handle error through ErrorService
+        const url = error.config?.url || "unknown"
+        errorService.handle(error, {
+          log: true,
+          notify: true,
+          context: {
+            url,
+            method: error.config?.method?.toUpperCase(),
+            statusCode: error.response?.status,
+          },
+        })
 
-      debugLog("Client", "Axios interceptors configured for automatic API logging")
-    } else {
-      debugLog("Client", "Warning: Could not access httpClient for interceptors")
-    }
+        if (DEBUG_ENABLED) {
+          const status = error.response?.status || 0
+          debugLog("API", `Response error ${status} from ${url}: ${error.message}`)
+        }
+        return Promise.reject(error)
+      }
+    )
+
+    debugLog("Client", "Axios interceptors configured")
+  } else {
+    debugLog("Client", "Warning: Could not access httpClient for interceptors")
   }
 
   debugLog("Client", "WAHA client initialized successfully")
@@ -114,8 +136,6 @@ interface ClipboardTool {
  * Try to copy text using a specific clipboard tool
  */
 async function tryClipboardTool(text: string, tool: ClipboardTool): Promise<boolean> {
-  const { spawn } = await import("child_process")
-
   return new Promise((resolve) => {
     const proc = spawn(tool.command, tool.args, {
       stdio: ["pipe", "ignore", "ignore"],

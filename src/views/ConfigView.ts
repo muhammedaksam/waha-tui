@@ -209,9 +209,7 @@ export function ConfigView() {
         urlInputComponent.onSubmit = () => {
           // Move to step 2
           const url = urlInputComponent?.plainText || "http://localhost:3000"
-          appState.setState({
-            configStep: { ...configStep, wahaUrl: url, step: 2 },
-          })
+          appState.setConfigStep({ ...configStep, wahaUrl: url, step: 2 })
         }
 
         urlInputContainer.add(urlInputComponent)
@@ -284,9 +282,7 @@ export function ConfigView() {
         apiKeyInputComponent.onSubmit = () => {
           // Trigger connection test
           const apiKey = apiKeyInputComponent?.plainText || ""
-          appState.setState({
-            configStep: { ...configStep, wahaApiKey: apiKey, step: 3, status: "testing" },
-          })
+          appState.setConfigStep({ ...configStep, wahaApiKey: apiKey, step: 3, status: "testing" })
         }
 
         apiKeyInputContainer.add(apiKeyInputComponent)

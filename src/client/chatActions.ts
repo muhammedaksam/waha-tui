@@ -3,10 +3,18 @@
  * Functions for chat-level operations (archive, unarchive, delete, mark unread)
  */
 
+import type { ChatId } from "../types"
+import { errorService } from "../services/ErrorService"
 import { debugLog } from "../utils/debug"
 import { getClient, getSession } from "./core"
 
-export async function archiveChat(chatId: string): Promise<boolean> {
+/**
+ * Archive a chat.
+ * @param chatId - The chat ID to archive
+ * @returns True if successful, false otherwise
+ */
+
+export async function archiveChat(chatId: ChatId): Promise<boolean> {
   try {
     const session = getSession()
     debugLog("Client", `Archiving chat: ${chatId}`)
@@ -15,12 +23,18 @@ export async function archiveChat(chatId: string): Promise<boolean> {
     debugLog("Client", `Chat archived successfully: ${chatId}`)
     return true
   } catch (error) {
-    debugLog("Client", `Failed to archive chat: ${error}`)
+    errorService.handle(error, { context: { action: "archiveChat", chatId } })
     return false
   }
 }
 
-export async function unarchiveChat(chatId: string): Promise<boolean> {
+/**
+ * Unarchive a chat.
+ * @param chatId - The chat ID to unarchive
+ * @returns True if successful, false otherwise
+ */
+
+export async function unarchiveChat(chatId: ChatId): Promise<boolean> {
   try {
     const session = getSession()
     debugLog("Client", `Unarchiving chat: ${chatId}`)
@@ -29,12 +43,18 @@ export async function unarchiveChat(chatId: string): Promise<boolean> {
     debugLog("Client", `Chat unarchived successfully: ${chatId}`)
     return true
   } catch (error) {
-    debugLog("Client", `Failed to unarchive chat: ${error}`)
+    errorService.handle(error, { context: { action: "unarchiveChat", chatId } })
     return false
   }
 }
 
-export async function markChatUnread(chatId: string): Promise<boolean> {
+/**
+ * Mark a chat as unread.
+ * @param chatId - The chat ID to mark unread
+ * @returns True if successful, false otherwise
+ */
+
+export async function markChatUnread(chatId: ChatId): Promise<boolean> {
   try {
     const session = getSession()
     debugLog("Client", `Marking chat as unread: ${chatId}`)
@@ -43,12 +63,18 @@ export async function markChatUnread(chatId: string): Promise<boolean> {
     debugLog("Client", `Chat marked as unread: ${chatId}`)
     return true
   } catch (error) {
-    debugLog("Client", `Failed to mark chat as unread: ${error}`)
+    errorService.handle(error, { context: { action: "markChatUnread", chatId } })
     return false
   }
 }
 
-export async function deleteChat(chatId: string): Promise<boolean> {
+/**
+ * Delete a chat permanently.
+ * @param chatId - The chat ID to delete
+ * @returns True if successful, false otherwise
+ */
+
+export async function deleteChat(chatId: ChatId): Promise<boolean> {
   try {
     const session = getSession()
     debugLog("Client", `Deleting chat: ${chatId}`)
@@ -57,7 +83,7 @@ export async function deleteChat(chatId: string): Promise<boolean> {
     debugLog("Client", `Chat deleted successfully: ${chatId}`)
     return true
   } catch (error) {
-    debugLog("Client", `Failed to delete chat: ${error}`)
+    errorService.handle(error, { context: { action: "deleteChat", chatId } })
     return false
   }
 }

@@ -197,10 +197,15 @@ waha-tui/
 │   ├── components/                 # Reusable UI components
 │   ├── config/                     # Configuration management
 │   ├── handlers/                   # Action handlers
+│   │   ├── keyboardHandler.ts      # Centralized keyboard handling
 │   │   ├── ContextMenuActions.ts   # Context menu action execution
-│   │   └── index.ts
-│   ├── services/                   # Background services (WebSocket)
+│   │   └── index.ts                # Barrel exports
+│   ├── services/                   # Background services
+│   │   ├── ErrorService.ts         # Centralized error handling
+│   │   ├── RetryService.ts         # Retry with exponential backoff
+│   │   └── WebSocketService.ts     # Real-time WebSocket updates
 │   ├── state/                      # Global state management
+│   ├── types/                      # TypeScript type definitions
 │   ├── utils/                      # Utility functions
 │   ├── views/                      # Main application views
 │   │   ├── conversation/           # Conversation view modules

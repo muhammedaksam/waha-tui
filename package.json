@@ -39,14 +39,20 @@
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write src/",
     "format:check": "prettier --check src/",
-    "check": "bun typecheck && bun lint && bun format:check",
+    "check": "bun typecheck && bun lint && bun format:check && bun test",
     "fix": "bun lint:fix && bun format",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage",
     "start": "bun src/index.ts",
     "link:waha-node": "bash scripts/link-waha-node.sh",
     "unlink:waha-node": "bash scripts/unlink-waha-node.sh",
-    "migration:create": "bun run scripts/create-migration.ts"
+    "migration:create": "bun run scripts/create-migration.ts",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.2.0",
+    "@commitlint/config-conventional": "^20.2.0",
     "@eslint/js": "^9.39.2",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.0",
     "@types/bun": "latest",
@@ -55,7 +61,9 @@
     "@types/qrcode": "^1.5.6",
     "eslint": "^9.39.2",
     "eslint-plugin-import": "^2.32.0",
+    "husky": "^9.1.7",
     "jiti": "^2.6.1",
+    "lint-staged": "^16.2.7",
     "prettier": "^3.7.4",
     "typescript-eslint": "^8.50.1"
   },
@@ -74,5 +82,14 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
   }
 }

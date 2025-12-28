@@ -5,15 +5,24 @@
 
 import type { WAMessage } from "@muhammedaksam/waha-node"
 
-import type { WAMessageExtended } from "../types"
+import type { ChatId, MessageId, WAMessageExtended } from "../types"
+import { errorService } from "../services/ErrorService"
+import { RetryPresets, withRetry } from "../services/RetryService"
 import { appState } from "../state/AppState"
 import { debugLog } from "../utils/debug"
 import { getChatIdString } from "../utils/formatters"
 import { getClient, getSession } from "./core"
 
+/**
+ * Star or unstar a message.
+ * @param messageId - The message ID to star/unstar
+ * @param chatId - The chat containing the message
+ * @param star - True to star, false to unstar
+ * @returns True if successful, false otherwise
+ */
 export async function starMessage(
-  messageId: string,
-  chatId: string,
+  messageId: MessageId,
+  chatId: ChatId,
   star: boolean
 ): Promise<boolean> {
   try {
@@ -29,14 +38,21 @@ export async function starMessage(
     debugLog("Client", `Message ${star ? "starred" : "unstarred"}: ${messageId}`)
     return true
   } catch (error) {
-    debugLog("Client", `Failed to ${star ? "star" : "unstar"} message: ${error}`)
+    errorService.handle(error, { context: { action: "starMessage", messageId, star } })
     return false
   }
 }
 
+/**
+ * Pin a message in a chat.
+ * @param chatId - The chat ID
+ * @param messageId - The message ID to pin
+ * @param duration - Pin duration in seconds (default: 7 days)
+ * @returns True if successful, false otherwise
+ */
 export async function pinMessage(
-  chatId: string,
-  messageId: string,
+  chatId: ChatId,
+  messageId: MessageId,
   duration: number = 604800 // 7 days in seconds (default)
 ): Promise<boolean> {
   try {
@@ -49,12 +65,18 @@ export async function pinMessage(
     debugLog("Client", `Message pinned: ${messageId}`)
     return true
   } catch (error) {
-    debugLog("Client", `Failed to pin message: ${error}`)
+    errorService.handle(error, { context: { action: "pinMessage", messageId } })
     return false
   }
 }
 
-export async function unpinMessage(chatId: string, messageId: string): Promise<boolean> {
+/**
+ * Unpin a previously pinned message.
+ * @param chatId - The chat ID
+ * @param messageId - The message ID to unpin
+ * @returns True if successful, false otherwise
+ */
+export async function unpinMessage(chatId: ChatId, messageId: MessageId): Promise<boolean> {
   try {
     const session = getSession()
     debugLog("Client", `Unpinning message: ${messageId}`)
@@ -63,12 +85,18 @@ export async function unpinMessage(chatId: string, messageId: string): Promise<b
     debugLog("Client", `Message unpinned: ${messageId}`)
     return true
   } catch (error) {
-    debugLog("Client", `Failed to unpin message: ${error}`)
+    errorService.handle(error, { context: { action: "unpinMessage", messageId } })
     return false
   }
 }
 
-export async function deleteMessage(chatId: string, messageId: string): Promise<boolean> {
+/**
+ * Delete a message from a chat.
+ * @param chatId - The chat ID
+ * @param messageId - The message ID to delete
+ * @returns True if successful, false otherwise
+ */
+export async function deleteMessage(chatId: ChatId, messageId: MessageId): Promise<boolean> {
   try {
     const session = getSession()
     debugLog("Client", `Deleting message: ${messageId}`)
@@ -77,15 +105,15 @@ export async function deleteMessage(chatId: string, messageId: string): Promise<
     debugLog("Client", `Message deleted: ${messageId}`)
     return true
   } catch (error) {
-    debugLog("Client", `Failed to delete message: ${error}`)
+    errorService.handle(error, { context: { action: "deleteMessage", messageId } })
     return false
   }
 }
 
 export async function forwardMessage(
-  chatId: string,
-  messageId: string,
-  toChatId: string
+  chatId: ChatId,
+  messageId: MessageId,
+  toChatId: ChatId
 ): Promise<boolean> {
   try {
     const session = getSession()
@@ -99,7 +127,7 @@ export async function forwardMessage(
     debugLog("Client", `Message forwarded: ${messageId} -> ${toChatId}`)
     return true
   } catch (error) {
-    debugLog("Client", `Failed to forward message: ${error}`)
+    errorService.handle(error, { context: { action: "forwardMessage", messageId, toChatId } })
     return false
   }
 }
@@ -117,7 +145,7 @@ export async function reactToMessage(messageId: string, reaction: string): Promi
     debugLog("Client", `Reaction set: ${reaction} on ${messageId}`)
     return true
   } catch (error) {
-    debugLog("Client", `Failed to react to message: ${error}`)
+    errorService.handle(error, { context: { action: "reactToMessage", messageId, reaction } })
     return false
   }
 }
@@ -126,12 +154,23 @@ export async function loadMessages(chatId: string): Promise<void> {
   try {
     const wahaClient = getClient()
     const session = getSession()
-    const response = await wahaClient.chats.chatsControllerGetChatMessages(session, chatId, {
-      limit: 50,
-      downloadMedia: false,
-      sortBy: "messageTimestamp",
-      sortOrder: "desc",
-    })
+
+    const response = await withRetry(
+      () =>
+        wahaClient.chats.chatsControllerGetChatMessages(session, chatId, {
+          limit: 50,
+          downloadMedia: false,
+          sortBy: "messageTimestamp",
+          sortOrder: "desc",
+        }),
+      {
+        ...RetryPresets.quick,
+        onRetry: (attempt, delay) => {
+          debugLog("Messages", `Retry attempt ${attempt}, waiting ${delay}ms...`)
+        },
+      }
+    )
+
     const messages = (response.data as unknown as WAMessage[]) || []
 
     // Attempt to normalize reactions if found in _data

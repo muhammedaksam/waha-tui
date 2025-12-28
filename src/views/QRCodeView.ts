@@ -44,12 +44,10 @@ export function stopQRRefresh(): void {
 export function toggleAuthMode(): void {
   const state = appState.getState()
   const newMode = state.authMode === "qr" ? "phone" : "qr"
-  appState.setState({
-    authMode: newMode,
-    pairingCode: null,
-    pairingStatus: "idle",
-    pairingError: null,
-  })
+  appState.setAuthMode(newMode)
+  appState.setPairingCode(null)
+  appState.setPairingStatus("idle")
+  appState.setPairingError(null)
   debugLog("Auth", `Switched to ${newMode} mode`)
 }
 
@@ -62,10 +60,8 @@ export function handlePhoneInput(char: string): void {
 
   // Only allow digits
   if (/^\d$/.test(char)) {
-    appState.setState({
-      phoneNumber: state.phoneNumber + char,
-      pairingError: null,
-    })
+    appState.setPhoneNumber(state.phoneNumber + char)
+    appState.setPairingError(null)
   }
 }
 
@@ -77,10 +73,8 @@ export function handlePhoneBackspace(): void {
   if (state.authMode !== "phone") return
 
   if (state.phoneNumber.length > 0) {
-    appState.setState({
-      phoneNumber: state.phoneNumber.slice(0, -1),
-      pairingError: null,
-    })
+    appState.setPhoneNumber(state.phoneNumber.slice(0, -1))
+    appState.setPairingError(null)
   }
 }
 
@@ -94,28 +88,23 @@ export async function submitPhoneNumber(): Promise<void> {
 
   const phoneNumber = state.phoneNumber.trim()
   if (!phoneNumber || phoneNumber.length < 10) {
-    appState.setState({
-      pairingError: "Enter a valid phone number (10+ digits)",
-      pairingStatus: "error",
-    })
+    appState.setPairingError("Enter a valid phone number (10+ digits)")
+    appState.setPairingStatus("error")
     return
   }
 
-  appState.setState({ pairingStatus: "requesting", pairingError: null })
+  appState.setPairingStatus("requesting")
+  appState.setPairingError(null)
 
   const result = await requestPairingCode(currentSessionName, phoneNumber)
 
   if (result.success && result.code) {
-    appState.setState({
-      pairingCode: result.code,
-      pairingStatus: "success",
-      pairingError: null,
-    })
+    appState.setPairingCode(result.code)
+    appState.setPairingStatus("success")
+    appState.setPairingError(null)
   } else {
-    appState.setState({
-      pairingStatus: "error",
-      pairingError: result.error || "Failed to get pairing code",
-    })
+    appState.setPairingStatus("error")
+    appState.setPairingError(result.error || "Failed to get pairing code")
   }
 }
 
@@ -596,13 +585,11 @@ export async function showQRCode(name: string): Promise<void> {
   currentSessionName = name
 
   // Reset auth state
-  appState.setState({
-    authMode: "qr",
-    phoneNumber: "",
-    pairingCode: null,
-    pairingStatus: "idle",
-    pairingError: null,
-  })
+  appState.setAuthMode("qr")
+  appState.setPhoneNumber("")
+  appState.setPairingCode(null)
+  appState.setPairingStatus("idle")
+  appState.setPairingError(null)
 
   const client = getClient()
 
@@ -786,11 +773,8 @@ export async function showQRCode(name: string): Promise<void> {
       const matrix: QRCodeType = QRCode.create(qrValue, { errorCorrectionLevel: "M" })
 
       // Store in app state
-      appState.setState({
-        ...appState.getState(),
-        qrCodeMatrix: matrix,
-        currentView: "qr",
-      })
+      appState.setQrCodeMatrix(matrix)
+      appState.setCurrentView("qr")
     } catch (error) {
       debugLog("QR", `Failed to load QR code: ${error}`)
       if (isInitialLoad) {
