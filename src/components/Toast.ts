@@ -103,7 +103,7 @@ export function errorToToast(error: AppError, onRetry?: () => void): ToastConfig
 }
 
 /**
- * Render a toast notification
+ * Render a toast notification as a top-centered modal overlay
  * @param config - Toast configuration
  * @returns Box component for the toast
  */
@@ -112,19 +112,31 @@ export function Toast(config: ToastConfig) {
   const icon = getToastIcon(config.type)
 
   const message = config.actionText
-    ? `${icon} ${config.message} [${config.actionText}]`
-    : `${icon} ${config.message}`
+    ? `${icon}  ${config.message}  [${config.actionText}]`
+    : `${icon}  ${config.message}`
 
+  // Create a full-width container positioned at the top
   return Box(
     {
-      borderStyle: "rounded",
-      borderColor: colors.border,
-      backgroundColor: colors.bg,
-      paddingLeft: 1,
-      paddingRight: 1,
-      marginTop: 1,
+      position: "absolute",
+      top: 1,
+      left: 0,
+      right: 0,
+      justifyContent: "center",
+      alignItems: "center",
     },
-    Text({ content: message })
+    Box(
+      {
+        borderStyle: "rounded",
+        borderColor: colors.border,
+        backgroundColor: colors.bg,
+        paddingLeft: 2,
+        paddingRight: 2,
+        paddingTop: 0,
+        paddingBottom: 0,
+      },
+      Text({ content: message })
+    )
   )
 }
 
