@@ -506,13 +506,11 @@ export function ConversationView() {
           const replyMsg = currentState.replyingToMessage as { id?: string } | null
           const replyToId = replyMsg?.id
 
-          const success = await sendMessage(currentState.currentChatId, text, replyToId)
-          if (success) {
-            messageInputComponent.setText("")
-            appState.setMessageInput("")
-            // Reset height via state
-            appState.setInputHeight(MIN_INPUT_HEIGHT)
-          }
+          await sendMessage(currentState.currentChatId, text, replyToId)
+          messageInputComponent.setText("")
+          appState.setMessageInput("")
+          // Reset height via state
+          appState.setInputHeight(MIN_INPUT_HEIGHT)
         }
       }
     }
@@ -716,6 +714,26 @@ export function destroyConversationScrollBox(): void {
     }
     messageInputComponent = null
   }
+  // Cleanup input container and scrollbar
+  if (inputContainer) {
+    if (!inputContainer.isDestroyed) {
+      inputContainer.destroy()
+    }
+    inputContainer = null
+  }
+  if (inputScrollBar) {
+    if (!inputScrollBar.isDestroyed) {
+      inputScrollBar.destroy()
+    }
+    inputScrollBar = null
+  }
+  // Clear typing timeout
+  if (typingTimeout) {
+    clearTimeout(typingTimeout)
+    typingTimeout = null
+  }
+  // Reset enter send tracking
+  lastEnterIsSend = null
 }
 
 // Scroll the conversation by a given amount (for keyboard navigation)

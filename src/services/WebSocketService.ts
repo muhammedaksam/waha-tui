@@ -116,6 +116,7 @@ export class WebSocketService {
 
       this.ws = new WebSocket(fullUrl)
 
+      // Store bound handlers for cleanup
       this.ws.onopen = this.handleOpen.bind(this)
       this.ws.onmessage = this.handleMessage.bind(this)
       this.ws.onclose = this.handleClose.bind(this)
@@ -130,11 +131,22 @@ export class WebSocketService {
 
   public disconnect() {
     this.shouldKeyReconnect = false
+
+    // Clear reconnect timer
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
     }
+
+    // Clean up WebSocket connection
     if (this.ws) {
+      // Clear event handlers before closing
+      this.ws.onopen = null
+      this.ws.onmessage = null
+      this.ws.onclose = null
+      this.ws.onerror = null
+
+      // Close connection
       this.ws.close(CLOSE_NORMAL, "App closed")
       this.ws = null
     }

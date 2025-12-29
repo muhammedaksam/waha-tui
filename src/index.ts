@@ -57,6 +57,9 @@ async function runConfigWizard(renderer: CliRenderer): Promise<void> {
     // Initial render
     renderConfigView()
 
+    // Declare cleanup function before use
+    let removeKeyListener: () => void = () => {}
+
     // Subscribe to state changes for re-rendering and handling step transitions
     const unsubscribe = appState.subscribe(async () => {
       const state = appState.getState()
@@ -83,6 +86,7 @@ async function runConfigWizard(renderer: CliRenderer): Promise<void> {
           // Wait a moment to show success, then resolve
           setTimeout(() => {
             destroyConfigInputs()
+            removeKeyListener()
             unsubscribe()
             resolve()
           }, 1500)
@@ -116,6 +120,21 @@ async function runConfigWizard(renderer: CliRenderer): Promise<void> {
     }
 
     renderer.keyInput.on("keypress", handleErrorRetry)
+
+    // Cleanup function to remove listeners
+    removeKeyListener = () => {
+      renderer.keyInput.off("keypress", handleErrorRetry)
+    }
+
+    // Cleanup on view change
+    const unsubscribeViewChange = appState.subscribe((state) => {
+      if (state.currentView !== "config") {
+        destroyConfigInputs()
+        removeKeyListener()
+        unsubscribe()
+        unsubscribeViewChange()
+      }
+    })
   })
 }
 
