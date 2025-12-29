@@ -1,6 +1,7 @@
 import type { ChatSummary, WAMessage } from "@muhammedaksam/waha-node"
 
 import type { WAMessageExtended } from "../../types"
+import { TIME_MS } from "../../constants"
 import { SliceActions, StateSlice } from "./types"
 
 // Context menu types
@@ -173,7 +174,7 @@ export function createModalSlice(): StateSlice<ModalState> & ModalActions {
     showToast(
       message: string,
       type: "error" | "warning" | "success" | "info" = "info",
-      autoDismissMs: number = 5000
+      autoDismissMs: number = TIME_MS.TOAST_DEFAULT_AUTO_DISMISS
     ) {
       state = {
         ...state,

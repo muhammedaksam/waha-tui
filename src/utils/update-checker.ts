@@ -8,6 +8,7 @@ import { homedir } from "node:os"
 import { join } from "node:path"
 
 import { VersionInfo } from "../config/version"
+import { TIME_MS } from "../constants"
 
 const GITHUB_REPO = "muhammedaksam/waha-tui"
 
@@ -26,7 +27,6 @@ if (!existsSync(CONFIG_DIR)) {
 }
 
 const CACHE_FILE = join(CONFIG_DIR, ".update-cache.json")
-const CACHE_DURATION_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 export interface UpdateInfo {
   currentVersion: string
@@ -59,7 +59,7 @@ function getCachedUpdate(): CachedUpdate | null {
     const now = Date.now()
 
     // Cache still valid
-    if (now - checkedAt < CACHE_DURATION_MS) {
+    if (now - checkedAt < TIME_MS.UPDATE_CHECK_CACHE_DURATION) {
       return cached
     }
   } catch {

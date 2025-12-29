@@ -15,6 +15,7 @@ import {
 
 import type { WahaTuiConfig } from "../config/schema"
 import { loadChats } from "../client"
+import { TIME_MS } from "../constants"
 import { appState } from "../state/AppState"
 import { debugLog } from "../utils/debug"
 import { getContactName, isGroupChat, isStatusBroadcast, normalizeId } from "../utils/formatters"
@@ -37,7 +38,7 @@ export class WebSocketService {
   private config: WahaTuiConfig | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectAttempts = 0
-  private maxReconnectDelay = 30000 // 30 seconds
+  private maxReconnectDelay = TIME_MS.WS_MAX_RECONNECT_DELAY
   private isConnecting = false
   private shouldKeyReconnect = true
 
@@ -193,7 +194,7 @@ export class WebSocketService {
         }
         this.pendingEvents = []
         this.debounceTimer = null
-      }, 500)
+      }, TIME_MS.WS_DEBOUNCE)
     } catch (error) {
       debugLog("WebSocket", `Failed to parse message: ${error}`)
     }
@@ -216,7 +217,10 @@ export class WebSocketService {
   private scheduleReconnect() {
     if (this.reconnectTimer) return
 
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelay)
+    const delay = Math.min(
+      TIME_MS.WS_RECONNECT_BASE_DELAY * Math.pow(2, this.reconnectAttempts),
+      this.maxReconnectDelay
+    )
     debugLog("WebSocket", `Reconnecting in ${delay}ms...`)
 
     this.reconnectTimer = setTimeout(() => {

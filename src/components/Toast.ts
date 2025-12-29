@@ -7,6 +7,7 @@ import { Box, Text } from "@opentui/core"
 
 import type { AppError } from "../services/ErrorService"
 import { WDSColors, WhatsAppTheme } from "../config/theme"
+import { TIME_MS } from "../constants"
 
 /**
  * Toast notification types with associated styling
@@ -71,7 +72,7 @@ export function errorToToast(error: AppError, onRetry?: () => void): ToastConfig
   const config: ToastConfig = {
     message: error.message,
     type: "error",
-    duration: 5000,
+    duration: TIME_MS.TOAST_ERROR_DURATION,
   }
 
   // Add recovery action if available
@@ -144,26 +145,26 @@ export function Toast(config: ToastConfig) {
  * Create a simple error toast
  */
 export function ErrorToast(message: string) {
-  return Toast({ message, type: "error", duration: 5000 })
+  return Toast({ message, type: "error", duration: TIME_MS.TOAST_ERROR_DURATION })
 }
 
 /**
  * Create a simple success toast
  */
 export function SuccessToast(message: string) {
-  return Toast({ message, type: "success", duration: 3000 })
+  return Toast({ message, type: "success", duration: TIME_MS.TOAST_SUCCESS_DURATION })
 }
 
 /**
  * Create a simple warning toast
  */
 export function WarningToast(message: string) {
-  return Toast({ message, type: "warning", duration: 4000 })
+  return Toast({ message, type: "warning", duration: TIME_MS.TOAST_WARNING_DURATION })
 }
 
 /**
  * Create a simple info toast
  */
 export function InfoToast(message: string) {
-  return Toast({ message, type: "info", duration: 3000 })
+  return Toast({ message, type: "info", duration: TIME_MS.TOAST_INFO_DURATION })
 }
