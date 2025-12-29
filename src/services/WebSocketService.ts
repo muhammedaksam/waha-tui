@@ -118,7 +118,7 @@ export class WebSocketService {
 
       // Store bound handlers for cleanup
       this.ws.onopen = this.handleOpen.bind(this)
-      this.ws.onmessage = this.handleMessage.bind(this)
+      this.ws.onmessage = this.handleMessageWithDebounce.bind(this)
       this.ws.onclose = this.handleClose.bind(this)
       this.ws.onerror = this.handleError.bind(this)
     } catch (error) {
@@ -132,21 +132,23 @@ export class WebSocketService {
   public disconnect() {
     this.shouldKeyReconnect = false
 
-    // Clear reconnect timer
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer)
+      this.debounceTimer = null
+    }
+    this.pendingEvents = []
+
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
     }
 
-    // Clean up WebSocket connection
     if (this.ws) {
-      // Clear event handlers before closing
       this.ws.onopen = null
       this.ws.onmessage = null
       this.ws.onclose = null
       this.ws.onerror = null
 
-      // Close connection
       this.ws.close(CLOSE_NORMAL, "App closed")
       this.ws = null
     }
@@ -161,12 +163,37 @@ export class WebSocketService {
   private handleMessage(event: MessageEvent) {
     try {
       const data = JSON.parse(event.data as string) as WahaEvent
+
       this.processEvent(data).catch((error) => {
-        debugLog(
-          "WebSocket",
-          `Error processing event: ${error instanceof Error ? error.stack : error}`
-        )
+        debugLog("WebSocket", `Error processing event: ${error}`)
       })
+    } catch (error) {
+      debugLog("WebSocket", `Failed to parse message: ${error}`)
+    }
+  }
+
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null
+  private pendingEvents: WahaEvent[] = []
+
+  private handleMessageWithDebounce(event: MessageEvent) {
+    try {
+      const data = JSON.parse(event.data as string) as WahaEvent
+
+      this.pendingEvents.push(data)
+
+      if (this.debounceTimer) {
+        clearTimeout(this.debounceTimer)
+      }
+
+      this.debounceTimer = setTimeout(() => {
+        for (const evt of this.pendingEvents) {
+          this.processEvent(evt).catch((error) => {
+            debugLog("WebSocket", `Error processing debounced event: ${error}`)
+          })
+        }
+        this.pendingEvents = []
+        this.debounceTimer = null
+      }, 500)
     } catch (error) {
       debugLog("WebSocket", `Failed to parse message: ${error}`)
     }

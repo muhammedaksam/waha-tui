@@ -1,6 +1,7 @@
 import type { WAMessage } from "@muhammedaksam/waha-node"
 
 import type { WAMessageExtended } from "../../types"
+import { debugLog } from "../../utils/debug"
 import { SliceActions, StateSlice } from "./types"
 
 export interface MessageState {
@@ -114,22 +115,13 @@ export function createMessageSlice(): StateSlice<MessageState> & MessageActions 
       const messagesMap = new Map(state.messages)
       const existing = messagesMap.get(chatId) || []
 
-      // Check if message already exists (deduplication)
-      const existingIdx = existing.findIndex((m) => m.id === message.id)
-      if (existingIdx !== -1) {
-        // If it exists, update it but preserve reactions
-        const currentMsg = existing[existingIdx]
-        const updatedMsg = { ...message, reactions: currentMsg.reactions } as WAMessageExtended
-        const nextMessages = [...existing]
-        nextMessages[existingIdx] = updatedMsg
-        messagesMap.set(chatId, nextMessages)
-        state = { ...state, messages: messagesMap }
-        notify()
+      const existingIds = new Set(existing.map((m) => m.id))
+      if (existingIds.has(message.id)) {
+        debugLog("MessageSlice", `Duplicate message ${message.id} ignored`)
         return
       }
 
-      const newMessages = [message, ...existing]
-      // Re-sort just in case to be safe
+      const newMessages = [...existing, message]
       newMessages.sort((a, b) => b.timestamp - a.timestamp)
 
       messagesMap.set(chatId, newMessages)
