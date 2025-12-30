@@ -28,7 +28,7 @@ import { errorService } from "./services/ErrorService"
 import { webSocketService } from "./services/WebSocketService"
 import { appState } from "./state/AppState"
 import { setRenderer } from "./state/RendererContext"
-import { debugLog, initDebug } from "./utils/debug"
+import { debugLog, debugProcessState, debugStackTrace, debugTiming, initDebug } from "./utils/debug"
 import { runMigrations } from "./utils/migrations"
 import { checkForUpdates } from "./utils/update-checker"
 import {
@@ -142,6 +142,7 @@ async function main() {
   // Initialize debug logging
   initDebug()
   debugLog("App", "WAHA TUI starting...")
+  debugProcessState()
 
   // Register toast listener for error notifications
   errorService.subscribe((error) => {
@@ -153,6 +154,7 @@ async function main() {
 
   // Create renderer FIRST so we can use it for everything including config
   const renderer = await createCliRenderer({ exitOnCtrlC: true })
+  debugLog("App", "Renderer created successfully")
 
   // Set renderer context for imperative API usage
   setRenderer(renderer)
@@ -187,19 +189,31 @@ async function main() {
   }
 
   // Register cleanup handlers for various exit scenarios
-  process.on("exit", () => {
-    debugLog("Shutdown", "Process exit event")
+  process.on("exit", (code) => {
+    debugLog("Shutdown", `Process exit event (code: ${code})`)
+    const stack = new Error().stack
+    if (stack) {
+      const stackLines = stack.split("\n").slice(2)
+      stackLines.forEach((line) => debugLog("Shutdown", line.trim()))
+    }
     cleanup()
   })
   process.on("SIGINT", () => {
+    debugLog("Shutdown", "SIGINT received (Ctrl+C)")
+    debugProcessState()
     cleanup()
     process.exit(0)
   })
   process.on("SIGTERM", () => {
+    debugLog("Shutdown", "SIGTERM received")
+    debugProcessState()
     cleanup()
     process.exit(0)
   })
   process.on("uncaughtException", (error) => {
+    debugLog("Shutdown", "Uncaught exception!")
+    debugStackTrace(error, "UncaughtException")
+    debugProcessState()
     errorService.handle(error, {
       log: true,
       notify: true,
@@ -209,6 +223,10 @@ async function main() {
     process.exit(1)
   })
   process.on("unhandledRejection", (reason) => {
+    debugLog("Shutdown", "Unhandled rejection!")
+    const error = reason instanceof Error ? reason : new Error(String(reason))
+    debugStackTrace(error, "UnhandledRejection")
+    debugProcessState()
     errorService.handle(reason, {
       log: true,
       notify: true,
@@ -273,6 +291,7 @@ async function main() {
   // Initialize WAHA client
   initializeClient(config)
   webSocketService.initialize(config)
+  debugLog("App", "WAHA client initialized")
 
   // Fetch WAHA version and tier info
   try {
@@ -287,10 +306,14 @@ async function main() {
   }
 
   // Load saved settings
+  const settingsStartTime = Date.now()
   await loadSavedSettings()
+  debugTiming("App", "Loading saved settings", settingsStartTime)
 
   // Load initial sessions
+  const sessionsStartTime = Date.now()
   await loadSessions()
+  debugTiming("App", "Loading sessions", sessionsStartTime)
 
   // Default session name for free WAHA users
   const DEFAULT_SESSION = DEFAULTS.SESSION_NAME
@@ -304,36 +327,56 @@ async function main() {
     debugLog("App", `Found working session: ${workingSession.name}, switching to chats view`)
     appState.setCurrentSession(workingSession.name)
     appState.setCurrentView("chats")
+
+    const chatsStartTime = Date.now()
     await loadChats()
+    debugTiming("App", "Loading chats", chatsStartTime)
+
+    const lidStartTime = Date.now()
     loadLidMappings() // Preload LID mappings for presence matching
+    debugTiming("App", "Loading LID mappings", lidStartTime)
+
+    debugLog("App", "Connecting WebSocket...")
     webSocketService.connect() // Connect also if already working
+    debugLog("App", "WebSocket connect initiated")
+
+    const profileStartTime = Date.now()
     fetchMyProfile() // Fetch profile for "You" identification
+    debugTiming("App", "Fetching my profile", profileStartTime)
   } else {
     // No working session - show QR view for login
     debugLog("App", `No working session, showing QR login with session: ${DEFAULT_SESSION}`)
     appState.setCurrentSession(DEFAULT_SESSION)
     appState.setCurrentView("qr")
     // Trigger QR code loading
+    const qrStartTime = Date.now()
     await showQRCode(DEFAULT_SESSION)
+    debugTiming("App", "Showing QR code", qrStartTime)
   }
 
   // Set up reactive rendering using the router module
   const renderApp = createRenderApp(renderer)
+  debugLog("App", "renderApp created")
 
   // Subscribe to state changes
   appState.subscribe(() => {
     renderApp()
   })
+  debugLog("App", "Subscribed to state changes")
 
   // Initial render (force rebuild)
+  debugLog("App", "Performing initial render...")
   renderApp(true)
+  debugLog("App", "Initial render completed")
 
   // Check for updates
+  const updateStartTime = Date.now()
   try {
     const updateInfo = await checkForUpdates()
     if (updateInfo.updateAvailable) {
       appState.setUpdateModal(true, updateInfo)
     }
+    debugTiming("App", "Update check", updateStartTime)
   } catch (error) {
     debugLog("Update", `Error checking for updates: ${error}`)
   }
@@ -345,11 +388,15 @@ async function main() {
       void executeContextMenuAction(actionId, currentState.contextMenu)
     }
   })
+  debugLog("App", "Context menu callback registered")
 
   // Keyboard handling using OpenTUI's keyInput event system
   renderer.keyInput.on("keypress", async (key: KeyEvent) => {
     await handleKeyPress(key, { renderApp })
   })
+  debugLog("App", "Keypress handler registered")
+
+  debugLog("App", "main() completed successfully, entering event loop")
 }
 
 main().catch((error) => {

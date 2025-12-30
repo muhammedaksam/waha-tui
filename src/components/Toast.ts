@@ -10,6 +10,7 @@ import { toast, TOAST_DURATION } from "@opentui-ui/toast"
 import type { AppError } from "../services/ErrorService"
 import { WDSColors, WhatsAppTheme } from "../config/theme"
 import { TIME_MS } from "../constants"
+import { debugLog } from "../utils/debug"
 
 /**
  * WhatsApp-themed toaster configuration
@@ -101,36 +102,10 @@ export interface ToastConfig {
 }
 
 /**
- * Show a toast notification using @opentui-ui/toast
- */
-export function showToast(
-  message: string,
-  type: ToastType = "info",
-  duration: number = TOAST_DURATION.DEFAULT
-): string | number {
-  const options = {
-    duration: duration === 0 ? Infinity : duration,
-  }
-
-  switch (type) {
-    case "error":
-      return toast.error(message, options)
-    case "warning":
-      return toast.warning(message, options)
-    case "success":
-      return toast.success(message, options)
-    case "info":
-    default:
-      return toast.info(message, options)
-  }
-}
-
-/**
- * Convert AppError to user-friendly toast and display it
- * @param error - The classified error
  * @param onRetry - Optional retry callback
  */
 export function errorToToast(error: AppError, onRetry?: () => void): void {
+  debugLog("Toast", `Creating error toast: ${error.code} - ${error.message}`)
   let title = "Error"
   let description = error.message
   let actionLabel: string | undefined

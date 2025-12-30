@@ -203,6 +203,10 @@ class ErrorService {
   handle(error: unknown, options: HandleErrorOptions = {}): AppError {
     const { notify = true, log = true, rethrow = false, context } = options
 
+    debugLog(
+      "ErrorService",
+      `Handling error, options: log=${log}, notify=${notify}, context=${JSON.stringify(context || {})}`
+    )
     const appError = this.classify(error, context)
 
     // Store in recent errors
@@ -221,6 +225,7 @@ class ErrorService {
 
     // Notify listeners (includes toast listener if registered)
     if (notify) {
+      debugLog("ErrorService", `Notifying ${this.listeners.size} error listeners`)
       this.notifyListeners(appError)
     }
 
