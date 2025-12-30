@@ -13,6 +13,7 @@ import type {
 } from "@muhammedaksam/waha-node"
 
 import type { WAMessageExtended } from "../types"
+import type { UpdateInfo } from "../utils/update-checker"
 import type {
   ActiveFilter,
   ActiveIcon,
@@ -37,6 +38,7 @@ import type {
 } from "./slices"
 import { TIME_MS } from "../constants"
 import { getChatIdString } from "../utils/formatters"
+import { dismissUpdate } from "../utils/update-checker"
 import {
   createAuthSlice,
   createChatSlice,
@@ -418,6 +420,18 @@ class StateManager {
   // Modal
   setShowLogoutModal(showLogoutModal: boolean): void {
     this.modalSlice.set({ showLogoutModal })
+  }
+
+  setUpdateModal(show: boolean, info?: UpdateInfo): void {
+    this.modalSlice.setUpdateModal(show, info)
+  }
+
+  dismissUpdateModal(): void {
+    const state = this.modalSlice.getState()
+    if (state.updateInfo?.latestVersion) {
+      dismissUpdate(state.updateInfo.latestVersion)
+    }
+    this.modalSlice.setUpdateModal(false)
   }
 
   setConfigStep(configStep: ConfigStep | null): void {

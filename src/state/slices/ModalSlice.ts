@@ -1,6 +1,7 @@
 import type { ChatSummary, WAMessage } from "@muhammedaksam/waha-node"
 
 import type { WAMessageExtended } from "../../types"
+import type { UpdateInfo } from "../../utils/update-checker"
 import { TIME_MS } from "../../constants"
 import { SliceActions, StateSlice } from "./types"
 
@@ -39,6 +40,8 @@ export interface ToastState {
 export interface ModalState {
   contextMenu: ContextMenuState | null
   showLogoutModal: boolean
+  showUpdateModal: boolean
+  updateInfo: UpdateInfo | null
   toast: ToastState | null
   configStep: ConfigStep | null
 }
@@ -46,6 +49,8 @@ export interface ModalState {
 export const initialModalState: ModalState = {
   contextMenu: null,
   showLogoutModal: false,
+  showUpdateModal: false,
+  updateInfo: null,
   toast: null,
   configStep: null,
 }
@@ -67,6 +72,7 @@ export interface ModalActions extends SliceActions<ModalState> {
 
   // Modals
   setShowLogoutModal(showLogoutModal: boolean): void
+  setUpdateModal(show: boolean, info?: UpdateInfo): void
   setConfigStep(configStep: ConfigStep | null): void
 
   // Toast
@@ -163,6 +169,15 @@ export function createModalSlice(): StateSlice<ModalState> & ModalActions {
 
     setShowLogoutModal(showLogoutModal: boolean) {
       state = { ...state, showLogoutModal }
+      notify()
+    },
+
+    setUpdateModal(show: boolean, info?: UpdateInfo) {
+      state = {
+        ...state,
+        showUpdateModal: show,
+        updateInfo: info || state.updateInfo,
+      }
       notify()
     },
 

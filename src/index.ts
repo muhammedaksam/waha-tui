@@ -17,7 +17,6 @@ import {
   stopPresenceManagement,
   testConnection,
 } from "./client"
-import { UpdateAvailableModal } from "./components/Modal"
 import { errorToToast } from "./components/Toast"
 import { configExists, createDefaultConfig, loadConfig, saveConfig } from "./config/manager"
 import { DEFAULT_ENV, validateConfig } from "./config/schema"
@@ -333,12 +332,7 @@ async function main() {
   try {
     const updateInfo = await checkForUpdates()
     if (updateInfo.updateAvailable) {
-      UpdateAvailableModal({
-        updateInfo: updateInfo,
-        onDismiss: () => {
-          renderApp(true)
-        },
-      })
+      appState.setUpdateModal(true, updateInfo)
     }
   } catch (error) {
     debugLog("Update", `Error checking for updates: ${error}`)
