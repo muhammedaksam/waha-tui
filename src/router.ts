@@ -5,6 +5,7 @@
 
 import type { CliRenderer, VChild } from "@opentui/core"
 
+import { ToasterRenderable } from "@opentui-ui/toast"
 import { Box, BoxRenderable, Text } from "@opentui/core"
 
 import type { AppState, ViewType } from "./state/AppState"
@@ -12,7 +13,7 @@ import { logoutSession } from "./client"
 import { clearMenuBounds, ContextMenu, isClickOutsideContextMenu } from "./components/ContextMenu"
 import { Footer } from "./components/Footer"
 import { LogoutConfirmModal } from "./components/Modal"
-import { Toast } from "./components/Toast"
+import { WHATSAPP_TOASTER_CONFIG } from "./components/Toast"
 import { appState } from "./state/AppState"
 import { debugLog } from "./utils/debug"
 import { chatListManager } from "./views/ChatListManager"
@@ -92,6 +93,9 @@ export function updateSelectionFastPath(state: AppState): void {
  * ```
  */
 export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean) => void {
+  // Initialize the toaster once - it manages its own lifecycle
+  let toasterInitialized = false
+
   return function renderApp(forceRebuild: boolean = false): void {
     const state = appState.getState()
 
@@ -101,9 +105,11 @@ export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean)
       return
     }
 
-    // Clear previous render - remove all children
+    // Clear previous render - remove all children (except toaster)
     const children = renderer.root.getChildren()
     for (const child of children) {
+      // Keep the toaster renderable
+      if (child instanceof ToasterRenderable) continue
       renderer.root.remove(child.id)
     }
 
@@ -146,13 +152,10 @@ export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean)
       renderer.root.add(contextMenuBox)
     }
 
-    // Render toast notification if visible
-    if (state.toast?.visible) {
-      const toastBox = Toast({
-        message: state.toast.message,
-        type: state.toast.type,
-      })
-      renderer.root.add(toastBox)
+    // Add toaster once (it manages its own toast lifecycle)
+    if (!toasterInitialized) {
+      renderer.root.add(new ToasterRenderable(renderer, WHATSAPP_TOASTER_CONFIG))
+      toasterInitialized = true
     }
 
     // Render logout confirmation modal if visible

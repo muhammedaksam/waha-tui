@@ -3,6 +3,7 @@
  * Detects and manages network connectivity state
  */
 
+import { successToast, warningToast } from "../components/Toast"
 import { TIME_MS } from "../constants"
 import { appState } from "../state/AppState"
 import { debugLog } from "../utils/debug"
@@ -75,9 +76,9 @@ class NetworkService {
 
       // Show toast on status change
       if (newStatus === "offline") {
-        appState.showToast("You are offline. Some features may be unavailable.", "warning", 0)
+        warningToast("You are offline. Some features may be unavailable.")
       } else if (oldStatus === "offline" && newStatus === "online") {
-        appState.showToast("Back online!", "success", TIME_MS.TOAST_SUCCESS_DURATION)
+        successToast("Back online!")
       }
 
       // Notify listeners

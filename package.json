@@ -72,6 +72,7 @@
   },
   "dependencies": {
     "@muhammedaksam/waha-node": "2025.12.2-dev.1",
+    "@opentui-ui/toast": "^0.0.3",
     "@opentui/core": "^0.1.63",
     "node-notifier": "^10.0.1",
     "qrcode": "^1.5.4"
