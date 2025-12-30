@@ -12,7 +12,7 @@ import type { AppState, ViewType } from "./state/AppState"
 import { logoutSession } from "./client"
 import { clearMenuBounds, ContextMenu, isClickOutsideContextMenu } from "./components/ContextMenu"
 import { Footer } from "./components/Footer"
-import { LogoutConfirmModal } from "./components/Modal"
+import { LogoutConfirmModal, UpdateAvailableModal } from "./components/Modal"
 import { WHATSAPP_TOASTER_CONFIG } from "./components/Toast"
 import { appState } from "./state/AppState"
 import { debugLog } from "./utils/debug"
@@ -168,6 +168,16 @@ export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean)
         },
         onCancel: () => {
           appState.setShowLogoutModal(false)
+        },
+      })
+    }
+
+    // Render update available modal if visible
+    if (state.showUpdateModal && state.updateInfo) {
+      UpdateAvailableModal({
+        updateInfo: state.updateInfo,
+        onDismiss: () => {
+          appState.dismissUpdateModal()
         },
       })
     }
