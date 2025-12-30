@@ -1,14 +1,14 @@
 {
   "name": "@muhammedaksam/waha-tui",
-  "version": "1.5.6",
+  "version": "1.4.10",
   "description": "TUI client for WhatsApp using WAHA (WhatsApp HTTP API) - manage chats, send messages, and more from your terminal",
   "module": "src/index.ts",
   "type": "module",
   "bin": {
-    "waha-tui": "./dist/index.js"
+    "waha-tui": "./src/index.ts"
   },
   "files": [
-    "dist"
+    "src"
   ],
   "author": "Muhammed Mustafa AKŞAM <info@muhammedaksam.com.tr> (https://github.com/muhammedaksam)",
   "license": "MIT",
@@ -32,7 +32,7 @@
   ],
   "scripts": {
     "dev": "bun --watch src/index.ts",
-    "dev:debug": "bun --watch src/index.ts --debug",
+    "dev:debug": "bun dev --debug",
     "build": "bun build src/index.ts --outdir dist --target bun",
     "typecheck": "bun x tsc --noEmit",
     "lint": "eslint .",
@@ -48,7 +48,6 @@
     "link:waha-node": "bash scripts/link-waha-node.sh",
     "unlink:waha-node": "bash scripts/unlink-waha-node.sh",
     "migration:create": "bun run scripts/create-migration.ts",
-    "prepublishOnly": "bun run build",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -66,15 +65,14 @@
     "jiti": "^2.6.1",
     "lint-staged": "^16.2.7",
     "prettier": "^3.7.4",
-    "typescript-eslint": "^8.51.0"
+    "typescript-eslint": "^8.50.1"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"
   },
   "dependencies": {
     "@muhammedaksam/waha-node": "2025.12.2-dev.1",
-    "@opentui-ui/toast": "^0.0.3",
-    "@opentui/core": "0.1.63",
+    "@opentui/core": "^0.1.63",
     "node-notifier": "^10.0.1",
     "qrcode": "^1.5.4"
   },

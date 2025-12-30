@@ -19,7 +19,6 @@ import {
 
 import { loadChatDetails, sendMessage, sendTypingState } from "../client"
 import { Icons, WhatsAppTheme } from "../config/theme"
-import { TIME_MS } from "../constants"
 import { appState } from "../state/AppState"
 import { getRenderer } from "../state/RendererContext"
 import { debugLog } from "../utils/debug"
@@ -475,7 +474,7 @@ export function ConversationView() {
             if (state.currentChatId) {
               sendTypingState(state.currentChatId, "paused")
             }
-          }, TIME_MS.TYPING_PAUSE_DELAY)
+          }, 2000)
         }
 
         // Calculate needed height
@@ -507,11 +506,13 @@ export function ConversationView() {
           const replyMsg = currentState.replyingToMessage as { id?: string } | null
           const replyToId = replyMsg?.id
 
-          await sendMessage(currentState.currentChatId, text, replyToId)
-          messageInputComponent.setText("")
-          appState.setMessageInput("")
-          // Reset height via state
-          appState.setInputHeight(MIN_INPUT_HEIGHT)
+          const success = await sendMessage(currentState.currentChatId, text, replyToId)
+          if (success) {
+            messageInputComponent.setText("")
+            appState.setMessageInput("")
+            // Reset height via state
+            appState.setInputHeight(MIN_INPUT_HEIGHT)
+          }
         }
       }
     }
@@ -715,26 +716,6 @@ export function destroyConversationScrollBox(): void {
     }
     messageInputComponent = null
   }
-  // Cleanup input container and scrollbar
-  if (inputContainer) {
-    if (!inputContainer.isDestroyed) {
-      inputContainer.destroy()
-    }
-    inputContainer = null
-  }
-  if (inputScrollBar) {
-    if (!inputScrollBar.isDestroyed) {
-      inputScrollBar.destroy()
-    }
-    inputScrollBar = null
-  }
-  // Clear typing timeout
-  if (typingTimeout) {
-    clearTimeout(typingTimeout)
-    typingTimeout = null
-  }
-  // Reset enter send tracking
-  lastEnterIsSend = null
 }
 
 // Scroll the conversation by a given amount (for keyboard navigation)

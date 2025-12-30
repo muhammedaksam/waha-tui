@@ -6,8 +6,6 @@
 import type { WAMessage } from "@muhammedaksam/waha-node"
 
 import type { ChatId, MessageId, WAMessageExtended } from "../types"
-import { TIME_MS, TIME_S } from "../constants"
-import { NetworkError } from "../services/Errors"
 import { errorService } from "../services/ErrorService"
 import { RetryPresets, withRetry } from "../services/RetryService"
 import { appState } from "../state/AppState"
@@ -18,17 +16,15 @@ import { getClient, getSession } from "./core"
 /**
  * Star or unstar a message.
  * @param messageId - The message ID to star/unstar
- * @param chatId - The chat containing message
+ * @param chatId - The chat containing the message
  * @param star - True to star, false to unstar
- * @throws {NetworkError} If network connection fails
- * @throws {AuthError} If authentication fails
- * @throws {ServerError} If server error occurs
+ * @returns True if successful, false otherwise
  */
 export async function starMessage(
   messageId: MessageId,
   chatId: ChatId,
   star: boolean
-): Promise<void> {
+): Promise<boolean> {
   try {
     const session = getSession()
     debugLog("Client", `${star ? "Starring" : "Unstarring"} message: ${messageId}`)
@@ -40,15 +36,10 @@ export async function starMessage(
       star,
     })
     debugLog("Client", `Message ${star ? "starred" : "unstarred"}: ${messageId}`)
+    return true
   } catch (error) {
     errorService.handle(error, { context: { action: "starMessage", messageId, star } })
-    throw error instanceof Error
-      ? new NetworkError(
-          `Failed to ${star ? "star" : "unstar"} message`,
-          { messageId, star },
-          error
-        )
-      : new NetworkError(`Failed to ${star ? "star" : "unstar"} message`, { messageId, star })
+    return false
   }
 }
 
@@ -57,15 +48,13 @@ export async function starMessage(
  * @param chatId - The chat ID
  * @param messageId - The message ID to pin
  * @param duration - Pin duration in seconds (default: 7 days)
- * @throws {NetworkError} If network connection fails
- * @throws {AuthError} If authentication fails
- * @throws {ServerError} If server error occurs
+ * @returns True if successful, false otherwise
  */
 export async function pinMessage(
   chatId: ChatId,
   messageId: MessageId,
-  duration: number = TIME_S.PIN_MESSAGE_DEFAULT_DURATION
-): Promise<void> {
+  duration: number = 604800 // 7 days in seconds (default)
+): Promise<boolean> {
   try {
     const session = getSession()
     debugLog("Client", `Pinning message: ${messageId}`)
@@ -74,11 +63,10 @@ export async function pinMessage(
       duration,
     })
     debugLog("Client", `Message pinned: ${messageId}`)
+    return true
   } catch (error) {
     errorService.handle(error, { context: { action: "pinMessage", messageId } })
-    throw error instanceof Error
-      ? new NetworkError("Failed to pin message", { messageId }, error)
-      : new NetworkError("Failed to pin message", { messageId })
+    return false
   }
 }
 
@@ -86,22 +74,19 @@ export async function pinMessage(
  * Unpin a previously pinned message.
  * @param chatId - The chat ID
  * @param messageId - The message ID to unpin
- * @throws {NetworkError} If network connection fails
- * @throws {AuthError} If authentication fails
- * @throws {ServerError} If server error occurs
+ * @returns True if successful, false otherwise
  */
-export async function unpinMessage(chatId: ChatId, messageId: MessageId): Promise<void> {
+export async function unpinMessage(chatId: ChatId, messageId: MessageId): Promise<boolean> {
   try {
     const session = getSession()
     debugLog("Client", `Unpinning message: ${messageId}`)
     const wahaClient = getClient()
     await wahaClient.chats.chatsControllerUnpinMessage(session, chatId, messageId)
     debugLog("Client", `Message unpinned: ${messageId}`)
+    return true
   } catch (error) {
     errorService.handle(error, { context: { action: "unpinMessage", messageId } })
-    throw error instanceof Error
-      ? new NetworkError("Failed to unpin message", { messageId }, error)
-      : new NetworkError("Failed to unpin message", { messageId })
+    return false
   }
 }
 
@@ -109,22 +94,19 @@ export async function unpinMessage(chatId: ChatId, messageId: MessageId): Promis
  * Delete a message from a chat.
  * @param chatId - The chat ID
  * @param messageId - The message ID to delete
- * @throws {NetworkError} If network connection fails
- * @throws {AuthError} If authentication fails
- * @throws {ServerError} If server error occurs
+ * @returns True if successful, false otherwise
  */
-export async function deleteMessage(chatId: ChatId, messageId: MessageId): Promise<void> {
+export async function deleteMessage(chatId: ChatId, messageId: MessageId): Promise<boolean> {
   try {
     const session = getSession()
     debugLog("Client", `Deleting message: ${messageId}`)
     const wahaClient = getClient()
     await wahaClient.chats.chatsControllerDeleteMessage(session, chatId, messageId)
     debugLog("Client", `Message deleted: ${messageId}`)
+    return true
   } catch (error) {
     errorService.handle(error, { context: { action: "deleteMessage", messageId } })
-    throw error instanceof Error
-      ? new NetworkError("Failed to delete message", { messageId }, error)
-      : new NetworkError("Failed to delete message", { messageId })
+    return false
   }
 }
 
@@ -132,7 +114,7 @@ export async function forwardMessage(
   chatId: ChatId,
   messageId: MessageId,
   toChatId: ChatId
-): Promise<void> {
+): Promise<boolean> {
   try {
     const session = getSession()
     debugLog("Client", `Forwarding message ${messageId} to ${toChatId}`)
@@ -143,15 +125,14 @@ export async function forwardMessage(
       messageId,
     })
     debugLog("Client", `Message forwarded: ${messageId} -> ${toChatId}`)
+    return true
   } catch (error) {
     errorService.handle(error, { context: { action: "forwardMessage", messageId, toChatId } })
-    throw error instanceof Error
-      ? new NetworkError("Failed to forward message", { messageId, toChatId }, error)
-      : new NetworkError("Failed to forward message", { messageId, toChatId })
+    return false
   }
 }
 
-export async function reactToMessage(messageId: string, reaction: string): Promise<void> {
+export async function reactToMessage(messageId: string, reaction: string): Promise<boolean> {
   try {
     const session = getSession()
     debugLog("Client", `Reacting to message ${messageId} with ${reaction}`)
@@ -162,11 +143,10 @@ export async function reactToMessage(messageId: string, reaction: string): Promi
       reaction,
     })
     debugLog("Client", `Reaction set: ${reaction} on ${messageId}`)
+    return true
   } catch (error) {
     errorService.handle(error, { context: { action: "reactToMessage", messageId, reaction } })
-    throw error instanceof Error
-      ? new NetworkError("Failed to set reaction", { messageId, reaction }, error)
-      : new NetworkError("Failed to set reaction", { messageId, reaction })
+    return false
   }
 }
 
@@ -288,7 +268,7 @@ export async function sendMessage(
   chatId: string,
   text: string,
   replyToMsgId?: string
-): Promise<void> {
+): Promise<boolean> {
   try {
     const session = getSession()
     debugLog(
@@ -310,13 +290,11 @@ export async function sendMessage(
 
     await loadMessages(chatId)
     appState.setIsSending(false)
+    return true
   } catch (error) {
     debugLog("Messages", `Failed to send message: ${error}`)
     appState.setIsSending(false)
-    errorService.handle(error, { context: { action: "sendMessage", chatId, replyToMsgId } })
-    throw error instanceof Error
-      ? new NetworkError("Failed to send message", { chatId }, error)
-      : new NetworkError("Failed to send message", { chatId })
+    return false
   }
 }
 
@@ -393,7 +371,7 @@ export async function prefetchMessagesForTopChats(count: number = 5): Promise<vo
       debugLog("BackgroundSync", `Pre-fetched ${messages.length} messages for ${chatId}`)
 
       // Small delay between requests to be nice to the API
-      await new Promise((resolve) => setTimeout(resolve, TIME_MS.SEND_MESSAGE_RELOAD_DELAY))
+      await new Promise((resolve) => setTimeout(resolve, 100))
     } catch (error) {
       debugLog("BackgroundSync", `Failed to prefetch messages for ${chatId}: ${error}`)
     }

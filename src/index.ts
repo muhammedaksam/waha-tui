@@ -17,10 +17,10 @@ import {
   stopPresenceManagement,
   testConnection,
 } from "./client"
+import { UpdateAvailableModal } from "./components/Modal"
 import { errorToToast } from "./components/Toast"
 import { configExists, createDefaultConfig, loadConfig, saveConfig } from "./config/manager"
-import { DEFAULT_ENV, validateConfig } from "./config/schema"
-import { DEFAULTS, TIME_MS } from "./constants"
+import { validateConfig } from "./config/schema"
 import { executeContextMenuAction, handleKeyPress } from "./handlers"
 import { loadSavedSettings } from "./handlers/settingsHandler"
 import { createRenderApp } from "./router"
@@ -28,7 +28,7 @@ import { errorService } from "./services/ErrorService"
 import { webSocketService } from "./services/WebSocketService"
 import { appState } from "./state/AppState"
 import { setRenderer } from "./state/RendererContext"
-import { debugLog, debugProcessState, debugStackTrace, debugTiming, initDebug } from "./utils/debug"
+import { debugLog, initDebug } from "./utils/debug"
 import { runMigrations } from "./utils/migrations"
 import { checkForUpdates } from "./utils/update-checker"
 import {
@@ -57,9 +57,6 @@ async function runConfigWizard(renderer: CliRenderer): Promise<void> {
     // Initial render
     renderConfigView()
 
-    // Declare cleanup function before use
-    let removeKeyListener: () => void = () => {}
-
     // Subscribe to state changes for re-rendering and handling step transitions
     const unsubscribe = appState.subscribe(async () => {
       const state = appState.getState()
@@ -86,10 +83,9 @@ async function runConfigWizard(renderer: CliRenderer): Promise<void> {
           // Wait a moment to show success, then resolve
           setTimeout(() => {
             destroyConfigInputs()
-            removeKeyListener()
             unsubscribe()
             resolve()
-          }, TIME_MS.CONFIG_SUCCESS_DELAY)
+          }, 1500)
         } else {
           appState.setConfigStep({
             ...state.configStep,
@@ -120,21 +116,6 @@ async function runConfigWizard(renderer: CliRenderer): Promise<void> {
     }
 
     renderer.keyInput.on("keypress", handleErrorRetry)
-
-    // Cleanup function to remove listeners
-    removeKeyListener = () => {
-      renderer.keyInput.off("keypress", handleErrorRetry)
-    }
-
-    // Cleanup on view change
-    const unsubscribeViewChange = appState.subscribe((state) => {
-      if (state.currentView !== "config") {
-        destroyConfigInputs()
-        removeKeyListener()
-        unsubscribe()
-        unsubscribeViewChange()
-      }
-    })
   })
 }
 
@@ -142,11 +123,11 @@ async function main() {
   // Initialize debug logging
   initDebug()
   debugLog("App", "WAHA TUI starting...")
-  debugProcessState()
 
   // Register toast listener for error notifications
   errorService.subscribe((error) => {
-    errorToToast(error)
+    const toast = errorToToast(error)
+    appState.showToast(toast.message, toast.type)
   })
 
   // Run migrations (e.g., move config from ~/.waha-tui to XDG location)
@@ -154,22 +135,17 @@ async function main() {
 
   // Create renderer FIRST so we can use it for everything including config
   const renderer = await createCliRenderer({ exitOnCtrlC: true })
-  debugLog("App", "Renderer created successfully")
 
   // Set renderer context for imperative API usage
   setRenderer(renderer)
 
-  // Shutdown state to prevent duplicate cleanup
-  let isShuttingDown = false
-
   // Cleanup function to properly restore terminal state
+  let isCleanedUp = false
   const cleanup = () => {
-    if (isShuttingDown) return
-    isShuttingDown = true
+    if (isCleanedUp) return
+    isCleanedUp = true
 
     try {
-      debugLog("Shutdown", "Starting cleanup...")
-
       // Stop presence management
       stopPresenceManagement()
 
@@ -180,59 +156,29 @@ async function main() {
       if (renderer && typeof renderer.destroy === "function") {
         renderer.destroy()
       }
-
-      debugLog("Shutdown", "Cleanup completed")
     } catch (error) {
-      debugLog("Shutdown", `Error during cleanup: ${error}`)
-      errorService.handle(error, { log: true, notify: false })
+      debugLog("App", `Error during cleanup: ${error}`)
     }
   }
 
   // Register cleanup handlers for various exit scenarios
-  process.on("exit", (code) => {
-    debugLog("Shutdown", `Process exit event (code: ${code})`)
-    const stack = new Error().stack
-    if (stack) {
-      const stackLines = stack.split("\n").slice(2)
-      stackLines.forEach((line) => debugLog("Shutdown", line.trim()))
-    }
-    cleanup()
-  })
+  process.on("exit", cleanup)
   process.on("SIGINT", () => {
-    debugLog("Shutdown", "SIGINT received (Ctrl+C)")
-    debugProcessState()
     cleanup()
     process.exit(0)
   })
   process.on("SIGTERM", () => {
-    debugLog("Shutdown", "SIGTERM received")
-    debugProcessState()
     cleanup()
     process.exit(0)
   })
   process.on("uncaughtException", (error) => {
-    debugLog("Shutdown", "Uncaught exception!")
-    debugStackTrace(error, "UncaughtException")
-    debugProcessState()
-    errorService.handle(error, {
-      log: true,
-      notify: true,
-      context: { type: "uncaughtException" },
-    })
     cleanup()
+    console.error("Uncaught exception:", error)
     process.exit(1)
   })
   process.on("unhandledRejection", (reason) => {
-    debugLog("Shutdown", "Unhandled rejection!")
-    const error = reason instanceof Error ? reason : new Error(String(reason))
-    debugStackTrace(error, "UnhandledRejection")
-    debugProcessState()
-    errorService.handle(reason, {
-      log: true,
-      notify: true,
-      context: { type: "unhandledRejection" },
-    })
     cleanup()
+    console.error("Unhandled rejection:", reason)
     process.exit(1)
   })
 
@@ -266,7 +212,7 @@ async function main() {
     appState.setCurrentView("config")
     appState.setConfigStep({
       step: 1,
-      wahaUrl: DEFAULT_ENV.wahaUrl,
+      wahaUrl: "http://localhost:3000",
       wahaApiKey: "",
       status: "input",
     })
@@ -291,7 +237,6 @@ async function main() {
   // Initialize WAHA client
   initializeClient(config)
   webSocketService.initialize(config)
-  debugLog("App", "WAHA client initialized")
 
   // Fetch WAHA version and tier info
   try {
@@ -306,17 +251,13 @@ async function main() {
   }
 
   // Load saved settings
-  const settingsStartTime = Date.now()
   await loadSavedSettings()
-  debugTiming("App", "Loading saved settings", settingsStartTime)
 
   // Load initial sessions
-  const sessionsStartTime = Date.now()
   await loadSessions()
-  debugTiming("App", "Loading sessions", sessionsStartTime)
 
   // Default session name for free WAHA users
-  const DEFAULT_SESSION = DEFAULTS.SESSION_NAME
+  const DEFAULT_SESSION = "default"
 
   // Check if we have a working session
   const currentState = appState.getState()
@@ -327,56 +268,41 @@ async function main() {
     debugLog("App", `Found working session: ${workingSession.name}, switching to chats view`)
     appState.setCurrentSession(workingSession.name)
     appState.setCurrentView("chats")
-
-    const chatsStartTime = Date.now()
     await loadChats()
-    debugTiming("App", "Loading chats", chatsStartTime)
-
-    const lidStartTime = Date.now()
     loadLidMappings() // Preload LID mappings for presence matching
-    debugTiming("App", "Loading LID mappings", lidStartTime)
-
-    debugLog("App", "Connecting WebSocket...")
     webSocketService.connect() // Connect also if already working
-    debugLog("App", "WebSocket connect initiated")
-
-    const profileStartTime = Date.now()
     fetchMyProfile() // Fetch profile for "You" identification
-    debugTiming("App", "Fetching my profile", profileStartTime)
   } else {
     // No working session - show QR view for login
     debugLog("App", `No working session, showing QR login with session: ${DEFAULT_SESSION}`)
     appState.setCurrentSession(DEFAULT_SESSION)
     appState.setCurrentView("qr")
     // Trigger QR code loading
-    const qrStartTime = Date.now()
     await showQRCode(DEFAULT_SESSION)
-    debugTiming("App", "Showing QR code", qrStartTime)
   }
 
   // Set up reactive rendering using the router module
   const renderApp = createRenderApp(renderer)
-  debugLog("App", "renderApp created")
 
   // Subscribe to state changes
   appState.subscribe(() => {
     renderApp()
   })
-  debugLog("App", "Subscribed to state changes")
 
   // Initial render (force rebuild)
-  debugLog("App", "Performing initial render...")
   renderApp(true)
-  debugLog("App", "Initial render completed")
 
   // Check for updates
-  const updateStartTime = Date.now()
   try {
     const updateInfo = await checkForUpdates()
     if (updateInfo.updateAvailable) {
-      appState.setUpdateModal(true, updateInfo)
+      UpdateAvailableModal({
+        updateInfo: updateInfo,
+        onDismiss: () => {
+          renderApp(true)
+        },
+      })
     }
-    debugTiming("App", "Update check", updateStartTime)
   } catch (error) {
     debugLog("Update", `Error checking for updates: ${error}`)
   }
@@ -388,22 +314,14 @@ async function main() {
       void executeContextMenuAction(actionId, currentState.contextMenu)
     }
   })
-  debugLog("App", "Context menu callback registered")
 
   // Keyboard handling using OpenTUI's keyInput event system
   renderer.keyInput.on("keypress", async (key: KeyEvent) => {
     await handleKeyPress(key, { renderApp })
   })
-  debugLog("App", "Keypress handler registered")
-
-  debugLog("App", "main() completed successfully, entering event loop")
 }
 
 main().catch((error) => {
   console.error("Fatal error:", error)
-  debugLog("App", `Fatal error: ${error instanceof Error ? error.message : String(error)}`)
-  if (error instanceof Error) {
-    debugStackTrace(error, "FatalError")
-  }
   process.exit(1)
 })

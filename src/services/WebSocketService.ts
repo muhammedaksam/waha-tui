@@ -15,7 +15,6 @@ import {
 
 import type { WahaTuiConfig } from "../config/schema"
 import { loadChats } from "../client"
-import { TIME_MS } from "../constants"
 import { appState } from "../state/AppState"
 import { debugLog } from "../utils/debug"
 import { getContactName, isGroupChat, isStatusBroadcast, normalizeId } from "../utils/formatters"
@@ -38,7 +37,7 @@ export class WebSocketService {
   private config: WahaTuiConfig | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectAttempts = 0
-  private maxReconnectDelay = TIME_MS.WS_MAX_RECONNECT_DELAY
+  private maxReconnectDelay = 30000 // 30 seconds
   private isConnecting = false
   private shouldKeyReconnect = true
 
@@ -117,9 +116,8 @@ export class WebSocketService {
 
       this.ws = new WebSocket(fullUrl)
 
-      // Store bound handlers for cleanup
       this.ws.onopen = this.handleOpen.bind(this)
-      this.ws.onmessage = this.handleMessageWithDebounce.bind(this)
+      this.ws.onmessage = this.handleMessage.bind(this)
       this.ws.onclose = this.handleClose.bind(this)
       this.ws.onerror = this.handleError.bind(this)
     } catch (error) {
@@ -132,24 +130,11 @@ export class WebSocketService {
 
   public disconnect() {
     this.shouldKeyReconnect = false
-
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer)
-      this.debounceTimer = null
-    }
-    this.pendingEvents = []
-
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
     }
-
     if (this.ws) {
-      this.ws.onopen = null
-      this.ws.onmessage = null
-      this.ws.onclose = null
-      this.ws.onerror = null
-
       this.ws.close(CLOSE_NORMAL, "App closed")
       this.ws = null
     }
@@ -164,37 +149,12 @@ export class WebSocketService {
   private handleMessage(event: MessageEvent) {
     try {
       const data = JSON.parse(event.data as string) as WahaEvent
-
       this.processEvent(data).catch((error) => {
-        debugLog("WebSocket", `Error processing event: ${error}`)
+        debugLog(
+          "WebSocket",
+          `Error processing event: ${error instanceof Error ? error.stack : error}`
+        )
       })
-    } catch (error) {
-      debugLog("WebSocket", `Failed to parse message: ${error}`)
-    }
-  }
-
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null
-  private pendingEvents: WahaEvent[] = []
-
-  private handleMessageWithDebounce(event: MessageEvent) {
-    try {
-      const data = JSON.parse(event.data as string) as WahaEvent
-
-      this.pendingEvents.push(data)
-
-      if (this.debounceTimer) {
-        clearTimeout(this.debounceTimer)
-      }
-
-      this.debounceTimer = setTimeout(() => {
-        for (const evt of this.pendingEvents) {
-          this.processEvent(evt).catch((error) => {
-            debugLog("WebSocket", `Error processing debounced event: ${error}`)
-          })
-        }
-        this.pendingEvents = []
-        this.debounceTimer = null
-      }, TIME_MS.WS_DEBOUNCE)
     } catch (error) {
       debugLog("WebSocket", `Failed to parse message: ${error}`)
     }
@@ -217,10 +177,7 @@ export class WebSocketService {
   private scheduleReconnect() {
     if (this.reconnectTimer) return
 
-    const delay = Math.min(
-      TIME_MS.WS_RECONNECT_BASE_DELAY * Math.pow(2, this.reconnectAttempts),
-      this.maxReconnectDelay
-    )
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelay)
     debugLog("WebSocket", `Reconnecting in ${delay}ms...`)
 
     this.reconnectTimer = setTimeout(() => {

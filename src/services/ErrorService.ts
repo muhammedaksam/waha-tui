@@ -4,7 +4,6 @@
  */
 
 import { debugLog } from "../utils/debug"
-import { BaseAppError } from "./Errors"
 
 /**
  * Error severity levels
@@ -88,15 +87,6 @@ class ErrorService {
    */
   classify(error: unknown, context?: Record<string, unknown>): AppError {
     const timestamp = new Date()
-
-    // Handle custom error classes first
-    if (error instanceof BaseAppError) {
-      const appError = error.toAppError()
-      if (context) {
-        appError.context = { ...appError.context, ...context }
-      }
-      return appError
-    }
 
     // Handle axios/fetch network errors
     if (this.isNetworkError(error)) {
@@ -203,10 +193,6 @@ class ErrorService {
   handle(error: unknown, options: HandleErrorOptions = {}): AppError {
     const { notify = true, log = true, rethrow = false, context } = options
 
-    debugLog(
-      "ErrorService",
-      `Handling error, options: log=${log}, notify=${notify}, context=${JSON.stringify(context || {})}`
-    )
     const appError = this.classify(error, context)
 
     // Store in recent errors
@@ -225,7 +211,6 @@ class ErrorService {
 
     // Notify listeners (includes toast listener if registered)
     if (notify) {
-      debugLog("ErrorService", `Notifying ${this.listeners.size} error listeners`)
       this.notifyListeners(appError)
     }
 

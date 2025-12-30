@@ -10,7 +10,6 @@ import type {
   WAHAChatPresences,
 } from "@muhammedaksam/waha-node"
 
-import { TIME_MS } from "../constants"
 import { CacheKeys, cacheService } from "../services/CacheService"
 import { errorService } from "../services/ErrorService"
 import { RetryPresets, withRetry } from "../services/RetryService"
@@ -156,7 +155,7 @@ export async function loadAllContacts(): Promise<Map<string, string>> {
     debugLog("Contacts", `Loaded ${contactMap.size} contacts`)
 
     // Cache contacts for 2 minutes (they change less frequently)
-    cacheService.set(cacheKey, contactMap, { ttlMs: TIME_MS.SESSION_CONTACT_MAP_TTL })
+    cacheService.set(cacheKey, contactMap, { ttlMs: 120000 })
     return contactMap
   } catch (error) {
     errorService.handle(error, { context: { action: "loadAllContacts" } })
@@ -191,7 +190,7 @@ export async function loadChats(): Promise<void> {
     debugLog("Chats", `Loaded ${chats.length} chats`)
 
     // Cache the result (30 second TTL)
-    cacheService.set(cacheKey, chats, { ttlMs: TIME_MS.SESSION_CHATS_CACHE_TTL })
+    cacheService.set(cacheKey, chats, { ttlMs: 30000 })
     appState.setChats(chats)
 
     const allContacts = await loadAllContacts()
