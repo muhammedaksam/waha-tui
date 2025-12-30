@@ -1,6 +1,6 @@
 {
   "name": "@muhammedaksam/waha-tui",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "description": "TUI client for WhatsApp using WAHA (WhatsApp HTTP API) - manage chats, send messages, and more from your terminal",
   "module": "src/index.ts",
   "type": "module",
