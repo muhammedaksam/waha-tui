@@ -3,7 +3,6 @@ import type { TextChunk } from "@opentui/core"
 import { fg } from "@opentui/core"
 
 import { Icons, WhatsAppTheme } from "../config/theme"
-import { debugLog } from "./debug"
 
 /**
  * Formatting Utilities
@@ -310,7 +309,6 @@ export function isStatusBroadcast(chatId: string): boolean {
  *   - @lid: Linked Identity suffix (used in self-chats and some internal references)
  */
 export function isSelfChat(chatId: string, myProfileId: string | null): boolean {
-  debugLog("isSelfChat", `chatId ${chatId}, myProfileId ${myProfileId}`)
   if (!myProfileId) return false
   return normalizeId(chatId) === normalizeId(myProfileId)
 }
