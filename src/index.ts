@@ -401,5 +401,9 @@ async function main() {
 
 main().catch((error) => {
   console.error("Fatal error:", error)
+  debugLog("App", `Fatal error: ${error instanceof Error ? error.message : String(error)}`)
+  if (error instanceof Error) {
+    debugStackTrace(error, "FatalError")
+  }
   process.exit(1)
 })
