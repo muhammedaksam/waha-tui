@@ -35,6 +35,7 @@ import type {
   UIState,
   ViewType,
 } from "./slices"
+import { TIME_MS } from "../constants"
 import { getChatIdString } from "../utils/formatters"
 import {
   createAuthSlice,
@@ -379,7 +380,7 @@ class StateManager {
   showToast(
     message: string,
     type: "error" | "warning" | "success" | "info" = "info",
-    autoDismissMs: number = 5000
+    autoDismissMs: number = TIME_MS.TOAST_DEFAULT_AUTO_DISMISS
   ): void {
     this.modalSlice.showToast(message, type, autoDismissMs)
   }

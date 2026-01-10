@@ -19,6 +19,7 @@ import {
 
 import { loadChatDetails, sendMessage, sendTypingState } from "../client"
 import { Icons, WhatsAppTheme } from "../config/theme"
+import { TIME_MS } from "../constants"
 import { appState } from "../state/AppState"
 import { getRenderer } from "../state/RendererContext"
 import { debugLog } from "../utils/debug"
@@ -474,7 +475,7 @@ export function ConversationView() {
             if (state.currentChatId) {
               sendTypingState(state.currentChatId, "paused")
             }
-          }, 2000)
+          }, TIME_MS.TYPING_PAUSE_DELAY)
         }
 
         // Calculate needed height

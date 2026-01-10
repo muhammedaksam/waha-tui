@@ -3,6 +3,7 @@
  * Detects and manages network connectivity state
  */
 
+import { TIME_MS } from "../constants"
 import { appState } from "../state/AppState"
 import { debugLog } from "../utils/debug"
 
@@ -76,7 +77,7 @@ class NetworkService {
       if (newStatus === "offline") {
         appState.showToast("You are offline. Some features may be unavailable.", "warning", 0)
       } else if (oldStatus === "offline" && newStatus === "online") {
-        appState.showToast("Back online!", "success", 3000)
+        appState.showToast("Back online!", "success", TIME_MS.TOAST_SUCCESS_DURATION)
       }
 
       // Notify listeners
@@ -112,7 +113,7 @@ class NetworkService {
    * Start periodic connectivity checks
    * @param intervalMs - Check interval in milliseconds (default: 30s)
    */
-  startMonitoring(intervalMs: number = 30000): void {
+  startMonitoring(intervalMs: number = TIME_MS.NETWORK_MONITOR_INTERVAL): void {
     if (this.checkInterval) {
       return // Already monitoring
     }

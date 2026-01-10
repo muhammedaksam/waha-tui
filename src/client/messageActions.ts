@@ -6,6 +6,7 @@
 import type { WAMessage } from "@muhammedaksam/waha-node"
 
 import type { ChatId, MessageId, WAMessageExtended } from "../types"
+import { TIME_MS, TIME_S } from "../constants"
 import { NetworkError } from "../services/Errors"
 import { errorService } from "../services/ErrorService"
 import { RetryPresets, withRetry } from "../services/RetryService"
@@ -63,7 +64,7 @@ export async function starMessage(
 export async function pinMessage(
   chatId: ChatId,
   messageId: MessageId,
-  duration: number = 604800 // 7 days in seconds (default)
+  duration: number = TIME_S.PIN_MESSAGE_DEFAULT_DURATION
 ): Promise<void> {
   try {
     const session = getSession()
@@ -392,7 +393,7 @@ export async function prefetchMessagesForTopChats(count: number = 5): Promise<vo
       debugLog("BackgroundSync", `Pre-fetched ${messages.length} messages for ${chatId}`)
 
       // Small delay between requests to be nice to the API
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await new Promise((resolve) => setTimeout(resolve, TIME_MS.SEND_MESSAGE_RELOAD_DELAY))
     } catch (error) {
       debugLog("BackgroundSync", `Failed to prefetch messages for ${chatId}: ${error}`)
     }

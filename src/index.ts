@@ -20,7 +20,8 @@ import {
 import { UpdateAvailableModal } from "./components/Modal"
 import { errorToToast } from "./components/Toast"
 import { configExists, createDefaultConfig, loadConfig, saveConfig } from "./config/manager"
-import { validateConfig } from "./config/schema"
+import { DEFAULT_ENV, validateConfig } from "./config/schema"
+import { DEFAULTS, TIME_MS } from "./constants"
 import { executeContextMenuAction, handleKeyPress } from "./handlers"
 import { loadSavedSettings } from "./handlers/settingsHandler"
 import { createRenderApp } from "./router"
@@ -89,7 +90,7 @@ async function runConfigWizard(renderer: CliRenderer): Promise<void> {
             removeKeyListener()
             unsubscribe()
             resolve()
-          }, 1500)
+          }, TIME_MS.CONFIG_SUCCESS_DELAY)
         } else {
           appState.setConfigStep({
             ...state.configStep,
@@ -248,7 +249,7 @@ async function main() {
     appState.setCurrentView("config")
     appState.setConfigStep({
       step: 1,
-      wahaUrl: "http://localhost:3000",
+      wahaUrl: DEFAULT_ENV.wahaUrl,
       wahaApiKey: "",
       status: "input",
     })
@@ -293,7 +294,7 @@ async function main() {
   await loadSessions()
 
   // Default session name for free WAHA users
-  const DEFAULT_SESSION = "default"
+  const DEFAULT_SESSION = DEFAULTS.SESSION_NAME
 
   // Check if we have a working session
   const currentState = appState.getState()

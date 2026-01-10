@@ -3,6 +3,7 @@
  * Simple in-memory cache with TTL support for API responses
  */
 
+import { TIME_MS } from "../constants"
 import { debugLog } from "../utils/debug"
 
 /**
@@ -20,8 +21,6 @@ interface CacheOptions {
   /** Time-to-live in milliseconds (default: 5 minutes) */
   ttlMs?: number
 }
-
-const DEFAULT_TTL = 5 * 60 * 1000 // 5 minutes
 
 /**
  * Simple in-memory cache service
@@ -61,7 +60,7 @@ class CacheService {
    * @param options - Cache options (TTL)
    */
   set<T>(key: string, data: T, options: CacheOptions = {}): void {
-    const ttlMs = options.ttlMs ?? DEFAULT_TTL
+    const ttlMs = options.ttlMs ?? TIME_MS.CACHE_DEFAULT_TTL
 
     // Evict oldest entries if at capacity
     if (this.cache.size >= this.maxEntries) {
