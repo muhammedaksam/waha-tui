@@ -176,6 +176,13 @@ class StateManager {
   setCurrentView(currentView: ViewType): void {
     this.uiSlice.setCurrentView(currentView)
     this.navigationSlice.set({ lastChangeType: "view" }) // Cross-slice update
+
+    // Sync active icon with view
+    if (currentView === "settings") {
+      this.uiSlice.setActiveIcon("settings")
+    } else if (currentView === "chats" || currentView === "conversation") {
+      this.uiSlice.setActiveIcon("chats")
+    }
   }
 
   setActiveFilter(activeFilter: ActiveFilter): void {

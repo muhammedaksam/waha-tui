@@ -73,6 +73,21 @@ describe("AppState", () => {
       appState.setCurrentView("chats")
       expect(appState.getState().lastChangeType).toBe("view")
     })
+
+    it("should update activeIcon when switching to settings", () => {
+      appState.setCurrentView("settings")
+      expect(appState.getState().activeIcon).toBe("settings")
+    })
+
+    it("should update activeIcon when switching to chats", () => {
+      // First switch to settings
+      appState.setCurrentView("settings")
+      expect(appState.getState().activeIcon).toBe("settings")
+
+      // Then back to chats
+      appState.setCurrentView("chats")
+      expect(appState.getState().activeIcon).toBe("chats")
+    })
   })
 
   describe("setCurrentSession", () => {
