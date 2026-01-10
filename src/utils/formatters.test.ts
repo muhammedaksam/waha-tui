@@ -13,7 +13,7 @@ import {
   isStatusBroadcast,
   normalizeId,
   truncate,
-} from "./formatters"
+} from "~/utils/formatters"
 
 describe("formatters", () => {
   describe("truncate", () => {

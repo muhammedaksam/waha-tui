@@ -7,13 +7,13 @@ import type { WAMessage } from "@muhammedaksam/waha-node"
 
 import { BoxRenderable, CliRenderer, t, TextAttributes, TextRenderable } from "@opentui/core"
 
-import type { WAMessageExtended } from "../../types"
-import { WhatsAppTheme } from "../../config/theme"
-import { appState } from "../../state/AppState"
-import { debugLog } from "../../utils/debug"
-import { formatAckStatus, getInitials, isSelfChat } from "../../utils/formatters"
-import { centerText, getSenderInfo } from "./MessageHelpers"
-import { renderReplyContext } from "./ReplyContext"
+import type { WAMessageExtended } from "~/types"
+import { WhatsAppTheme } from "~/config/theme"
+import { appState } from "~/state/AppState"
+import { debugLog } from "~/utils/debug"
+import { formatAckStatus, getInitials, isSelfChat } from "~/utils/formatters"
+import { centerText, getSenderInfo } from "~/views/conversation/MessageHelpers"
+import { renderReplyContext } from "~/views/conversation/ReplyContext"
 
 /**
  * Render reaction badges below a message

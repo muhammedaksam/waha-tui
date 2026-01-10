@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 
-import { debugLog } from "./debug"
+import { debugLog } from "~/utils/debug"
 
 /**
  * Get the XDG config directory for waha-tui

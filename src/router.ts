@@ -5,23 +5,35 @@
 
 import type { CliRenderer, VChild } from "@opentui/core"
 
+import { DialogContainerRenderable, DialogManager } from "@opentui-ui/dialog"
+import { themes as dialogThemes } from "@opentui-ui/dialog/themes"
+import { ToasterRenderable } from "@opentui-ui/toast"
 import { Box, BoxRenderable, Text } from "@opentui/core"
 
-import type { AppState, ViewType } from "./state/AppState"
-import { logoutSession } from "./client"
-import { clearMenuBounds, ContextMenu, isClickOutsideContextMenu } from "./components/ContextMenu"
-import { Footer } from "./components/Footer"
-import { LogoutConfirmModal } from "./components/Modal"
-import { Toast } from "./components/Toast"
-import { appState } from "./state/AppState"
-import { debugLog } from "./utils/debug"
-import { chatListManager } from "./views/ChatListManager"
-import { ConfigView } from "./views/ConfigView"
-import { LoadingView } from "./views/LoadingView"
-import { MainLayout } from "./views/MainLayout"
-import { QRCodeView } from "./views/QRCodeView"
-import { SessionsView } from "./views/SessionsView"
-import { SettingsView } from "./views/SettingsView"
+import type { AppState, ViewType } from "~/state/AppState"
+import { clearMenuBounds, ContextMenu, isClickOutsideContextMenu } from "~/components/ContextMenu"
+import { Footer } from "~/components/Footer"
+import { WHATSAPP_DIALOG_CONFIG } from "~/components/Modal"
+import { WHATSAPP_TOASTER_CONFIG } from "~/components/Toast"
+import { appState } from "~/state/AppState"
+import { debugLog } from "~/utils/debug"
+import { chatListManager } from "~/views/ChatListManager"
+import { ConfigView } from "~/views/ConfigView"
+import { LoadingView } from "~/views/LoadingView"
+import { MainLayout } from "~/views/MainLayout"
+import { QRCodeView } from "~/views/QRCodeView"
+import { SessionsView } from "~/views/SessionsView"
+import { SettingsView } from "~/views/SettingsView"
+
+// Singleton DialogManager - initialized in createRenderApp
+let dialogManager: DialogManager | null = null
+
+export function getDialogManager(): DialogManager {
+  if (!dialogManager) {
+    throw new Error("DialogManager not initialized. Call createRenderApp first.")
+  }
+  return dialogManager
+}
 
 /**
  * Map of view types to their render functions.
@@ -92,6 +104,13 @@ export function updateSelectionFastPath(state: AppState): void {
  * ```
  */
 export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean) => void {
+  // Initialize the toaster and dialog container once - they manage their own lifecycle
+  let toasterInitialized = false
+  let dialogContainerInitialized = false
+
+  // Create dialog manager
+  dialogManager = new DialogManager(renderer)
+
   return function renderApp(forceRebuild: boolean = false): void {
     const state = appState.getState()
 
@@ -101,9 +120,12 @@ export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean)
       return
     }
 
-    // Clear previous render - remove all children
+    // Clear previous render - remove all children (except toaster)
     const children = renderer.root.getChildren()
     for (const child of children) {
+      // Keep the toaster and dialog container renderables
+      if (child instanceof ToasterRenderable) continue
+      if (child instanceof DialogContainerRenderable) continue
       renderer.root.remove(child.id)
     }
 
@@ -146,27 +168,22 @@ export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean)
       renderer.root.add(contextMenuBox)
     }
 
-    // Render toast notification if visible
-    if (state.toast?.visible) {
-      const toastBox = Toast({
-        message: state.toast.message,
-        type: state.toast.type,
-      })
-      renderer.root.add(toastBox)
+    // Add toaster once (it manages its own toast lifecycle)
+    if (!toasterInitialized) {
+      renderer.root.add(new ToasterRenderable(renderer, WHATSAPP_TOASTER_CONFIG))
+      toasterInitialized = true
     }
 
-    // Render logout confirmation modal if visible
-    if (state.showLogoutModal) {
-      LogoutConfirmModal({
-        onConfirm: async () => {
-          appState.setShowLogoutModal(false)
-          await logoutSession()
-          appState.setCurrentView("sessions")
-        },
-        onCancel: () => {
-          appState.setShowLogoutModal(false)
-        },
-      })
+    // Add dialog container once (it manages dialogs via DialogManager)
+    if (!dialogContainerInitialized && dialogManager) {
+      renderer.root.add(
+        new DialogContainerRenderable(renderer, {
+          manager: dialogManager,
+          ...dialogThemes.minimal,
+          ...WHATSAPP_DIALOG_CONFIG,
+        })
+      )
+      dialogContainerInitialized = true
     }
   }
 }

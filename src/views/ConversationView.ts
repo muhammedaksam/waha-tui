@@ -17,11 +17,12 @@ import {
   TextRenderable,
 } from "@opentui/core"
 
-import { loadChatDetails, sendMessage, sendTypingState } from "../client"
-import { Icons, WhatsAppTheme } from "../config/theme"
-import { appState } from "../state/AppState"
-import { getRenderer } from "../state/RendererContext"
-import { debugLog } from "../utils/debug"
+import { loadChatDetails, sendMessage, sendTypingState } from "~/client"
+import { Icons, WhatsAppTheme } from "~/config/theme"
+import { TIME_MS } from "~/constants"
+import { appState } from "~/state/AppState"
+import { getRenderer } from "~/state/RendererContext"
+import { debugLog } from "~/utils/debug"
 import {
   formatLastSeen,
   getChatIdString,
@@ -30,14 +31,14 @@ import {
   isGroupChat,
   isSelfChat,
   truncate,
-} from "../utils/formatters"
+} from "~/utils/formatters"
 import {
   DaySeparator,
   formatDateSeparator,
   getSenderColor,
   getSenderInfo,
   renderMessage,
-} from "./conversation"
+} from "~/views/conversation"
 
 // Cache for conversation scroll box and input
 let conversationScrollBox: ScrollBoxRenderable | null = null
@@ -474,7 +475,7 @@ export function ConversationView() {
             if (state.currentChatId) {
               sendTypingState(state.currentChatId, "paused")
             }
-          }, 2000)
+          }, TIME_MS.TYPING_PAUSE_DELAY)
         }
 
         // Calculate needed height
@@ -506,13 +507,11 @@ export function ConversationView() {
           const replyMsg = currentState.replyingToMessage as { id?: string } | null
           const replyToId = replyMsg?.id
 
-          const success = await sendMessage(currentState.currentChatId, text, replyToId)
-          if (success) {
-            messageInputComponent.setText("")
-            appState.setMessageInput("")
-            // Reset height via state
-            appState.setInputHeight(MIN_INPUT_HEIGHT)
-          }
+          await sendMessage(currentState.currentChatId, text, replyToId)
+          messageInputComponent.setText("")
+          appState.setMessageInput("")
+          // Reset height via state
+          appState.setInputHeight(MIN_INPUT_HEIGHT)
         }
       }
     }
@@ -716,6 +715,26 @@ export function destroyConversationScrollBox(): void {
     }
     messageInputComponent = null
   }
+  // Cleanup input container and scrollbar
+  if (inputContainer) {
+    if (!inputContainer.isDestroyed) {
+      inputContainer.destroy()
+    }
+    inputContainer = null
+  }
+  if (inputScrollBar) {
+    if (!inputScrollBar.isDestroyed) {
+      inputScrollBar.destroy()
+    }
+    inputScrollBar = null
+  }
+  // Clear typing timeout
+  if (typingTimeout) {
+    clearTimeout(typingTimeout)
+    typingTimeout = null
+  }
+  // Reset enter send tracking
+  lastEnterIsSend = null
 }
 
 // Scroll the conversation by a given amount (for keyboard navigation)

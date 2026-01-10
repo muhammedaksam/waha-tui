@@ -3,8 +3,8 @@
  * Handles creating a new chat by sending a first message
  */
 
-import { appState } from "../state/AppState"
-import { debugLog } from "./debug"
+import { appState } from "~/state/AppState"
+import { debugLog } from "~/utils/debug"
 
 /**
  * Start a new chat with a phone number

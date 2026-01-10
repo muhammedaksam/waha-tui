@@ -1,6 +1,6 @@
 import { describe, expect, it, mock } from "bun:test"
 
-import { retryable, RetryPresets, withRetry } from "./RetryService"
+import { retryable, RetryPresets, withRetry } from "~/services/RetryService"
 
 describe("RetryService", () => {
   describe("withRetry", () => {

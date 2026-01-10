@@ -3,8 +3,8 @@
  * Alternative authentication method using pairing codes
  */
 
-import { getClient } from "../client"
-import { debugLog } from "./debug"
+import { getClient } from "~/client"
+import { debugLog } from "~/utils/debug"
 
 export interface PairingResult {
   success: boolean

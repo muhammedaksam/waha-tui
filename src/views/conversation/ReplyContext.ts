@@ -5,12 +5,12 @@
 
 import { BoxRenderable, CliRenderer, TextAttributes, TextRenderable } from "@opentui/core"
 
-import type { WAMessageExtended } from "../../types"
-import { WhatsAppTheme } from "../../config/theme"
-import { appState } from "../../state/AppState"
-import { debugLog } from "../../utils/debug"
-import { isSelfChat, truncate } from "../../utils/formatters"
-import { getSenderColor } from "./MessageHelpers"
+import type { WAMessageExtended } from "~/types"
+import { WhatsAppTheme } from "~/config/theme"
+import { appState } from "~/state/AppState"
+import { debugLog } from "~/utils/debug"
+import { isSelfChat, truncate } from "~/utils/formatters"
+import { getSenderColor } from "~/views/conversation/MessageHelpers"
 
 /**
  * Render the quoted/reply context box above a reply message

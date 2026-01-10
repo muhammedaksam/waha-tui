@@ -5,10 +5,10 @@
 
 import type { SessionCreateRequest } from "@muhammedaksam/waha-node"
 
-import { getClient } from "../client"
-import { appState } from "../state/AppState"
-import { debugLog } from "../utils/debug"
-import { showQRCode } from "./QRCodeView"
+import { getClient } from "~/client"
+import { appState } from "~/state/AppState"
+import { debugLog } from "~/utils/debug"
+import { showQRCode } from "~/views/QRCodeView"
 
 export async function createNewSession(sessionName: string = "default"): Promise<void> {
   try {

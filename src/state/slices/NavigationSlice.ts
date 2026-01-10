@@ -1,4 +1,4 @@
-import { SliceActions, StateSlice } from "./types"
+import { SliceActions, StateSlice } from "~/state/slices/types"
 
 // Type of state change - enables render optimization
 export type ChangeType = "selection" | "scroll" | "data" | "view" | "other"

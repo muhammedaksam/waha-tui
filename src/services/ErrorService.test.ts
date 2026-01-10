@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 
-import { ErrorService, errorService } from "./ErrorService"
+import { ErrorService, errorService } from "~/services/ErrorService"
 
 describe("ErrorService", () => {
   describe("classify", () => {

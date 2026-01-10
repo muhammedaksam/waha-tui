@@ -14,14 +14,14 @@ import {
   TextRenderable,
 } from "@opentui/core"
 
-import type { AppState } from "../state/AppState"
-import type { MessagePreview } from "../utils/formatters"
-import { loadContacts, loadMessages, startPresenceManagement } from "../client"
-import { Icons, WhatsAppTheme } from "../config/theme"
-import { appState } from "../state/AppState"
-import { ROW_HEIGHT } from "../utils/chatListScroll"
-import { debugLog } from "../utils/debug"
-import { isPinned } from "../utils/filterChats"
+import type { AppState } from "~/state/AppState"
+import type { MessagePreview } from "~/utils/formatters"
+import { loadContacts, loadMessages, startPresenceManagement } from "~/client"
+import { Icons, WhatsAppTheme } from "~/config/theme"
+import { appState } from "~/state/AppState"
+import { ROW_HEIGHT } from "~/utils/chatListScroll"
+import { debugLog } from "~/utils/debug"
+import { isPinned } from "~/utils/filterChats"
 import {
   extractMessagePreview,
   formatAckStatus,
@@ -31,8 +31,8 @@ import {
   isGroupChat,
   isSelfChat,
   truncate,
-} from "../utils/formatters"
-import { destroyConversationScrollBox } from "./ConversationView"
+} from "~/utils/formatters"
+import { destroyConversationScrollBox } from "~/views/ConversationView"
 
 interface ChatRowData {
   box: BoxRenderable
@@ -82,12 +82,17 @@ class ChatListManager {
     return chats.map((c) => c.id).join(",")
   }
 
-  // Hash for content (ids + message timestamps + active/selected state + last message content)
+  // Hash for content (ids + message timestamps + active/selected state + last message content + ack status)
   private getChatsContentHash(chats: ChatSummary[], state: AppState): string {
     const myId = state.myProfile?.id || "null"
     return (
       (chats as unknown as ExtendedChatSummary[])
-        .map((c) => `${c.id}:${c.lastMessage?.timestamp || 0}:${c.lastMessage?.id || ""}`)
+        .map((c) => {
+          const lastMsg = c.lastMessage as
+            | { timestamp?: number; id?: string; ack?: number }
+            | undefined
+          return `${c.id}:${lastMsg?.timestamp || 0}:${lastMsg?.id || ""}:${lastMsg?.ack ?? ""}`
+        })
         .join(",") + `:${myId}`
     )
   }

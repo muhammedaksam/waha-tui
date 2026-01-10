@@ -7,12 +7,12 @@ import type { ChatSummary, WAMessage } from "@muhammedaksam/waha-node"
 
 import { Box, BoxRenderable, ProxiedVNode, TextRenderable } from "@opentui/core"
 
-import type { ContextMenuType } from "../state/AppState"
-import type { WAMessageExtended } from "../types"
-import { Icons, WhatsAppTheme } from "../config/theme"
-import { appState } from "../state/AppState"
-import { getRenderer } from "../state/RendererContext"
-import { isArchived } from "../utils/filterChats"
+import type { ContextMenuType } from "~/state/AppState"
+import type { WAMessageExtended } from "~/types"
+import { Icons, WhatsAppTheme } from "~/config/theme"
+import { appState } from "~/state/AppState"
+import { getRenderer } from "~/state/RendererContext"
+import { isArchived } from "~/utils/filterChats"
 
 export interface ContextMenuItem {
   id: string

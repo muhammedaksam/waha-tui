@@ -1,6 +1,6 @@
 import type { SessionDTO } from "@muhammedaksam/waha-node"
 
-import { SliceActions, StateSlice } from "./types"
+import { SliceActions, StateSlice } from "~/state/slices/types"
 
 export interface SessionState {
   currentSession: string | null

@@ -10,14 +10,15 @@ import type {
   WAHAChatPresences,
 } from "@muhammedaksam/waha-node"
 
-import { CacheKeys, cacheService } from "../services/CacheService"
-import { errorService } from "../services/ErrorService"
-import { RetryPresets, withRetry } from "../services/RetryService"
-import { appState } from "../state/AppState"
-import { debugLog } from "../utils/debug"
-import { isGroupChat } from "../utils/formatters"
-import { getClient, getSession } from "./core"
-import { prefetchMessagesForTopChats } from "./messageActions"
+import { getClient, getSession } from "~/client/core"
+import { prefetchMessagesForTopChats } from "~/client/messageActions"
+import { TIME_MS } from "~/constants"
+import { CacheKeys, cacheService } from "~/services/CacheService"
+import { errorService } from "~/services/ErrorService"
+import { RetryPresets, withRetry } from "~/services/RetryService"
+import { appState } from "~/state/AppState"
+import { debugLog } from "~/utils/debug"
+import { isGroupChat } from "~/utils/formatters"
 
 // ============================================
 // Session Management
@@ -155,7 +156,7 @@ export async function loadAllContacts(): Promise<Map<string, string>> {
     debugLog("Contacts", `Loaded ${contactMap.size} contacts`)
 
     // Cache contacts for 2 minutes (they change less frequently)
-    cacheService.set(cacheKey, contactMap, { ttlMs: 120000 })
+    cacheService.set(cacheKey, contactMap, { ttlMs: TIME_MS.SESSION_CONTACT_MAP_TTL })
     return contactMap
   } catch (error) {
     errorService.handle(error, { context: { action: "loadAllContacts" } })
@@ -179,18 +180,25 @@ export async function loadChats(): Promise<void> {
     debugLog("Chats", `Loading chats for session: ${session}`)
     const wahaClient = getClient()
 
-    const response = await withRetry(() => wahaClient.chats.chatsControllerGetChats(session, {}), {
-      ...RetryPresets.standard,
-      onRetry: (attempt, delay) => {
-        debugLog("Chats", `Retry attempt ${attempt}, waiting ${delay}ms...`)
-      },
-    })
+    const response = await withRetry(
+      () =>
+        wahaClient.chats.chatsControllerGetChats(session, {
+          sortBy: "conversationTimestamp",
+          sortOrder: "desc",
+        }),
+      {
+        ...RetryPresets.standard,
+        onRetry: (attempt, delay) => {
+          debugLog("Chats", `Retry attempt ${attempt}, waiting ${delay}ms...`)
+        },
+      }
+    )
 
     const chats = (response.data as unknown as ChatSummary[]) || []
     debugLog("Chats", `Loaded ${chats.length} chats`)
 
     // Cache the result (30 second TTL)
-    cacheService.set(cacheKey, chats, { ttlMs: 30000 })
+    cacheService.set(cacheKey, chats, { ttlMs: TIME_MS.SESSION_CHATS_CACHE_TTL })
     appState.setChats(chats)
 
     const allContacts = await loadAllContacts()

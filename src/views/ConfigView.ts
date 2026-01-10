@@ -5,10 +5,10 @@
 
 import { Box, BoxRenderable, fg, t, Text, TextareaRenderable, TextAttributes } from "@opentui/core"
 
-import { Logo } from "../components/Logo"
-import { Icons, WhatsAppTheme } from "../config/theme"
-import { appState } from "../state/AppState"
-import { getRenderer } from "../state/RendererContext"
+import { Logo } from "~/components/Logo"
+import { Icons, WhatsAppTheme } from "~/config/theme"
+import { appState } from "~/state/AppState"
+import { getRenderer } from "~/state/RendererContext"
 
 // Module-level textarea components
 let urlInputComponent: TextareaRenderable | null = null

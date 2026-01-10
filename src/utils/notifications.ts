@@ -12,8 +12,8 @@
 
 import notifier from "node-notifier"
 
-import { getSettings } from "../config/manager"
-import { debugLog } from "./debug"
+import { getSettings } from "~/config/manager"
+import { debugLog } from "~/utils/debug"
 
 interface NotificationOptions {
   title: string

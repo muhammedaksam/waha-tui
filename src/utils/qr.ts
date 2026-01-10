@@ -2,8 +2,8 @@
  * QR Code utilities for terminal display
  */
 
-import { getClient } from "../client"
-import { debugLog } from "./debug"
+import { getClient } from "~/client"
+import { debugLog } from "~/utils/debug"
 
 /**
  * Get QR code as raw data from WAHA API

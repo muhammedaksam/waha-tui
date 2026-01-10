@@ -7,7 +7,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 
-import { VersionInfo } from "../config/version"
+import { VersionInfo } from "~/config/version"
+import { TIME_MS } from "~/constants"
 
 const GITHUB_REPO = "muhammedaksam/waha-tui"
 
@@ -26,7 +27,6 @@ if (!existsSync(CONFIG_DIR)) {
 }
 
 const CACHE_FILE = join(CONFIG_DIR, ".update-cache.json")
-const CACHE_DURATION_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 export interface UpdateInfo {
   currentVersion: string
@@ -35,6 +35,7 @@ export interface UpdateInfo {
   releaseUrl: string
   releaseNotes?: string
   publishedAt?: string
+  dismissedVersion?: string
 }
 
 interface CachedUpdate {
@@ -43,6 +44,7 @@ interface CachedUpdate {
   releaseUrl: string
   releaseNotes?: string
   publishedAt?: string
+  dismissedVersion?: string
 }
 
 /**
@@ -58,8 +60,8 @@ function getCachedUpdate(): CachedUpdate | null {
     const checkedAt = new Date(cached.checkedAt).getTime()
     const now = Date.now()
 
-    // Cache still valid
-    if (now - checkedAt < CACHE_DURATION_MS) {
+    // Cache still valid for checks
+    if (now - checkedAt < TIME_MS.UPDATE_CHECK_CACHE_DURATION) {
       return cached
     }
   } catch {
@@ -74,13 +76,53 @@ function getCachedUpdate(): CachedUpdate | null {
  */
 function cacheUpdate(info: Omit<CachedUpdate, "checkedAt">): void {
   try {
+    // Preserve existing dismissedVersion if not provided
+    let existingDismissed: string | undefined
+    try {
+      if (existsSync(CACHE_FILE)) {
+        const content = readFileSync(CACHE_FILE, "utf-8")
+        const cached = JSON.parse(content) as CachedUpdate
+        existingDismissed = cached.dismissedVersion
+      }
+    } catch {
+      /* ignore */
+    }
+
     const cached: CachedUpdate = {
+      dismissedVersion: existingDismissed,
       ...info,
       checkedAt: new Date().toISOString(),
     }
     writeFileSync(CACHE_FILE, JSON.stringify(cached, null, 2), "utf-8")
   } catch {
     // Ignore cache write errors
+  }
+}
+
+/**
+ * Dismiss an update version
+ */
+export function dismissUpdate(version: string): void {
+  try {
+    let cached: CachedUpdate = {
+      checkedAt: new Date(0).toISOString(), // Expired by default if new
+      latestVersion: version,
+      releaseUrl: "",
+    }
+
+    if (existsSync(CACHE_FILE)) {
+      try {
+        const content = readFileSync(CACHE_FILE, "utf-8")
+        cached = JSON.parse(content) as CachedUpdate
+      } catch {
+        /* ignore */
+      }
+    }
+
+    cached.dismissedVersion = version
+    writeFileSync(CACHE_FILE, JSON.stringify(cached, null, 2), "utf-8")
+  } catch {
+    // Ignore errors
   }
 }
 
@@ -152,13 +194,17 @@ export async function checkForUpdates(): Promise<UpdateInfo> {
   // Check cache first
   const cached = getCachedUpdate()
   if (cached) {
+    // If dismissed version matches latest, consider update unavailable
+    const isDismissed = cached.dismissedVersion === cached.latestVersion
+
     return {
       currentVersion,
       latestVersion: cached.latestVersion,
-      updateAvailable: isNewerVersion(currentVersion, cached.latestVersion),
+      updateAvailable: !isDismissed && isNewerVersion(currentVersion, cached.latestVersion),
       releaseUrl: cached.releaseUrl,
       releaseNotes: cached.releaseNotes,
       publishedAt: cached.publishedAt,
+      dismissedVersion: cached.dismissedVersion,
     }
   }
 
@@ -174,20 +220,36 @@ export async function checkForUpdates(): Promise<UpdateInfo> {
     }
   }
 
+  // Check if this version was dismissed previously (by reading file directly as getCachedUpdate might have failed/expired)
+  let dismissedVersion: string | undefined
+  try {
+    if (existsSync(CACHE_FILE)) {
+      const content = readFileSync(CACHE_FILE, "utf-8")
+      const c = JSON.parse(content) as CachedUpdate
+      dismissedVersion = c.dismissedVersion
+    }
+  } catch {
+    /* ignore */
+  }
+
   // Cache the result
   cacheUpdate({
     latestVersion: release.version,
     releaseUrl: release.url,
     releaseNotes: release.notes,
     publishedAt: release.publishedAt,
+    dismissedVersion: dismissedVersion, // Preserve
   })
+
+  const isDismissed = dismissedVersion === release.version
 
   return {
     currentVersion,
     latestVersion: release.version,
-    updateAvailable: isNewerVersion(currentVersion, release.version),
+    updateAvailable: !isDismissed && isNewerVersion(currentVersion, release.version),
     releaseUrl: release.url,
     releaseNotes: release.notes,
     publishedAt: release.publishedAt,
+    dismissedVersion,
   }
 }

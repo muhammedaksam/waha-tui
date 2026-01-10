@@ -8,10 +8,10 @@ import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from "axio
 
 import { WahaClient } from "@muhammedaksam/waha-node"
 
-import type { WahaTuiConfig } from "../config/schema"
-import { errorService } from "../services/ErrorService"
-import { appState } from "../state/AppState"
-import { DEBUG_ENABLED, debugLog, debugRequest, debugResponse } from "../utils/debug"
+import type { WahaTuiConfig } from "~/config/schema"
+import { errorService } from "~/services/ErrorService"
+import { appState } from "~/state/AppState"
+import { DEBUG_ENABLED, debugLog, debugRequest, debugResponse } from "~/utils/debug"
 
 let client: WahaClient | null = null
 

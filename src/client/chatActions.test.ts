@@ -5,9 +5,10 @@
 
 import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
 
-import { errorService } from "../services/ErrorService"
-import { archiveChat, deleteChat, markChatUnread, unarchiveChat } from "./chatActions"
-import * as core from "./core"
+import { archiveChat, deleteChat, markChatUnread, unarchiveChat } from "~/client/chatActions"
+import * as core from "~/client/core"
+import { NetworkError } from "~/services/Errors"
+import { errorService } from "~/services/ErrorService"
 
 // Mock the core module functions
 const mockChatsController = {
@@ -38,28 +39,34 @@ describe("chatActions", () => {
 
   describe("archiveChat", () => {
     it("should archive a chat successfully", async () => {
-      const result = await archiveChat("123@c.us")
+      await archiveChat("123@c.us")
 
-      expect(result).toBe(true)
       expect(mockChatsController.chatsControllerArchiveChat).toHaveBeenCalledWith(
         "test-session",
         "123@c.us"
       )
     })
 
-    it("should return false on error", async () => {
+    it("should throw NetworkError on error", async () => {
       mockChatsController.chatsControllerArchiveChat.mockRejectedValueOnce(new Error("API Error"))
 
-      const result = await archiveChat("123@c.us")
-
-      expect(result).toBe(false)
+      await expect(() => archiveChat("123@c.us")).toThrow(NetworkError)
     })
 
     it("should call errorService.handle on error", async () => {
       const handleSpy = spyOn(errorService, "handle")
       mockChatsController.chatsControllerArchiveChat.mockRejectedValueOnce(new Error("API Error"))
 
-      await archiveChat("123@c.us")
+      await expect(() => archiveChat("123@c.us")).toThrow(NetworkError)
+
+      expect(handleSpy).toHaveBeenCalled()
+    })
+
+    it("should call errorService.handle on error", async () => {
+      const handleSpy = spyOn(errorService, "handle")
+      mockChatsController.chatsControllerArchiveChat.mockRejectedValueOnce(new Error("API Error"))
+
+      await expect(() => archiveChat("123@c.us")).toThrow(NetworkError)
 
       expect(handleSpy).toHaveBeenCalled()
     })
@@ -67,61 +74,52 @@ describe("chatActions", () => {
 
   describe("unarchiveChat", () => {
     it("should unarchive a chat successfully", async () => {
-      const result = await unarchiveChat("123@c.us")
+      await unarchiveChat("123@c.us")
 
-      expect(result).toBe(true)
       expect(mockChatsController.chatsControllerUnarchiveChat).toHaveBeenCalledWith(
         "test-session",
         "123@c.us"
       )
     })
 
-    it("should return false on error", async () => {
+    it("should throw NetworkError on error", async () => {
       mockChatsController.chatsControllerUnarchiveChat.mockRejectedValueOnce(new Error("API Error"))
 
-      const result = await unarchiveChat("123@c.us")
-
-      expect(result).toBe(false)
+      await expect(() => unarchiveChat("123@c.us")).toThrow(NetworkError)
     })
   })
 
   describe("markChatUnread", () => {
     it("should mark chat as unread successfully", async () => {
-      const result = await markChatUnread("123@c.us")
+      await markChatUnread("123@c.us")
 
-      expect(result).toBe(true)
       expect(mockChatsController.chatsControllerUnreadChat).toHaveBeenCalledWith(
         "test-session",
         "123@c.us"
       )
     })
 
-    it("should return false on error", async () => {
+    it("should throw NetworkError on error", async () => {
       mockChatsController.chatsControllerUnreadChat.mockRejectedValueOnce(new Error("API Error"))
 
-      const result = await markChatUnread("123@c.us")
-
-      expect(result).toBe(false)
+      await expect(() => markChatUnread("123@c.us")).toThrow(NetworkError)
     })
   })
 
   describe("deleteChat", () => {
     it("should delete a chat successfully", async () => {
-      const result = await deleteChat("123@c.us")
+      await deleteChat("123@c.us")
 
-      expect(result).toBe(true)
       expect(mockChatsController.chatsControllerDeleteChat).toHaveBeenCalledWith(
         "test-session",
         "123@c.us"
       )
     })
 
-    it("should return false on error", async () => {
+    it("should throw NetworkError on error", async () => {
       mockChatsController.chatsControllerDeleteChat.mockRejectedValueOnce(new Error("API Error"))
 
-      const result = await deleteChat("123@c.us")
-
-      expect(result).toBe(false)
+      await expect(() => deleteChat("123@c.us")).toThrow(NetworkError)
     })
   })
 })

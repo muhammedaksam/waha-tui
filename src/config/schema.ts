@@ -7,7 +7,7 @@
  * - ~/.waha-tui/config.json - Metadata (version, timestamps, settings)
  */
 
-import { VersionInfo } from "./version"
+import { VersionInfo } from "~/config/version"
 
 /**
  * Environment secrets stored in .env file

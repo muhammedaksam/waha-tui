@@ -4,10 +4,16 @@
  */
 
 // Core functions
-export { initializeClient, getClient, getSession, testConnection, copyToClipboard } from "./core"
+export {
+  initializeClient,
+  getClient,
+  getSession,
+  testConnection,
+  copyToClipboard,
+} from "~/client/core"
 
 // Chat actions
-export { archiveChat, unarchiveChat, markChatUnread, deleteChat } from "./chatActions"
+export { archiveChat, unarchiveChat, markChatUnread, deleteChat } from "~/client/chatActions"
 
 // Message actions
 export {
@@ -22,7 +28,7 @@ export {
   sendMessage,
   sendTypingState,
   prefetchMessagesForTopChats,
-} from "./messageActions"
+} from "~/client/messageActions"
 
 // Session & data loading actions
 export {
@@ -36,7 +42,7 @@ export {
   loadLidMappings,
   loadChatDetails,
   fetchMyProfile,
-} from "./sessionActions"
+} from "~/client/sessionActions"
 
 // Presence actions
 export {
@@ -45,4 +51,4 @@ export {
   subscribeToPresence,
   startPresenceManagement,
   stopPresenceManagement,
-} from "./presenceActions"
+} from "~/client/presenceActions"

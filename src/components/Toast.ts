@@ -1,12 +1,83 @@
 /**
  * Toast Notification Component
- * Displays user-friendly error messages with optional recovery actions
+ * Using @opentui-ui/toast for beautiful sonner-inspired toast notifications
  */
 
-import { Box, Text } from "@opentui/core"
+import type { ToasterOptions } from "@opentui-ui/toast"
 
-import type { AppError } from "../services/ErrorService"
-import { WDSColors, WhatsAppTheme } from "../config/theme"
+import { toast, TOAST_DURATION } from "@opentui-ui/toast"
+
+import type { AppError } from "~/services/ErrorService"
+import { WDSColors, WhatsAppTheme } from "~/config/theme"
+import { TIME_MS } from "~/constants"
+
+/**
+ * WhatsApp-themed toaster configuration
+ * Uses the WDS color palette for consistent styling
+ */
+export const WHATSAPP_TOASTER_CONFIG: ToasterOptions = {
+  position: "bottom-right",
+  gap: 1,
+  stackingMode: "stack",
+  maxWidth: 60,
+  offset: { right: 2, bottom: 4 },
+  icons: {
+    success: "✓",
+    error: "✕",
+    warning: "⚠",
+    info: "ℹ",
+    loading: {
+      frames: ["◜", "◠", "◝", "◞", "◡", "◟"],
+      interval: 100,
+    },
+    close: "×",
+  },
+  toastOptions: {
+    style: {
+      backgroundColor: WhatsAppTheme.panelDark,
+      foregroundColor: WhatsAppTheme.textPrimary,
+      borderColor: WhatsAppTheme.borderLight,
+      borderStyle: "rounded",
+      paddingX: 2,
+      paddingY: 0,
+    },
+    duration: 4000,
+    success: {
+      style: {
+        borderColor: WDSColors.green[400],
+        iconColor: WDSColors.green[400],
+      },
+      duration: 3000,
+    },
+    error: {
+      style: {
+        borderColor: WDSColors.red[400],
+        iconColor: WDSColors.red[400],
+      },
+      duration: 5000,
+    },
+    warning: {
+      style: {
+        borderColor: WDSColors.yellow[400],
+        iconColor: WDSColors.yellow[400],
+      },
+      duration: 4000,
+    },
+    info: {
+      style: {
+        borderColor: WDSColors.skyBlue[500],
+        iconColor: WDSColors.skyBlue[500],
+      },
+      duration: 3000,
+    },
+    loading: {
+      style: {
+        borderColor: WhatsAppTheme.textSecondary,
+        iconColor: WhatsAppTheme.green,
+      },
+    },
+  },
+}
 
 /**
  * Toast notification types with associated styling
@@ -30,140 +101,106 @@ export interface ToastConfig {
 }
 
 /**
- * Get icon for toast type
+ * Show a toast notification using @opentui-ui/toast
  */
-function getToastIcon(type: ToastType): string {
+export function showToast(
+  message: string,
+  type: ToastType = "info",
+  duration: number = TOAST_DURATION.DEFAULT
+): string | number {
+  const options = {
+    duration: duration === 0 ? Infinity : duration,
+  }
+
   switch (type) {
     case "error":
-      return "✕"
+      return toast.error(message, options)
     case "warning":
-      return "⚠"
+      return toast.warning(message, options)
     case "success":
-      return "✓"
+      return toast.success(message, options)
     case "info":
-      return "ℹ"
+    default:
+      return toast.info(message, options)
   }
 }
 
 /**
- * Get colors for toast type using WhatsApp WDS color palette
- */
-function getToastColors(type: ToastType): { bg: string; border: string } {
-  switch (type) {
-    case "error":
-      return { bg: WDSColors.red[800], border: WDSColors.red[400] }
-    case "warning":
-      return { bg: WDSColors.yellow[800], border: WDSColors.yellow[400] }
-    case "success":
-      return { bg: WDSColors.green[800], border: WDSColors.green[400] }
-    case "info":
-      return { bg: WhatsAppTheme.panelDark, border: WDSColors.emerald[500] }
-  }
-}
-
-/**
- * Convert AppError to user-friendly toast config
+ * Convert AppError to user-friendly toast and display it
  * @param error - The classified error
  * @param onRetry - Optional retry callback
- * @returns Toast configuration
  */
-export function errorToToast(error: AppError, onRetry?: () => void): ToastConfig {
-  const config: ToastConfig = {
-    message: error.message,
-    type: "error",
-    duration: 5000,
-  }
+export function errorToToast(error: AppError, onRetry?: () => void): void {
+  let title = "Error"
+  let description = error.message
+  let actionLabel: string | undefined
+  let actionCallback: (() => void) | undefined
 
   // Add recovery action if available
   if (error.recoverable && onRetry) {
-    config.actionText = "Retry"
-    config.onAction = onRetry
+    actionLabel = "Retry"
+    actionCallback = onRetry
   }
 
   // Use category-specific messages
   switch (error.category) {
     case "network":
-      config.message = "Connection lost. Check your internet."
+      title = "Connection Lost"
+      description = "Check your internet connection."
       if (onRetry) {
-        config.actionText = "Retry"
+        actionLabel = "Retry"
+        actionCallback = onRetry
       }
       break
     case "auth":
-      config.message = "Session expired. Please reconnect."
-      config.actionText = "Reconnect"
+      title = "Session Expired"
+      description = "Please reconnect to continue."
+      actionLabel = "Reconnect"
       break
     case "api":
       if (error.code === "SERVER_ERROR") {
-        config.message = "Server error. Try again later."
+        title = "Server Error"
+        description = "Try again later."
       }
       break
   }
 
-  return config
-}
-
-/**
- * Render a toast notification as a top-centered modal overlay
- * @param config - Toast configuration
- * @returns Box component for the toast
- */
-export function Toast(config: ToastConfig) {
-  const colors = getToastColors(config.type)
-  const icon = getToastIcon(config.type)
-
-  const message = config.actionText
-    ? `${icon}  ${config.message}  [${config.actionText}]`
-    : `${icon}  ${config.message}`
-
-  // Create a full-width container positioned at the top
-  return Box(
-    {
-      position: "absolute",
-      top: 1,
-      left: 0,
-      right: 0,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    Box(
-      {
-        borderStyle: "rounded",
-        borderColor: colors.border,
-        backgroundColor: colors.bg,
-        paddingLeft: 2,
-        paddingRight: 2,
-        paddingTop: 0,
-        paddingBottom: 0,
-      },
-      Text({ content: message })
-    )
-  )
+  // Show the toast with title + description
+  toast.error(title, {
+    description,
+    duration: TIME_MS.TOAST_ERROR_DURATION,
+    action:
+      actionLabel && actionCallback ? { label: actionLabel, onClick: actionCallback } : undefined,
+  })
 }
 
 /**
  * Create a simple error toast
  */
-export function ErrorToast(message: string) {
-  return Toast({ message, type: "error", duration: 5000 })
+export function errorToast(description: string): string | number {
+  return toast.error("Error", { description, duration: TIME_MS.TOAST_ERROR_DURATION })
 }
 
 /**
  * Create a simple success toast
  */
-export function SuccessToast(message: string) {
-  return Toast({ message, type: "success", duration: 3000 })
+export function successToast(description: string): string | number {
+  return toast.success("Success", { description, duration: TIME_MS.TOAST_SUCCESS_DURATION })
 }
 
 /**
  * Create a simple warning toast
  */
-export function WarningToast(message: string) {
-  return Toast({ message, type: "warning", duration: 4000 })
+export function warningToast(description: string): string | number {
+  return toast.warning("Warning", { description, duration: TIME_MS.TOAST_WARNING_DURATION })
 }
 
 /**
  * Create a simple info toast
  */
-export function InfoToast(message: string) {
-  return Toast({ message, type: "info", duration: 3000 })
+export function infoToast(description: string): string | number {
+  return toast.info("Info", { description, duration: TIME_MS.TOAST_INFO_DURATION })
 }
+
+// Re-export toast utilities from the package
+export { toast, TOAST_DURATION }

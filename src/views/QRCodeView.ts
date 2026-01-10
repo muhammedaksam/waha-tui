@@ -8,14 +8,15 @@ import type { QRCode as QRCodeType } from "qrcode"
 import { Box, Text, TextAttributes } from "@opentui/core"
 import QRCode from "qrcode"
 
-import { getClient, loadChats } from "../client"
-import { Logo } from "../components/Logo"
-import { Icons, WhatsAppTheme } from "../config/theme"
-import { appState } from "../state/AppState"
-import { debugLog } from "../utils/debug"
-import { requestPairingCode } from "../utils/pairing"
-import { getQRCode } from "../utils/qr"
-import { createNewSession } from "./SessionCreate"
+import { getClient, loadChats } from "~/client"
+import { Logo } from "~/components/Logo"
+import { Icons, WhatsAppTheme } from "~/config/theme"
+import { TIME_MS } from "~/constants"
+import { appState } from "~/state/AppState"
+import { debugLog } from "~/utils/debug"
+import { requestPairingCode } from "~/utils/pairing"
+import { getQRCode } from "~/utils/qr"
+import { createNewSession } from "~/views/SessionCreate"
 
 // Module-level intervals for QR refresh and status checking
 let qrRefreshInterval: NodeJS.Timeout | null = null
@@ -595,9 +596,11 @@ export async function showQRCode(name: string): Promise<void> {
 
   // Helper function to wait for session to be ready (SCAN_QR_CODE state)
   // Uses sessionsControllerList to find the session, as GET may return 404 for newly created sessions
-  const waitForSessionReady = async (maxWaitMs: number = 30000): Promise<boolean> => {
+  const waitForSessionReady = async (
+    maxWaitMs: number = TIME_MS.QR_SESSION_READY_MAX_WAIT
+  ): Promise<boolean> => {
     const startTime = Date.now()
-    const pollInterval = 1000 // 1 second
+    const pollInterval = TIME_MS.QR_SESSION_READY_POLL_INTERVAL
 
     while (Date.now() - startTime < maxWaitMs) {
       try {
@@ -702,7 +705,7 @@ export async function showQRCode(name: string): Promise<void> {
     }
   }
 
-  const QR_REFRESH_INTERVAL = 15000 // 15 seconds
+  const QR_REFRESH_INTERVAL = TIME_MS.QR_REFRESH_INTERVAL
 
   // Function to check session status (called every 1s)
   const checkStatus = async () => {
@@ -789,7 +792,7 @@ export async function showQRCode(name: string): Promise<void> {
   // Set up status check every 1 second (fast detection of login)
   statusCheckInterval = setInterval(() => {
     void checkStatus()
-  }, 1000)
+  }, TIME_MS.QR_STATUS_CHECK_INTERVAL)
 
   // Set up QR refresh every 15 seconds
   qrRefreshInterval = setInterval(() => {

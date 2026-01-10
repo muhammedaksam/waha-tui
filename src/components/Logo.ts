@@ -5,7 +5,7 @@
 
 import { ASCIIFont, Box } from "@opentui/core"
 
-import { WhatsAppTheme } from "../config/theme"
+import { WhatsAppTheme } from "~/config/theme"
 
 export function Logo({ color = WhatsAppTheme.textPrimary }: { color?: string }) {
   return Box(

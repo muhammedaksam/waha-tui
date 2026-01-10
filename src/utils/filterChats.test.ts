@@ -10,7 +10,7 @@ import {
   isArchived,
   isFavorite,
   isPinned,
-} from "./filterChats"
+} from "~/utils/filterChats"
 
 // Helper to create mock chat objects
 // Note: getChatProperties requires archived to be defined for other properties to be extracted

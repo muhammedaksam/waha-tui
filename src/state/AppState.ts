@@ -12,7 +12,6 @@ import type {
   WAMessage,
 } from "@muhammedaksam/waha-node"
 
-import type { WAMessageExtended } from "../types"
 import type {
   ActiveFilter,
   ActiveIcon,
@@ -34,8 +33,10 @@ import type {
   SettingsState,
   UIState,
   ViewType,
-} from "./slices"
-import { getChatIdString } from "../utils/formatters"
+} from "~/state/slices"
+import type { WAMessageExtended } from "~/types"
+import type { UpdateInfo } from "~/utils/update-checker"
+import { TIME_MS } from "~/constants"
 import {
   createAuthSlice,
   createChatSlice,
@@ -46,7 +47,9 @@ import {
   createSessionSlice,
   createSettingsSlice,
   createUISlice,
-} from "./slices"
+} from "~/state/slices"
+import { getChatIdString } from "~/utils/formatters"
+import { dismissUpdate } from "~/utils/update-checker"
 
 // Re-export types for backward compatibility
 export type {
@@ -175,6 +178,13 @@ class StateManager {
   setCurrentView(currentView: ViewType): void {
     this.uiSlice.setCurrentView(currentView)
     this.navigationSlice.set({ lastChangeType: "view" }) // Cross-slice update
+
+    // Sync active icon with view
+    if (currentView === "settings") {
+      this.uiSlice.setActiveIcon("settings")
+    } else if (currentView === "chats" || currentView === "conversation") {
+      this.uiSlice.setActiveIcon("chats")
+    }
   }
 
   setActiveFilter(activeFilter: ActiveFilter): void {
@@ -379,7 +389,7 @@ class StateManager {
   showToast(
     message: string,
     type: "error" | "warning" | "success" | "info" = "info",
-    autoDismissMs: number = 5000
+    autoDismissMs: number = TIME_MS.TOAST_DEFAULT_AUTO_DISMISS
   ): void {
     this.modalSlice.showToast(message, type, autoDismissMs)
   }
@@ -417,6 +427,18 @@ class StateManager {
   // Modal
   setShowLogoutModal(showLogoutModal: boolean): void {
     this.modalSlice.set({ showLogoutModal })
+  }
+
+  setUpdateModal(show: boolean, info?: UpdateInfo): void {
+    this.modalSlice.setUpdateModal(show, info)
+  }
+
+  dismissUpdateModal(): void {
+    const state = this.modalSlice.getState()
+    if (state.updateInfo?.latestVersion) {
+      dismissUpdate(state.updateInfo.latestVersion)
+    }
+    this.modalSlice.setUpdateModal(false)
   }
 
   setConfigStep(configStep: ConfigStep | null): void {

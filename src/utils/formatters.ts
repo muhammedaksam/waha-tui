@@ -2,8 +2,8 @@ import type { TextChunk } from "@opentui/core"
 
 import { fg } from "@opentui/core"
 
-import { Icons, WhatsAppTheme } from "../config/theme"
-import { debugLog } from "./debug"
+import { Icons, WhatsAppTheme } from "~/config/theme"
+import { debugLog } from "~/utils/debug"
 
 /**
  * Formatting Utilities

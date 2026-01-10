@@ -5,8 +5,8 @@
 
 import { Box, Text, TextAttributes } from "@opentui/core"
 
-import { appState } from "../state/AppState"
-import { getConnectionStatusIcon } from "../utils/formatters"
+import { appState } from "~/state/AppState"
+import { getConnectionStatusIcon } from "~/utils/formatters"
 
 export function SessionsView() {
   const state = appState.getState()

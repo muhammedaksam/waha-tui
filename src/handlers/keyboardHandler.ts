@@ -6,7 +6,7 @@
 import type { ChatSummary } from "@muhammedaksam/waha-node"
 import type { KeyEvent } from "@opentui/core"
 
-import type { AppState } from "../state/AppState"
+import type { AppState } from "~/state/AppState"
 import {
   deleteSession,
   fetchMyProfile,
@@ -19,32 +19,33 @@ import {
   markActivity,
   startPresenceManagement,
   stopPresenceManagement,
-} from "../client"
-import { getSelectedMenuItem, handleContextMenuKey } from "../components/ContextMenu"
-import { saveSettings } from "../config/manager"
-import { executeContextMenuAction } from "../handlers"
-import { webSocketService } from "../services/WebSocketService"
-import { appState } from "../state/AppState"
-import { calculateChatListScrollOffset } from "../utils/chatListScroll"
-import { debugLog } from "../utils/debug"
-import { filterChats, isArchived } from "../utils/filterChats"
-import { getChatIdString } from "../utils/formatters"
-import { chatListManager } from "../views/ChatListManager"
-import { blurSearchInput, clearSearchInput, focusSearchInput } from "../views/ChatsView"
+} from "~/client"
+import { getSelectedMenuItem, handleContextMenuKey } from "~/components/ContextMenu"
+import { handleLogoutConfirm } from "~/components/Modal"
+import { saveSettings } from "~/config/manager"
+import { executeContextMenuAction } from "~/handlers"
+import { webSocketService } from "~/services/WebSocketService"
+import { appState } from "~/state/AppState"
+import { calculateChatListScrollOffset } from "~/utils/chatListScroll"
+import { debugLog } from "~/utils/debug"
+import { filterChats, isArchived } from "~/utils/filterChats"
+import { getChatIdString } from "~/utils/formatters"
+import { chatListManager } from "~/views/ChatListManager"
+import { blurSearchInput, clearSearchInput, focusSearchInput } from "~/views/ChatsView"
 import {
   blurMessageInput,
   destroyConversationScrollBox,
   focusMessageInput,
   scrollConversation,
-} from "../views/ConversationView"
+} from "~/views/ConversationView"
 import {
   handlePhoneBackspace,
   handlePhoneInput,
   submitPhoneNumber,
   toggleAuthMode,
-} from "../views/QRCodeView"
-import { createNewSession } from "../views/SessionCreate"
-import { getSettingsMenuItems } from "../views/SettingsView"
+} from "~/views/QRCodeView"
+import { createNewSession } from "~/views/SessionCreate"
+import { getSettingsMenuItems } from "~/views/SettingsView"
 
 /**
  * Context for keyboard handler operations
@@ -86,27 +87,6 @@ async function handleContextMenuKeys(
     return true
   }
   return false
-}
-
-/**
- * Handle modal keyboard input (logout modal, etc.)
- * Returns true if the key was handled
- */
-async function handleModalKeys(key: KeyEvent, state: AppState): Promise<boolean> {
-  if (!state.showLogoutModal) return false
-
-  if (key.name === "escape") {
-    appState.setShowLogoutModal(false)
-    return true
-  }
-  if (key.name === "return" || key.name === "enter") {
-    appState.setShowLogoutModal(false)
-    await logoutSession()
-    appState.setCurrentView("sessions")
-    return true
-  }
-  // Block other keys when modal is visible
-  return true
 }
 
 /**
@@ -544,7 +524,7 @@ async function handleSettingsViewKeys(key: KeyEvent, state: AppState): Promise<b
 
       if (selectedItem === "logout") {
         debugLog("Settings", "Logout selected - showing confirmation")
-        appState.setShowLogoutModal(true)
+        await handleLogoutConfirm()
       } else if (selectedItem) {
         appState.setSettingsPage(selectedItem)
         appState.setSettingsSubIndex(0)
@@ -737,9 +717,8 @@ export async function handleKeyPress(key: KeyEvent, context: KeyHandlerContext):
     markActivity()
   }
 
-  // Priority handlers (context menu, modal)
+  // Priority handlers (context menu)
   if (await handleContextMenuKeys(key, state, context.renderApp)) return
-  if (await handleModalKeys(key, state)) return
 
   // View-specific handlers
   if (await handleQRViewKeys(key, state)) return

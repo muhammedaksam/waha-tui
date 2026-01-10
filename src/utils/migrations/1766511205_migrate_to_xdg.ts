@@ -9,7 +9,7 @@ import { copyFile, mkdir, readdir, rm } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 
-import { debugLog } from "../debug"
+import { debugLog } from "~/utils/debug"
 
 export const name = "migrate_to_xdg"
 

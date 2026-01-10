@@ -1,6 +1,6 @@
 import type { QRCode } from "qrcode"
 
-import { SliceActions, StateSlice } from "./types"
+import { SliceActions, StateSlice } from "~/state/slices/types"
 
 export type AuthMode = "qr" | "phone"
 export type PairingStatus = "idle" | "requesting" | "success" | "error"

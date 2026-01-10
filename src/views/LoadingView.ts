@@ -5,8 +5,8 @@
 
 import { Box, Text, TextAttributes } from "@opentui/core"
 
-import { Logo } from "../components/Logo"
-import { Icons, WhatsAppTheme } from "../config/theme"
+import { Logo } from "~/components/Logo"
+import { Icons, WhatsAppTheme } from "~/config/theme"
 
 /**
  * Loading View Component

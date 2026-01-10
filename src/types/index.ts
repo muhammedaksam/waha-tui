@@ -1,2 +1,2 @@
-export * from "./common"
-export * from "./WAMessageExtended"
+export * from "~/types/common"
+export * from "~/types/WAMessageExtended"

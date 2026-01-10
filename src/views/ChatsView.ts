@@ -15,21 +15,21 @@ import {
   TextRenderable,
 } from "@opentui/core"
 
-import type { ActiveFilter } from "../state/AppState"
-import { Logo } from "../components/Logo"
-import { Icons, WhatsAppTheme } from "../config/theme"
-import { appState } from "../state/AppState"
-import { getRenderer } from "../state/RendererContext"
-import { startNewChat } from "../utils/createChat"
-import { debugLog } from "../utils/debug"
+import type { ActiveFilter } from "~/state/AppState"
+import { Logo } from "~/components/Logo"
+import { Icons, WhatsAppTheme } from "~/config/theme"
+import { appState } from "~/state/AppState"
+import { getRenderer } from "~/state/RendererContext"
+import { startNewChat } from "~/utils/createChat"
+import { debugLog } from "~/utils/debug"
 import {
   flattenSearchResults,
   getSectionBoundaries,
   searchChatsWithSections,
-} from "../utils/enhancedSearch"
-import { countUnreadInArchived, filterChats, isArchived } from "../utils/filterChats"
-import { looksLikePhoneNumber, validateWhatsAppNumber } from "../utils/phoneValidation"
-import { chatListManager } from "./ChatListManager"
+} from "~/utils/enhancedSearch"
+import { countUnreadInArchived, filterChats, isArchived } from "~/utils/filterChats"
+import { looksLikePhoneNumber, validateWhatsAppNumber } from "~/utils/phoneValidation"
+import { chatListManager } from "~/views/ChatListManager"
 
 // Module-level search input component for focus management
 let searchInputComponent: InputRenderable | null = null

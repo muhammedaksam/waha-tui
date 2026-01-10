@@ -3,9 +3,9 @@
  * Provides retry logic with exponential backoff for API calls
  */
 
-import type { AppError } from "./ErrorService"
-import { debugLog } from "../utils/debug"
-import { errorService } from "./ErrorService"
+import type { AppError } from "~/services/ErrorService"
+import { errorService } from "~/services/ErrorService"
+import { debugLog } from "~/utils/debug"
 
 /**
  * Configuration for retry behavior

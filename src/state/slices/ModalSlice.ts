@@ -1,7 +1,9 @@
 import type { ChatSummary, WAMessage } from "@muhammedaksam/waha-node"
 
-import type { WAMessageExtended } from "../../types"
-import { SliceActions, StateSlice } from "./types"
+import type { WAMessageExtended } from "~/types"
+import type { UpdateInfo } from "~/utils/update-checker"
+import { TIME_MS } from "~/constants"
+import { SliceActions, StateSlice } from "~/state/slices/types"
 
 // Context menu types
 export type ContextMenuType = "chat" | "message" | null
@@ -38,6 +40,8 @@ export interface ToastState {
 export interface ModalState {
   contextMenu: ContextMenuState | null
   showLogoutModal: boolean
+  showUpdateModal: boolean
+  updateInfo: UpdateInfo | null
   toast: ToastState | null
   configStep: ConfigStep | null
 }
@@ -45,6 +49,8 @@ export interface ModalState {
 export const initialModalState: ModalState = {
   contextMenu: null,
   showLogoutModal: false,
+  showUpdateModal: false,
+  updateInfo: null,
   toast: null,
   configStep: null,
 }
@@ -66,6 +72,7 @@ export interface ModalActions extends SliceActions<ModalState> {
 
   // Modals
   setShowLogoutModal(showLogoutModal: boolean): void
+  setUpdateModal(show: boolean, info?: UpdateInfo): void
   setConfigStep(configStep: ConfigStep | null): void
 
   // Toast
@@ -165,6 +172,15 @@ export function createModalSlice(): StateSlice<ModalState> & ModalActions {
       notify()
     },
 
+    setUpdateModal(show: boolean, info?: UpdateInfo) {
+      state = {
+        ...state,
+        showUpdateModal: show,
+        updateInfo: info || state.updateInfo,
+      }
+      notify()
+    },
+
     setConfigStep(configStep: ConfigStep | null) {
       state = { ...state, configStep }
       notify()
@@ -173,7 +189,7 @@ export function createModalSlice(): StateSlice<ModalState> & ModalActions {
     showToast(
       message: string,
       type: "error" | "warning" | "success" | "info" = "info",
-      autoDismissMs: number = 5000
+      autoDismissMs: number = TIME_MS.TOAST_DEFAULT_AUTO_DISMISS
     ) {
       state = {
         ...state,

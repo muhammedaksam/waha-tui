@@ -5,10 +5,10 @@
 
 import { Box, Text, TextAttributes } from "@opentui/core"
 
-import type { ActiveIcon } from "../state/AppState"
-import { Icons, Layout, WhatsAppTheme } from "../config/theme"
-import { appState } from "../state/AppState"
-import { getInitials } from "../utils/formatters"
+import type { ActiveIcon } from "~/state/AppState"
+import { Icons, Layout, WhatsAppTheme } from "~/config/theme"
+import { appState } from "~/state/AppState"
+import { getInitials } from "~/utils/formatters"
 
 export function IconSidebar() {
   const state = appState.getState()

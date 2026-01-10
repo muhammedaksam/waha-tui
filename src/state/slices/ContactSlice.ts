@@ -1,6 +1,6 @@
 import type { MyProfile } from "@muhammedaksam/waha-node"
 
-import { SliceActions, StateSlice } from "./types"
+import { SliceActions, StateSlice } from "~/state/slices/types"
 
 export interface ContactState {
   contactsCache: Map<string, string> // Maps contact ID to name

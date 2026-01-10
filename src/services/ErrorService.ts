@@ -3,7 +3,8 @@
  * Centralized error handling, classification, and reporting
  */
 
-import { debugLog } from "../utils/debug"
+import { BaseAppError } from "~/services/Errors"
+import { debugLog } from "~/utils/debug"
 
 /**
  * Error severity levels
@@ -87,6 +88,15 @@ class ErrorService {
    */
   classify(error: unknown, context?: Record<string, unknown>): AppError {
     const timestamp = new Date()
+
+    // Handle custom error classes first
+    if (error instanceof BaseAppError) {
+      const appError = error.toAppError()
+      if (context) {
+        appError.context = { ...appError.context, ...context }
+      }
+      return appError
+    }
 
     // Handle axios/fetch network errors
     if (this.isNetworkError(error)) {

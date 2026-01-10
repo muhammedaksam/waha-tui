@@ -3,9 +3,10 @@
  * Functions for session presence and activity management
  */
 
-import { appState } from "../state/AppState"
-import { debugLog } from "../utils/debug"
-import { getClient, getSession } from "./core"
+import { getClient, getSession } from "~/client/core"
+import { TIME_MS } from "~/constants"
+import { appState } from "~/state/AppState"
+import { debugLog } from "~/utils/debug"
 
 // State for presence management
 let lastActivityTime = Date.now()
@@ -83,28 +84,28 @@ export function startPresenceManagement(chatId: string): void {
   subscribeToPresence(chatId)
 
   // Set up re-subscription every 5 minutes (300000ms)
-  resubscribeInterval = setInterval(
-    () => {
-      const state = appState.getState()
-      if (state.currentChatId === chatId) {
-        debugLog("Presence", `Re-subscribing to presence for: ${chatId}`)
-        subscribeToPresence(chatId)
-      }
-    },
-    5 * 60 * 1000
-  )
+  resubscribeInterval = setInterval(() => {
+    const state = appState.getState()
+    if (state.currentChatId === chatId) {
+      debugLog("Presence", `Re-subscribing to presence for: ${chatId}`)
+      subscribeToPresence(chatId)
+    }
+  }, TIME_MS.PRESENCE_RESUBSCRIBE_INTERVAL)
 
   // Set up activity check - go offline after 30 seconds of inactivity
   presenceInterval = setInterval(() => {
     const now = Date.now()
     const inactiveDuration = now - lastActivityTime
 
-    if (inactiveDuration > 30000 && currentPresenceStatus === "online") {
+    if (
+      inactiveDuration > TIME_MS.PRESENCE_INACTIVITY_TIMEOUT &&
+      currentPresenceStatus === "online"
+    ) {
       // 30 seconds of inactivity
       debugLog("Presence", "Inactivity timeout - going offline")
       setSessionPresence("offline")
     }
-  }, 5000) // Check every 5 seconds
+  }, TIME_MS.PRESENCE_ACTIVITY_CHECK_INTERVAL) // Check every 5 seconds
 }
 
 /**

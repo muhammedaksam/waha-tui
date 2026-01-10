@@ -3,9 +3,9 @@
  * Centralized settings loading and management
  */
 
-import { getSettings } from "../config/manager"
-import { appState } from "../state/AppState"
-import { debugLog } from "../utils/debug"
+import { getSettings } from "~/config/manager"
+import { appState } from "~/state/AppState"
+import { debugLog } from "~/utils/debug"
 
 /**
  * Load saved settings from config and apply to app state

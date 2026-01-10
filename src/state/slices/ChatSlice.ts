@@ -1,8 +1,8 @@
 import type { ChatSummary, GroupParticipant, WAHAChatPresences } from "@muhammedaksam/waha-node"
 
-import { debugLog } from "../../utils/debug"
-import { normalizeId } from "../../utils/formatters"
-import { SliceActions, StateSlice } from "./types"
+import { SliceActions, StateSlice } from "~/state/slices/types"
+import { debugLog } from "~/utils/debug"
+import { normalizeId } from "~/utils/formatters"
 
 export interface ChatState {
   currentChatId: string | null
@@ -139,14 +139,36 @@ export function createChatSlice(): StateSlice<ChatState> & ChatActions {
         return normalizeId(c.id) === normalizeId(chatId)
       })
 
-      if (chatIndex === -1) return
+      if (chatIndex === -1) {
+        debugLog("ChatSlice", `Chat not found for ID: ${chatId}`)
+        return
+      }
 
       const chat = state.chats[chatIndex]
       const lastMessage = chat.lastMessage as Record<string, unknown> | undefined
-      if (!lastMessage) return
+      if (!lastMessage) {
+        debugLog("ChatSlice", `No lastMessage for chat: ${chatId}`)
+        return
+      }
+
+      // Extract serialized ID from lastMessage.id (could be string or object with _serialized)
+      const lastMessageId =
+        typeof lastMessage.id === "string"
+          ? lastMessage.id
+          : (lastMessage.id as { _serialized?: string })?._serialized || String(lastMessage.id)
+
+      debugLog("ChatSlice", `Updating ack for chat ${chatId}:`)
+      debugLog("ChatSlice", `  Message ID from event: ${messageId}`)
+      debugLog("ChatSlice", `  Last message ID (serialized): ${lastMessageId}`)
+      debugLog("ChatSlice", `  Match: ${lastMessageId === messageId}`)
+      debugLog("ChatSlice", `  New ack: ${ack} (${ackName})`)
+      debugLog("ChatSlice", `  Current ack: ${lastMessage.ack}`)
 
       // Only update if this is the last message of the chat
-      if (lastMessage.id !== messageId) return
+      if (lastMessageId !== messageId) {
+        debugLog("ChatSlice", `Message ID mismatch, skipping ack update`)
+        return
+      }
 
       // Create updated chat with new ack
       const updatedLastMessage = { ...lastMessage, ack, ackName }
@@ -154,6 +176,8 @@ export function createChatSlice(): StateSlice<ChatState> & ChatActions {
 
       const newChats = [...state.chats]
       newChats[chatIndex] = updatedChat
+
+      debugLog("ChatSlice", `Ack updated successfully to ${ack}`)
 
       state = { ...state, chats: newChats }
       notify()

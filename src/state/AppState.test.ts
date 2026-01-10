@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, mock } from "bun:test"
 // So we'll create a fresh instance for testing using a factory pattern
 // First, let's test the exported appState singleton's behavior
 
-import { appState } from "./AppState"
+import { appState } from "~/state/AppState"
 
 describe("AppState", () => {
   beforeEach(() => {
@@ -72,6 +72,21 @@ describe("AppState", () => {
     it("should set lastChangeType to view", () => {
       appState.setCurrentView("chats")
       expect(appState.getState().lastChangeType).toBe("view")
+    })
+
+    it("should update activeIcon when switching to settings", () => {
+      appState.setCurrentView("settings")
+      expect(appState.getState().activeIcon).toBe("settings")
+    })
+
+    it("should update activeIcon when switching to chats", () => {
+      // First switch to settings
+      appState.setCurrentView("settings")
+      expect(appState.getState().activeIcon).toBe("settings")
+
+      // Then back to chats
+      appState.setCurrentView("chats")
+      expect(appState.getState().activeIcon).toBe("chats")
     })
   })
 

@@ -3,8 +3,8 @@
  * Validates and checks if a phone number exists on WhatsApp via WAHA API
  */
 
-import { getClient } from "../client"
-import { debugLog } from "./debug"
+import { getClient } from "~/client"
+import { debugLog } from "~/utils/debug"
 
 /**
  * Check if a string looks like a phone number

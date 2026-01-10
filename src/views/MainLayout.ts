@@ -10,12 +10,12 @@
 
 import { Box, BoxRenderable, ProxiedVNode, Renderable, TextRenderable } from "@opentui/core"
 
-import { WhatsAppTheme } from "../config/theme"
-import { appState } from "../state/AppState"
-import { ChatsView } from "./ChatsView"
-import { ConversationView } from "./ConversationView"
-import { IconSidebar } from "./IconSidebar"
-import { WelcomeView } from "./WelcomeView"
+import { WhatsAppTheme } from "~/config/theme"
+import { appState } from "~/state/AppState"
+import { ChatsView } from "~/views/ChatsView"
+import { ConversationView } from "~/views/ConversationView"
+import { IconSidebar } from "~/views/IconSidebar"
+import { WelcomeView } from "~/views/WelcomeView"
 
 type LayoutChild =
   | ProxiedVNode<typeof BoxRenderable>

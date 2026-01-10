@@ -11,10 +11,10 @@ export {
   formatDateSeparator,
   DaySeparator,
   centerText,
-} from "./MessageHelpers"
+} from "~/views/conversation/MessageHelpers"
 
 // Reply context
-export { renderReplyContext } from "./ReplyContext"
+export { renderReplyContext } from "~/views/conversation/ReplyContext"
 
 // Message rendering
-export { renderMessage, renderReactions } from "./MessageRenderer"
+export { renderMessage, renderReactions } from "~/views/conversation/MessageRenderer"

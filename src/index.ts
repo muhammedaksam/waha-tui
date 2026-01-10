@@ -6,7 +6,7 @@ import type { CliRenderer, KeyEvent } from "@opentui/core"
 
 import { createCliRenderer } from "@opentui/core"
 
-import type { WahaTuiConfig } from "./config/schema"
+import type { WahaTuiConfig } from "~/config/schema"
 import {
   fetchMyProfile,
   getClient,
@@ -16,28 +16,29 @@ import {
   loadSessions,
   stopPresenceManagement,
   testConnection,
-} from "./client"
-import { UpdateAvailableModal } from "./components/Modal"
-import { errorToToast } from "./components/Toast"
-import { configExists, createDefaultConfig, loadConfig, saveConfig } from "./config/manager"
-import { validateConfig } from "./config/schema"
-import { executeContextMenuAction, handleKeyPress } from "./handlers"
-import { loadSavedSettings } from "./handlers/settingsHandler"
-import { createRenderApp } from "./router"
-import { errorService } from "./services/ErrorService"
-import { webSocketService } from "./services/WebSocketService"
-import { appState } from "./state/AppState"
-import { setRenderer } from "./state/RendererContext"
-import { debugLog, initDebug } from "./utils/debug"
-import { runMigrations } from "./utils/migrations"
-import { checkForUpdates } from "./utils/update-checker"
+} from "~/client"
+import { showUpdateModal } from "~/components/Modal"
+import { errorToToast } from "~/components/Toast"
+import { configExists, createDefaultConfig, loadConfig, saveConfig } from "~/config/manager"
+import { DEFAULT_ENV, validateConfig } from "~/config/schema"
+import { DEFAULTS, TIME_MS } from "~/constants"
+import { executeContextMenuAction, handleKeyPress } from "~/handlers"
+import { loadSavedSettings } from "~/handlers/settingsHandler"
+import { createRenderApp } from "~/router"
+import { errorService } from "~/services/ErrorService"
+import { webSocketService } from "~/services/WebSocketService"
+import { appState } from "~/state/AppState"
+import { setRenderer } from "~/state/RendererContext"
+import { debugLog, initDebug } from "~/utils/debug"
+import { runMigrations } from "~/utils/migrations"
+import { checkForUpdates } from "~/utils/update-checker"
 import {
   ConfigView,
   destroyConfigInputs,
   getApiKeyInputValue,
   getUrlInputValue,
-} from "./views/ConfigView"
-import { showQRCode } from "./views/QRCodeView"
+} from "~/views/ConfigView"
+import { showQRCode } from "~/views/QRCodeView"
 
 /**
  * Run the configuration wizard using the TUI
@@ -56,6 +57,9 @@ async function runConfigWizard(renderer: CliRenderer): Promise<void> {
 
     // Initial render
     renderConfigView()
+
+    // Declare cleanup function before use
+    let removeKeyListener: () => void = () => {}
 
     // Subscribe to state changes for re-rendering and handling step transitions
     const unsubscribe = appState.subscribe(async () => {
@@ -83,9 +87,10 @@ async function runConfigWizard(renderer: CliRenderer): Promise<void> {
           // Wait a moment to show success, then resolve
           setTimeout(() => {
             destroyConfigInputs()
+            removeKeyListener()
             unsubscribe()
             resolve()
-          }, 1500)
+          }, TIME_MS.CONFIG_SUCCESS_DELAY)
         } else {
           appState.setConfigStep({
             ...state.configStep,
@@ -116,6 +121,21 @@ async function runConfigWizard(renderer: CliRenderer): Promise<void> {
     }
 
     renderer.keyInput.on("keypress", handleErrorRetry)
+
+    // Cleanup function to remove listeners
+    removeKeyListener = () => {
+      renderer.keyInput.off("keypress", handleErrorRetry)
+    }
+
+    // Cleanup on view change
+    const unsubscribeViewChange = appState.subscribe((state) => {
+      if (state.currentView !== "config") {
+        destroyConfigInputs()
+        removeKeyListener()
+        unsubscribe()
+        unsubscribeViewChange()
+      }
+    })
   })
 }
 
@@ -126,8 +146,7 @@ async function main() {
 
   // Register toast listener for error notifications
   errorService.subscribe((error) => {
-    const toast = errorToToast(error)
-    appState.showToast(toast.message, toast.type)
+    errorToToast(error)
   })
 
   // Run migrations (e.g., move config from ~/.waha-tui to XDG location)
@@ -146,6 +165,8 @@ async function main() {
     isCleanedUp = true
 
     try {
+      debugLog("Shutdown", "Starting cleanup...")
+
       // Stop presence management
       stopPresenceManagement()
 
@@ -156,29 +177,46 @@ async function main() {
       if (renderer && typeof renderer.destroy === "function") {
         renderer.destroy()
       }
+
+      debugLog("Shutdown", "Cleanup completed")
     } catch (error) {
-      debugLog("App", `Error during cleanup: ${error}`)
+      debugLog("Shutdown", `Error during cleanup: ${error}`)
+      errorService.handle(error, { log: true, notify: false })
     }
   }
 
   // Register cleanup handlers for various exit scenarios
-  process.on("exit", cleanup)
+  process.on("exit", () => {
+    debugLog("Shutdown", "Process exit event")
+    cleanup()
+    process.exit(0)
+  })
   process.on("SIGINT", () => {
+    debugLog("Shutdown", "SIGINT received")
     cleanup()
     process.exit(0)
   })
   process.on("SIGTERM", () => {
+    debugLog("Shutdown", "SIGTERM received")
     cleanup()
     process.exit(0)
   })
   process.on("uncaughtException", (error) => {
+    errorService.handle(error, {
+      log: true,
+      notify: true,
+      context: { type: "uncaughtException" },
+    })
     cleanup()
-    console.error("Uncaught exception:", error)
     process.exit(1)
   })
   process.on("unhandledRejection", (reason) => {
+    errorService.handle(reason, {
+      log: true,
+      notify: true,
+      context: { type: "unhandledRejection" },
+    })
     cleanup()
-    console.error("Unhandled rejection:", reason)
     process.exit(1)
   })
 
@@ -212,7 +250,7 @@ async function main() {
     appState.setCurrentView("config")
     appState.setConfigStep({
       step: 1,
-      wahaUrl: "http://localhost:3000",
+      wahaUrl: DEFAULT_ENV.wahaUrl,
       wahaApiKey: "",
       status: "input",
     })
@@ -257,7 +295,7 @@ async function main() {
   await loadSessions()
 
   // Default session name for free WAHA users
-  const DEFAULT_SESSION = "default"
+  const DEFAULT_SESSION = DEFAULTS.SESSION_NAME
 
   // Check if we have a working session
   const currentState = appState.getState()
@@ -296,12 +334,7 @@ async function main() {
   try {
     const updateInfo = await checkForUpdates()
     if (updateInfo.updateAvailable) {
-      UpdateAvailableModal({
-        updateInfo: updateInfo,
-        onDismiss: () => {
-          renderApp(true)
-        },
-      })
+      showUpdateModal(updateInfo)
     }
   } catch (error) {
     debugLog("Update", `Error checking for updates: ${error}`)

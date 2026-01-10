@@ -1,6 +1,6 @@
 import type { WAMessage } from "@muhammedaksam/waha-node"
 
-import type { ContextMenuState } from "../state/AppState"
+import type { ContextMenuState } from "~/state/AppState"
 import {
   archiveChat,
   copyToClipboard,
@@ -13,10 +13,10 @@ import {
   reactToMessage,
   starMessage,
   unarchiveChat,
-} from "../client"
-import { appState } from "../state/AppState"
-import { debugLog } from "../utils/debug"
-import { focusMessageInput } from "../views/ConversationView"
+} from "~/client"
+import { appState } from "~/state/AppState"
+import { debugLog } from "~/utils/debug"
+import { focusMessageInput } from "~/views/ConversationView"
 
 /**
  * Context Menu Actions Handler

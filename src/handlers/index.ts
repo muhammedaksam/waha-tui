@@ -2,7 +2,7 @@
  * Handlers Barrel Export
  */
 
-export { executeContextMenuAction } from "./ContextMenuActions"
-export { handleKeyPress } from "./keyboardHandler"
-export type { KeyHandlerContext } from "./keyboardHandler"
-export { loadSavedSettings } from "./settingsHandler"
+export { executeContextMenuAction } from "~/handlers/ContextMenuActions"
+export { handleKeyPress } from "~/handlers/keyboardHandler"
+export type { KeyHandlerContext } from "~/handlers/keyboardHandler"
+export { loadSavedSettings } from "~/handlers/settingsHandler"

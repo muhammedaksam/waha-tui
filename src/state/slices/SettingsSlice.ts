@@ -1,4 +1,4 @@
-import { SliceActions, StateSlice } from "./types"
+import { SliceActions, StateSlice } from "~/state/slices/types"
 
 export type SettingsPage =
   | "main"

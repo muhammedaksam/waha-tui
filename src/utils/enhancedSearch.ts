@@ -5,7 +5,7 @@
 
 import type { ChatSummary } from "@muhammedaksam/waha-node"
 
-import { getChatIdString, isGroupChat } from "./formatters"
+import { getChatIdString, isGroupChat } from "~/utils/formatters"
 
 export type SearchSection = "chats" | "contacts" | "messages"
 
