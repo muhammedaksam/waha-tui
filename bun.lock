@@ -6,6 +6,7 @@
       "name": "@muhammedaksam/waha-tui",
       "dependencies": {
         "@muhammedaksam/waha-node": "^2026.1.1",
+        "@opentui-ui/dialog": "^0.0.4",
         "@opentui-ui/toast": "^0.0.5",
         "@opentui/core": "^0.1.72",
         "node-notifier": "^10.0.1",
@@ -181,6 +182,8 @@
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
     "@muhammedaksam/waha-node": ["@muhammedaksam/waha-node@2026.1.1", "", { "dependencies": { "axios": "^1.13.2" } }, "sha512-navxEUeNHAFIZZ/qrjbZo06MlTTbef0EIdJP9MFvPr2A8eEMr2tZIxmKcAdtO/8ERAJhoR5usZM701QN58JKeg=="],
+
+    "@opentui-ui/dialog": ["@opentui-ui/dialog@0.0.4", "", { "peerDependencies": { "@opentui/core": "^0.1.65", "@opentui/react": "^0.1.65", "@opentui/solid": "^0.1.65" }, "optionalPeers": ["@opentui/react", "@opentui/solid"] }, "sha512-b/2ZEu8QBquqO2Ww2oa5i0jiN4CcZ2nzrbRPOQpQem+C+8B82DCOjEr1pgDU+lMDX56Dj9qEr3orIUs8lmyg0A=="],
 
     "@opentui-ui/toast": ["@opentui-ui/toast@0.0.5", "", { "peerDependencies": { "@opentui/core": "^0.1.63", "@opentui/react": "^0.1.63", "@opentui/solid": "^0.1.63" }, "optionalPeers": ["@opentui/react", "@opentui/solid"] }, "sha512-LOT5Bw0F5AEyhjSqpKgS7aSe7M7v+ahaAa4t3/K2dtWiT0CJ711UHXqM31KKN6yuHoUKRNs+g+643ety/a3lEw=="],
 

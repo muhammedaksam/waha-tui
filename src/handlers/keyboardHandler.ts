@@ -21,6 +21,7 @@ import {
   stopPresenceManagement,
 } from "../client"
 import { getSelectedMenuItem, handleContextMenuKey } from "../components/ContextMenu"
+import { handleLogoutConfirm } from "../components/Modal"
 import { saveSettings } from "../config/manager"
 import { executeContextMenuAction } from "../handlers"
 import { webSocketService } from "../services/WebSocketService"
@@ -86,27 +87,6 @@ async function handleContextMenuKeys(
     return true
   }
   return false
-}
-
-/**
- * Handle modal keyboard input (logout modal, etc.)
- * Returns true if the key was handled
- */
-async function handleModalKeys(key: KeyEvent, state: AppState): Promise<boolean> {
-  if (!state.showLogoutModal) return false
-
-  if (key.name === "escape") {
-    appState.setShowLogoutModal(false)
-    return true
-  }
-  if (key.name === "return" || key.name === "enter") {
-    appState.setShowLogoutModal(false)
-    await logoutSession()
-    appState.setCurrentView("sessions")
-    return true
-  }
-  // Block other keys when modal is visible
-  return true
 }
 
 /**
@@ -544,7 +524,7 @@ async function handleSettingsViewKeys(key: KeyEvent, state: AppState): Promise<b
 
       if (selectedItem === "logout") {
         debugLog("Settings", "Logout selected - showing confirmation")
-        appState.setShowLogoutModal(true)
+        await handleLogoutConfirm()
       } else if (selectedItem) {
         appState.setSettingsPage(selectedItem)
         appState.setSettingsSubIndex(0)
@@ -737,9 +717,8 @@ export async function handleKeyPress(key: KeyEvent, context: KeyHandlerContext):
     markActivity()
   }
 
-  // Priority handlers (context menu, modal)
+  // Priority handlers (context menu)
   if (await handleContextMenuKeys(key, state, context.renderApp)) return
-  if (await handleModalKeys(key, state)) return
 
   // View-specific handlers
   if (await handleQRViewKeys(key, state)) return

@@ -3,7 +3,7 @@
  * WhatsApp-style settings interface
  */
 
-import { Box, BoxRenderable, Text, TextAttributes, TextRenderable } from "@opentui/core"
+import { Box, BoxRenderable, link, t, Text, TextAttributes, TextRenderable } from "@opentui/core"
 
 import type { SettingsPage } from "../state/AppState"
 import { Logo } from "../components/Logo"
@@ -415,20 +415,14 @@ function KeyboardShortcutsPage() {
 function HelpAboutPage() {
   const state = appState.getState()
   const renderer = getRenderer()
+  const githubUrl = "https://github.com/muhammedaksam/waha-tui"
 
-  // Create clickable GitHub link
+  // Create clickable GitHub link using OSC 8
   const githubLink = new BoxRenderable(renderer, {
     id: "github-link",
     paddingLeft: 2,
     height: 2,
     flexDirection: "row",
-    onMouse(event: { type: string; button: number; stopPropagation: () => void }) {
-      if (event.type === "down" && event.button === 0) {
-        // Open GitHub URL in browser
-        Bun.spawn(["xdg-open", "https://github.com/muhammedaksam/waha-tui"])
-        event.stopPropagation()
-      }
-    },
   })
 
   githubLink.add(
@@ -440,9 +434,8 @@ function HelpAboutPage() {
 
   githubLink.add(
     new TextRenderable(renderer, {
-      content: "github.com/muhammedaksam/waha-tui",
+      content: t`${link(githubUrl)("github.com/muhammedaksam/waha-tui")}`,
       fg: WhatsAppTheme.blue,
-      attributes: TextAttributes.UNDERLINE,
     })
   )
 
