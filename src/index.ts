@@ -146,8 +146,7 @@ async function main() {
 
   // Register toast listener for error notifications
   errorService.subscribe((error) => {
-    const toast = errorToToast(error)
-    appState.showToast(toast.message, toast.type)
+    errorToToast(error)
   })
 
   // Run migrations (e.g., move config from ~/.waha-tui to XDG location)
