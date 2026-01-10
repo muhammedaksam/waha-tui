@@ -121,6 +121,20 @@ export function filterChats(
       break
   }
 
+  // Sort: pinned chats always stay at the top, then by timestamp
+  filtered.sort((a, b) => {
+    const aPinned = isPinned(a)
+    const bPinned = isPinned(b)
+
+    // If pinned status differs, pinned comes first
+    if (aPinned && !bPinned) return -1
+    if (!aPinned && bPinned) return 1
+
+    // Both pinned or both not pinned: sort by conversation timestamp (already sorted by API)
+    // Keep the original order (stable sort)
+    return 0
+  })
+
   return filtered
 }
 

@@ -180,12 +180,19 @@ export async function loadChats(): Promise<void> {
     debugLog("Chats", `Loading chats for session: ${session}`)
     const wahaClient = getClient()
 
-    const response = await withRetry(() => wahaClient.chats.chatsControllerGetChats(session, {}), {
-      ...RetryPresets.standard,
-      onRetry: (attempt, delay) => {
-        debugLog("Chats", `Retry attempt ${attempt}, waiting ${delay}ms...`)
-      },
-    })
+    const response = await withRetry(
+      () =>
+        wahaClient.chats.chatsControllerGetChats(session, {
+          sortBy: "conversationTimestamp",
+          sortOrder: "desc",
+        }),
+      {
+        ...RetryPresets.standard,
+        onRetry: (attempt, delay) => {
+          debugLog("Chats", `Retry attempt ${attempt}, waiting ${delay}ms...`)
+        },
+      }
+    )
 
     const chats = (response.data as unknown as ChatSummary[]) || []
     debugLog("Chats", `Loaded ${chats.length} chats`)

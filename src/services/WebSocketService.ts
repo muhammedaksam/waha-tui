@@ -14,8 +14,9 @@ import {
 } from "@muhammedaksam/waha-node"
 
 import type { WahaTuiConfig } from "~/config/schema"
-import { loadChats } from "~/client"
+import { loadChats, loadMessages } from "~/client"
 import { TIME_MS } from "~/constants"
+import { CacheKeys, cacheService } from "~/services/CacheService"
 import { WebSocketError } from "~/services/Errors"
 import { errorService } from "~/services/ErrorService"
 import { appState } from "~/state/AppState"
@@ -273,8 +274,8 @@ export class WebSocketService {
       case "session.status":
         this.handleSessionStatus(data as WAHAWebhookSessionStatus)
         break
-      case "message":
-        await this.handleMessageEvent(data as WAHAWebhookMessage)
+      case "message.any":
+        await this.handleMessageEvent(data as WAHAWebhookMessage | WAHAWebhookMessageAny)
         break
       case "message.ack":
         this.handleMessageAck(data as WAHAWebhookMessageAck)
@@ -316,12 +317,38 @@ export class WebSocketService {
 
     // If we are currently viewing this chat, append the message
     const state = appState.getState()
+    const session = state.currentSession
+
     if (state.currentChatId === chatId) {
       debugLog("WebSocket", `New message in current chat: ${chatId}`)
       appState.appendMessage(chatId, payload)
+
+      // For messages from other devices (fromMe messages while viewing the chat),
+      // also reload to ensure sync
+      if (payload.fromMe) {
+        debugLog("WebSocket", `Message from another device, reloading messages for sync`)
+        setTimeout(() => {
+          loadMessages(chatId)
+        }, 100)
+      }
+
+      // Also update chat list to show new last message
+      if (session) {
+        cacheService.delete(CacheKeys.chats(session))
+        setTimeout(() => {
+          loadChats()
+        }, TIME_MS.SEND_MESSAGE_RELOAD_DELAY)
+      }
     } else {
       debugLog("WebSocket", `New message in other chat: ${chatId}`)
-      loadChats()
+      // Clear chat cache to force refresh with updated last message
+      // This handles both incoming messages and messages sent from other devices
+      if (session) {
+        cacheService.delete(CacheKeys.chats(session))
+        setTimeout(() => {
+          loadChats()
+        }, TIME_MS.SEND_MESSAGE_RELOAD_DELAY)
+      }
 
       // Send desktop notification for messages not from self
       if (!payload.fromMe) {
@@ -383,12 +410,20 @@ export class WebSocketService {
     // Determine chat ID: for outgoing messages (fromMe: true), use 'to'; for incoming, use 'from'
     const chatId = payload.fromMe ? payload.to : payload.from
 
+    debugLog("WebSocket", `Received ack event for message ${payload.id}`)
+    debugLog("WebSocket", `  Chat ID: ${chatId}`)
+    debugLog("WebSocket", `  From Me: ${payload.fromMe}`)
+    debugLog("WebSocket", `  Ack: ${payload.ack} (${payload.ackName})`)
+    debugLog("WebSocket", `  Current chat: ${state.currentChatId}`)
+
     // Update message ack in conversation view if it's the current chat
     if (state.currentChatId === chatId) {
+      debugLog("WebSocket", `  Updating message ack in conversation view`)
       appState.updateMessageAck(chatId, payload.id, payload.ack, payload.ackName)
     }
 
     // Always update the chat list's lastMessage ack for real-time read receipts
+    debugLog("WebSocket", `  Updating chat list lastMessage ack`)
     appState.updateChatLastMessageAck(chatId, payload.id, payload.ack, payload.ackName)
   }
 

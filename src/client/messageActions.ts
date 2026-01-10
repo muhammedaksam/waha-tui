@@ -7,7 +7,9 @@ import type { WAMessage } from "@muhammedaksam/waha-node"
 
 import type { ChatId, MessageId, WAMessageExtended } from "~/types"
 import { getClient, getSession } from "~/client/core"
+import { loadChats } from "~/client/sessionActions"
 import { TIME_MS, TIME_S } from "~/constants"
+import { CacheKeys, cacheService } from "~/services/CacheService"
 import { NetworkError } from "~/services/Errors"
 import { errorService } from "~/services/ErrorService"
 import { RetryPresets, withRetry } from "~/services/RetryService"
@@ -309,6 +311,12 @@ export async function sendMessage(
     appState.setReplyingToMessage(null)
 
     await loadMessages(chatId)
+    // Update chat list to show new last message after a brief delay
+    // to ensure WAHA backend has processed the message
+    setTimeout(() => {
+      cacheService.delete(CacheKeys.chats(session))
+      loadChats()
+    }, TIME_MS.SEND_MESSAGE_RELOAD_DELAY)
     appState.setIsSending(false)
   } catch (error) {
     debugLog("Messages", `Failed to send message: ${error}`)
