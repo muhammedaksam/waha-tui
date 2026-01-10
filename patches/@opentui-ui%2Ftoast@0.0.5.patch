@@ -7,7 +7,7 @@ index 6661a9c26501292b4c345dbac9532305e6d7211e..0fe3428590ee6f3be6761697613e0497
      "clean": "rm -rf dist"
    },
 +  "dependencies": {
-+    "@opentui/core": "^0.1.72",
++    "@opentui/core": "^0.1.70",
 +    "@opentui-ui/utils": "^0.0.1"
 +  },
    "devDependencies": {
