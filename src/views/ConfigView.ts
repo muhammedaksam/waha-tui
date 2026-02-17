@@ -163,7 +163,7 @@ export function ConfigView() {
         }),
         Box({ height: 1 }),
         Text({
-          content: "Press Enter to retry",
+          content: "Press Enter to retry, or Esc to change server",
           fg: WhatsAppTheme.textTertiary,
         })
       )
@@ -213,8 +213,15 @@ export function ConfigView() {
         }
 
         urlInputContainer.add(urlInputComponent)
-        urlInputComponent?.focus()
-        urlInputComponent?.gotoBufferEnd()
+      }
+
+      // Always focus when in this step
+      if (urlInputComponent) {
+        // Use setTimeout to ensure it happens after render cycle interactions
+        setTimeout(() => {
+          urlInputComponent?.focus()
+          urlInputComponent?.gotoBufferEnd()
+        }, 10)
       }
 
       return Box(
@@ -286,10 +293,10 @@ export function ConfigView() {
         }
 
         apiKeyInputContainer.add(apiKeyInputComponent)
-
-        // Auto-focus
-        setTimeout(() => apiKeyInputComponent?.focus(), 100)
       }
+
+      // Auto-focus always
+      setTimeout(() => apiKeyInputComponent?.focus(), 100)
 
       return Box(
         { flexDirection: "column", alignItems: "center", gap: 1 },
