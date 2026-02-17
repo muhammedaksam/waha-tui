@@ -115,8 +115,15 @@ async function runConfigWizard(renderer: CliRenderer): Promise<void> {
     const handleErrorRetry = (key: KeyEvent) => {
       const state = appState.getState()
       if (state.currentView !== "config" || !state.configStep) return
-      if (state.configStep.status === "error" && (key.name === "return" || key.name === "enter")) {
-        appState.setConfigStep({ ...state.configStep, step: 2, status: "input" })
+
+      if (state.configStep.status === "error") {
+        if (key.name === "return" || key.name === "enter") {
+          // Retry - go back to API Key input (Step 2)
+          appState.setConfigStep({ ...state.configStep, step: 2, status: "input" })
+        } else if (key.name === "escape") {
+          // Go back - go back to Server URL input (Step 1)
+          appState.setConfigStep({ ...state.configStep, step: 1, status: "input" })
+        }
       }
     }
 
