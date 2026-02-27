@@ -49,11 +49,17 @@ interface ChatRowData {
   ackText: TextRenderable | null
   messageText: TextRenderable
 }
-interface ExtendedChatSummary extends Omit<ChatSummary, "lastMessage"> {
+interface ExtendedChatSummary extends Omit<ChatSummary, "lastMessage" | "_chat"> {
   lastMessage?: {
     timestamp?: number
     id?: string
     [key: string]: unknown
+  }
+  unreadCount?: number | null
+  isMuted?: boolean
+  _chat?: {
+    unreadCount?: number | null
+    isMuted?: boolean
   }
 }
 
@@ -337,8 +343,9 @@ class ChatListManager {
     timeUnreadContainer.add(timeContainer)
 
     let unreadBadge: TextRenderable | null = null
-    if (chat.unreadCount && chat.unreadCount > 0) {
-      const count = chat.unreadCount > 20 ? "20+" : `${chat.unreadCount}`
+    const extChat = chat as unknown as ExtendedChatSummary
+    if (extChat.unreadCount && extChat.unreadCount > 0) {
+      const count = extChat.unreadCount > 20 ? "20+" : `${extChat.unreadCount}`
       unreadBadge = new TextRenderable(renderer, {
         content: ` ${count} `,
         fg: WhatsAppTheme.white,
@@ -397,8 +404,7 @@ class ChatListManager {
     }
 
     // Add muted icon if chat is muted (check both top-level and _chat properties)
-    const chatData = chat as ChatSummary & { isMuted?: boolean; _chat?: { isMuted?: boolean } }
-    const isMuted = chatData.isMuted || chatData._chat?.isMuted
+    const isMuted = extChat.isMuted || extChat._chat?.isMuted
     if (isMuted) {
       messageRow.add(
         new TextRenderable(renderer, {
@@ -482,8 +488,9 @@ class ChatListManager {
       rowData.messageText.fg = isTyping ? WhatsAppTheme.green : WhatsAppTheme.textSecondary
 
       // 6. Update unread badge
-      if (chat.unreadCount && chat.unreadCount > 0) {
-        const count = chat.unreadCount > 20 ? "20+" : `${chat.unreadCount}`
+      const extChat = chat as unknown as ExtendedChatSummary
+      if (extChat.unreadCount && extChat.unreadCount > 0) {
+        const count = extChat.unreadCount > 20 ? "20+" : `${extChat.unreadCount}`
 
         if (rowData.unreadBadge) {
           // Update existing badge
