@@ -79,6 +79,28 @@ export async function markChatUnread(chatId: ChatId): Promise<void> {
 }
 
 /**
+ * Mark chas as read
+ * @throws {NetworkError} If network connection fails
+ * @throws {AuthError} If authentication fails
+ * @throws {ServerError} If server error occurs
+ */
+
+export async function markChatRead(chatId: ChatId): Promise<void> {
+  try {
+    const session = getSession()
+    debugLog("Client", `Marking chat as read: ${chatId}`)
+    const wahaClient = getClient()
+    await wahaClient.chats.chatsControllerReadChatMessages(session, chatId)
+    debugLog("Client", `Chat marked as read: ${chatId}`)
+  } catch (error) {
+    errorService.handle(error, { context: { action: "markChatread", chatId } })
+    throw error instanceof Error
+      ? new NetworkError("Failed to mark chat as read", { chatId }, error)
+      : new NetworkError("Failed to mark chat as read", { chatId })
+  }
+}
+
+/**
  * Delete a chat permanently.
  * @param chatId - The chat ID to delete
  * @throws {NetworkError} If network connection fails

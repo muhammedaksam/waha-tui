@@ -5,7 +5,13 @@
 
 import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
 
-import { archiveChat, deleteChat, markChatUnread, unarchiveChat } from "~/client/chatActions"
+import {
+  archiveChat,
+  deleteChat,
+  markChatRead,
+  markChatUnread,
+  unarchiveChat,
+} from "~/client/chatActions"
 import * as core from "~/client/core"
 import { NetworkError } from "~/services/Errors"
 import { errorService } from "~/services/ErrorService"
@@ -15,6 +21,7 @@ const mockChatsController = {
   chatsControllerArchiveChat: mock(() => Promise.resolve({ data: {} })),
   chatsControllerUnarchiveChat: mock(() => Promise.resolve({ data: {} })),
   chatsControllerUnreadChat: mock(() => Promise.resolve({ data: {} })),
+  chatsControllerReadChatMessages: mock(() => Promise.resolve({ data: {} })),
   chatsControllerDeleteChat: mock(() => Promise.resolve({ data: {} })),
 }
 
@@ -28,6 +35,7 @@ describe("chatActions", () => {
     mockChatsController.chatsControllerArchiveChat.mockClear()
     mockChatsController.chatsControllerUnarchiveChat.mockClear()
     mockChatsController.chatsControllerUnreadChat.mockClear()
+    mockChatsController.chatsControllerReadChatMessages.mockClear()
     mockChatsController.chatsControllerDeleteChat.mockClear()
 
     // Mock getClient and getSession
@@ -103,6 +111,36 @@ describe("chatActions", () => {
       mockChatsController.chatsControllerUnreadChat.mockRejectedValueOnce(new Error("API Error"))
 
       await expect(() => markChatUnread("123@c.us")).toThrow(NetworkError)
+    })
+  })
+
+  describe("markChatRead", () => {
+    it("should mark chat as read successfully", async () => {
+      await markChatRead("123@c.us")
+
+      expect(mockChatsController.chatsControllerReadChatMessages).toHaveBeenCalledWith(
+        "test-session",
+        "123@c.us"
+      )
+    })
+
+    it("should throw NetworkError on error", async () => {
+      mockChatsController.chatsControllerReadChatMessages.mockRejectedValueOnce(
+        new Error("API Error")
+      )
+
+      await expect(() => markChatRead("123@c.us")).toThrow(NetworkError)
+    })
+
+    it("should call errorService.handle on error", async () => {
+      const handleSpy = spyOn(errorService, "handle")
+      mockChatsController.chatsControllerReadChatMessages.mockRejectedValueOnce(
+        new Error("API Error")
+      )
+
+      await expect(() => markChatRead("123@c.us")).toThrow(NetworkError)
+
+      expect(handleSpy).toHaveBeenCalled()
     })
   })
 

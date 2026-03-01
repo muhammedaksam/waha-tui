@@ -17,6 +17,7 @@ import {
 import type { AppState } from "~/state/AppState"
 import type { MessagePreview } from "~/utils/formatters"
 import { loadContacts, loadMessages, startPresenceManagement } from "~/client"
+import { markChatRead } from "~/client/chatActions"
 import { Icons, WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
 import { ROW_HEIGHT } from "~/utils/chatListScroll"
@@ -40,18 +41,25 @@ interface ChatRowData {
   avatarText: TextRenderable
   nameText: TextRenderable
   timeText: TextRenderable
+  timeUnreadContainer: BoxRenderable
+  unreadBadge: TextRenderable | null
   chatInfo: BoxRenderable
   messageRow: BoxRenderable
   messageLeftGroup: BoxRenderable
   ackText: TextRenderable | null
   messageText: TextRenderable
 }
-
-interface ExtendedChatSummary extends Omit<ChatSummary, "lastMessage"> {
+interface ExtendedChatSummary extends Omit<ChatSummary, "lastMessage" | "_chat"> {
   lastMessage?: {
     timestamp?: number
     id?: string
     [key: string]: unknown
+  }
+  unreadCount?: number | null
+  isMuted?: boolean
+  _chat?: {
+    unreadCount?: number | null
+    isMuted?: boolean
   }
 }
 
@@ -248,6 +256,13 @@ class ChatListManager {
             // Left-click (button 0) opens chat
             debugLog("ChatListManager", `Clicked chat: ${chatRef.name || chatId}`)
 
+            // Remove unread badge immediately on click
+            const rowData = this.chatRows.get(chatIndex)
+            if (rowData?.unreadBadge) {
+              rowData.unreadBadge.destroy()
+              rowData.unreadBadge = null
+            }
+
             // Destroy old scroll box before loading new messages
             destroyConversationScrollBox()
 
@@ -260,6 +275,7 @@ class ChatListManager {
             loadMessages(chatId)
             // Start presence management (online/offline + re-subscribe)
             startPresenceManagement(chatId)
+            markChatRead(chatId)
           }
         }
       },
@@ -308,12 +324,15 @@ class ChatListManager {
       attributes: isSelected ? TextAttributes.BOLD : TextAttributes.NONE,
     })
     nameRow.add(nameText)
+    const timeUnreadContainer = new BoxRenderable(renderer, {
+      id: `header-right-${index}`,
+      flexDirection: "row",
+      gap: 1,
+    })
 
-    // Time and pin indicator container
     const timeContainer = new BoxRenderable(renderer, {
       id: `time-container-${index}`,
       flexDirection: "row",
-      gap: 1,
     })
 
     const timeText = new TextRenderable(renderer, {
@@ -321,8 +340,22 @@ class ChatListManager {
       fg: WhatsAppTheme.textTertiary,
     })
     timeContainer.add(timeText)
+    timeUnreadContainer.add(timeContainer)
 
-    nameRow.add(timeContainer)
+    let unreadBadge: TextRenderable | null = null
+    const extChat = chat as unknown as ExtendedChatSummary
+    if (extChat.unreadCount && extChat.unreadCount > 0) {
+      const count = extChat.unreadCount > 20 ? "20+" : `${extChat.unreadCount}`
+      unreadBadge = new TextRenderable(renderer, {
+        content: ` ${count} `,
+        fg: WhatsAppTheme.white,
+        bg: WhatsAppTheme.green,
+        attributes: TextAttributes.BOLD,
+      })
+      timeUnreadContainer.add(unreadBadge)
+    }
+
+    nameRow.add(timeUnreadContainer)
     chatInfo.add(nameRow)
 
     // Last message row - use space-between to push pin to right
@@ -371,8 +404,7 @@ class ChatListManager {
     }
 
     // Add muted icon if chat is muted (check both top-level and _chat properties)
-    const chatData = chat as ChatSummary & { isMuted?: boolean; _chat?: { isMuted?: boolean } }
-    const isMuted = chatData.isMuted || chatData._chat?.isMuted
+    const isMuted = extChat.isMuted || extChat._chat?.isMuted
     if (isMuted) {
       messageRow.add(
         new TextRenderable(renderer, {
@@ -394,6 +426,8 @@ class ChatListManager {
       avatarText,
       nameText,
       timeText,
+      timeUnreadContainer,
+      unreadBadge,
       chatInfo,
       messageRow,
       messageLeftGroup,
@@ -445,12 +479,41 @@ class ChatListManager {
       rowData.nameText.content = truncate(displayName, 50)
       rowData.nameText.attributes = isSelected ? TextAttributes.BOLD : TextAttributes.NONE
 
-      // 3. Message Preview - check for typing status
+      //4. Time
+      rowData.timeText.content = preview.timestamp
+
+      // 5. Message Preview - check for typing status
       const isTyping = appState.isChatTyping(chatIdStr)
       rowData.messageText.content = isTyping ? "typing..." : truncate(lastMessageText, 50)
       rowData.messageText.fg = isTyping ? WhatsAppTheme.green : WhatsAppTheme.textSecondary
 
-      // 4. Update Ack Status
+      // 6. Update unread badge
+      const extChat = chat as unknown as ExtendedChatSummary
+      if (extChat.unreadCount && extChat.unreadCount > 0) {
+        const count = extChat.unreadCount > 20 ? "20+" : `${extChat.unreadCount}`
+
+        if (rowData.unreadBadge) {
+          // Update existing badge
+          rowData.unreadBadge.content = ` ${count} `
+        } else {
+          const badge = new TextRenderable(this.renderer!, {
+            content: ` ${count} `,
+            fg: WhatsAppTheme.white,
+            bg: WhatsAppTheme.green,
+            attributes: TextAttributes.BOLD,
+          })
+          rowData.timeUnreadContainer.add(badge)
+          rowData.unreadBadge = badge
+        }
+      } else {
+        // Remove badge if no unread messages
+        if (rowData.unreadBadge) {
+          rowData.unreadBadge.destroy()
+          rowData.unreadBadge = null
+        }
+      }
+
+      // 7. Update Ack Status
       this.updateAckStatus(rowData, preview, this.renderer!)
     }
   }
