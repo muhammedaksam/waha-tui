@@ -29,9 +29,11 @@ jobs:
           node-version: "22.x"
           registry-url: "https://registry.npmjs.org"
 
-      # Ensure npm 11.5.1 or later is installed for trusted publishing support
-      - name: Update npm to latest version
-        run: npm install -g npm@latest
+      # npm >= 11.5.1 is required for OIDC trusted publishing
+      # npm self-upgrade is broken on ubuntu-24.04 runners (missing promise-retry)
+      # Use npx to bootstrap a fresh npm copy that can perform the upgrade
+      - name: Update npm for trusted publishing
+        run: npx -y npm@latest install -g npm@latest
 
       - name: Build package
         run: bun run build
