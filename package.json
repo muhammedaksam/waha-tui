@@ -51,30 +51,30 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.4.2",
-    "@commitlint/config-conventional": "^20.4.2",
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
     "@eslint/js": "^10.0.1",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
     "@types/bun": "latest",
-    "@types/node": "^25.3.3",
+    "@types/node": "^25.6.0",
     "@types/node-notifier": "^8.0.5",
     "@types/qrcode": "^1.5.6",
-    "eslint": "^10.0.2",
+    "eslint": "^10.2.0",
     "eslint-plugin-import": "^2.32.0",
     "husky": "^9.1.7",
     "jiti": "^2.6.1",
-    "lint-staged": "^16.3.1",
-    "prettier": "^3.8.1",
-    "typescript-eslint": "^8.56.1"
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.3",
+    "typescript-eslint": "^8.58.2"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@muhammedaksam/waha-node": "^2026.2.2",
+    "@muhammedaksam/waha-node": "^2026.4.2",
     "@opentui-ui/dialog": "^0.1.2",
     "@opentui-ui/toast": "^0.0.5",
-    "@opentui/core": "^0.1.84",
+    "@opentui/core": "^0.1.100",
     "node-notifier": "^10.0.1",
     "qrcode": "^1.5.4"
   },
