@@ -13,20 +13,20 @@ cd waha-tui
 bun install
 
 # Run in development mode
-bun run dev
+bun dev
 ```
 
 ## Development Commands
 
-| Command                           | Description                                    |
-| --------------------------------- | ---------------------------------------------- |
-| `bun run dev`                     | Start in development mode                      |
-| `bun run build`                   | Build for production                           |
-| `bun run check`                   | Run all checks (typecheck, lint, format, test) |
-| `bun run test`                    | Run tests                                      |
-| `bun run lint`                    | Run ESLint                                     |
-| `bun run format`                  | Format code with Prettier                      |
-| `bun run migration:create <name>` | Create a new migration                         |
+| Command                       | Description                                    |
+| ----------------------------- | ---------------------------------------------- |
+| `bun dev`                     | Start in development mode                      |
+| `bun build`                   | Build for production                           |
+| `bun check`                   | Run all checks (typecheck, lint, format, test) |
+| `bun test`                    | Run tests                                      |
+| `bun lint`                    | Run ESLint                                     |
+| `bun format`                  | Format code with Prettier                      |
+| `bun migration:create <name>` | Create a new migration                         |
 
 ## Migrations
 
@@ -44,12 +44,19 @@ This creates `src/utils/migrations/{timestamp}_my_migration_name.ts` and registe
 1. **Fork** the repository
 2. **Create** a feature branch from `develop` (`git checkout -b feature/amazing-feature develop`)
 3. **Make** your changes
-4. **Run** `bun run check` to ensure all tests pass
+4. **Run** `bun check` to ensure all tests pass
 5. **Commit** using [Conventional Commits](https://www.conventionalcommits.org/):
    - `feat:` New features
    - `fix:` Bug fixes
    - `docs:` Documentation changes
-   - `chore:` Maintenance tasks
+   - `style:` Code style (formatting, semicolons, etc.)
+   - `refactor:` Code refactoring
+   - `perf:` Performance improvements
+   - `test:` Adding or updating tests
+   - `build:` Build system changes
+   - `ci:` CI configuration changes
+   - `chore:` Maintenance tasks (deps, configs)
+   - `revert:` Revert previous commit
 6. **Push** to your fork
 7. **Open** a Pull Request **targeting the `develop` branch**
 

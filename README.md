@@ -8,7 +8,7 @@
 [![Bun](https://img.shields.io/badge/Bun-000?logo=bun&logoColor=fff)](https://bun.sh/)
 [![CI](https://github.com/muhammedaksam/waha-tui/workflows/CI/badge.svg)](https://github.com/muhammedaksam/waha-tui/actions)
 
-> ⚠️ **Work In Progress** - This project is in early experimental development. Features may be incomplete, unstable, or change without notice.
+> ⚠️ **Beta** - This project is under active development. Some features may be incomplete or change between releases.
 
 A beautiful Terminal User Interface for WhatsApp using [WAHA (WhatsApp HTTP API)](https://github.com/devlikeapro/waha). Manage your WhatsApp sessions, chats, and messages directly from your terminal with an intuitive TUI powered by [OpenTUI](https://opentui.com).
 
@@ -21,10 +21,16 @@ A beautiful Terminal User Interface for WhatsApp using [WAHA (WhatsApp HTTP API)
 - 📱 **Session Management** - Create, view, and manage WAHA sessions with QR code or phone number pairing
 - 💬 **Chat Interface** - Browse chats with WhatsApp-style layout and real-time updates
 - ✉️ **Messaging** - Send and receive messages with read receipts
+- 🔍 **Search & Filters** - Filter chats by all, unread, favorites, or groups with instant search
+- 📋 **Context Menus** - Right-click style menus for chats (archive, delete, mark unread) and messages (star, pin, react, forward, delete)
+- ⚙️ **Settings** - Configurable notification preferences (messages, groups, status), enter-to-send, and background sync
+- 🔔 **Desktop Notifications** - Native OS notifications for incoming messages with per-category controls
+- 🔄 **Real-Time Updates** - WebSocket-powered live updates, auto-refreshing QR codes, and typing indicators
+- 🔢 **Unread Badges** - Visual unread message counts on the chat list
 - 🎨 **Beautiful UI** - WhatsApp Web-inspired interface with colors and icons
 - ⚡ **Fast & Lightweight** - Built with Bun for blazing-fast performance
 - 🔒 **Secure** - All configuration stored locally in `$XDG_CONFIG_HOME/waha-tui/`
-- 🔄 **Auto-Refresh** - QR codes refresh automatically, status updates in real-time
+- 🆕 **Update Checker** - Automatic notification when a new version is available
 
 ## Screenshots
 
@@ -103,13 +109,33 @@ WAHA_URL=http://localhost:3000
 WAHA_API_KEY=your-api-key-here
 ```
 
-### $XDG_CONFIG_HOME/waha-tui/config.json (Metadata)
+### $XDG_CONFIG_HOME/waha-tui/config.json (Metadata & Settings)
 
 ```json
 {
-  "version": "1.0.0",
+  "version": "1.5.17",
   "createdAt": "2024-12-19T00:00:00.000Z",
-  "updatedAt": "2024-12-19T00:00:00.000Z"
+  "updatedAt": "2024-12-19T00:00:00.000Z",
+  "settings": {
+    "enterIsSend": true,
+    "messageNotifications": {
+      "showNotifications": true,
+      "showReactionNotifications": false,
+      "playSound": true
+    },
+    "groupNotifications": {
+      "showNotifications": true,
+      "showReactionNotifications": false,
+      "playSound": true
+    },
+    "statusNotifications": {
+      "showNotifications": false,
+      "showReactionNotifications": false,
+      "playSound": false
+    },
+    "showPreviews": true,
+    "backgroundSync": true
+  }
 }
 ```
 
@@ -126,19 +152,73 @@ WAHA_API_KEY=your-api-key-here
 
 ### Keyboard Shortcuts
 
-| Key      | Action                                        |
-| -------- | --------------------------------------------- |
-| `↑/↓`    | Navigate lists                                |
-| `Enter`  | Select item / Open chat / Submit phone number |
-| `Esc`    | Go back / Cancel phone pairing                |
-| `i`      | Enter input mode (in conversation)            |
-| `r`      | Refresh current view                          |
-| `n`      | Create new session (in Sessions view)         |
-| `p`      | Switch to phone pairing mode (in QR view)     |
-| `1`      | Go to Sessions view                           |
-| `2`      | Go to Chats view                              |
-| `q`      | Quit / Go back / Switch to QR mode            |
-| `Ctrl+C` | Exit immediately                              |
+#### Global
+
+| Key      | Action              |
+| -------- | ------------------- |
+| `1`      | Go to Sessions view |
+| `2`      | Go to Chats view    |
+| `Ctrl+C` | Exit immediately    |
+
+#### QR / Phone Pairing
+
+| Key         | Action                       |
+| ----------- | ---------------------------- |
+| `p`         | Switch to phone pairing mode |
+| `q`         | Switch to QR mode / Go back  |
+| `0-9`       | Enter phone number digits    |
+| `Backspace` | Delete last digit            |
+| `Enter`     | Submit phone number          |
+| `Esc`       | Cancel phone pairing         |
+
+#### Sessions
+
+| Key        | Action                           |
+| ---------- | -------------------------------- |
+| `↑/↓`      | Navigate session list            |
+| `Enter`    | Select session                   |
+| `Home/End` | Jump to first / last session     |
+| `n`        | Create new session               |
+| `r`        | Refresh sessions                 |
+| `q`        | Logout & delete selected session |
+
+> ⚠️ The `q` key in Sessions view performs a **destructive** action: it logs out and deletes the current session.
+
+#### Chats
+
+| Key              | Action                                      |
+| ---------------- | ------------------------------------------- |
+| `↑/↓`            | Navigate chat list                          |
+| `Enter`          | Open selected chat                          |
+| `Home/End`       | Jump to first / last chat                   |
+| `PageUp/Left`    | Page up (12 items)                          |
+| `PageDown/Right` | Page down (12 items)                        |
+| `Tab/Shift+Tab`  | Cycle filters (all/unread/favorites/groups) |
+| `/` or `Ctrl+F`  | Focus search input                          |
+| `c`              | Open chat context menu                      |
+| `s`              | Open settings                               |
+| `r`              | Refresh chats                               |
+| `Ctrl+A`         | Toggle archived chats view                  |
+| `Esc`            | Clear search / Exit archived / Go back      |
+
+#### Conversation
+
+| Key              | Action                    |
+| ---------------- | ------------------------- |
+| `i`              | Enter message input mode  |
+| `↑/↓`            | Scroll messages           |
+| `PageUp/Left`    | Scroll up (large jump)    |
+| `PageDown/Right` | Scroll down (large jump)  |
+| `m`              | Open message context menu |
+| `Esc`            | Exit input mode / Go back |
+
+#### Settings
+
+| Key            | Action                         |
+| -------------- | ------------------------------ |
+| `↑/↓` or `j/k` | Navigate menu items            |
+| `Enter/Space`  | Toggle setting / Open sub-menu |
+| `Esc`          | Go back                        |
 
 ### Debug Logging
 

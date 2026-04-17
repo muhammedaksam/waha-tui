@@ -3,8 +3,8 @@
  * Defines the structure and types for WAHA TUI configuration
  *
  * Config is split into two files:
- * - ~/.waha-tui/.env - Secrets (WAHA_URL, WAHA_API_KEY)
- * - ~/.waha-tui/config.json - Metadata (version, timestamps, settings)
+ * - $XDG_CONFIG_HOME/waha-tui/.env - Secrets (WAHA_URL, WAHA_API_KEY)
+ * - $XDG_CONFIG_HOME/waha-tui/config.json - Metadata (version, timestamps, settings)
  */
 
 import { VersionInfo } from "~/config/version"
