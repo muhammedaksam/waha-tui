@@ -23,13 +23,19 @@ import {
 import { downloadAndOpenMedia, reactToMessage, sendMediaMessage } from "~/client/messageActions"
 import { getSelectedContextMenuActionId, handleContextMenuKey } from "~/components/ContextMenu"
 import { showEmojiPicker } from "~/components/EmojiPicker"
-import { handleLogoutConfirm, showCaptionModal, showFilePickerModal } from "~/components/Modal"
+import {
+  handleLogoutConfirm,
+  showCaptionModal,
+  showContactPickerModal,
+  showFilePickerModal,
+} from "~/components/Modal"
 import { showToast } from "~/components/Toast"
 import { saveSettings } from "~/config/manager"
 import { executeContextMenuAction } from "~/handlers"
 import { webSocketService } from "~/services/WebSocketService"
 import { appState } from "~/state/AppState"
 import { calculateChatListScrollOffset } from "~/utils/chatListScroll"
+import { startNewChat } from "~/utils/createChat"
 import { debugLog } from "~/utils/debug"
 import { filterChats, isArchived } from "~/utils/filterChats"
 import { getChatIdString } from "~/utils/formatters"
@@ -280,6 +286,18 @@ async function handleChatsViewKeys(key: KeyEvent, state: AppState): Promise<bool
     appState.setSettingsPage("main")
     appState.setSettingsSelectedIndex(0)
     appState.setLastChangeType("view")
+    return true
+  }
+
+  // 'n' key - start new chat
+  if (key.name === "n" && !state.inputMode) {
+    debugLog("Keyboard", "Opening contact picker for new chat")
+    showContactPickerModal().then(async (chatId) => {
+      if (chatId) {
+        await startNewChat(chatId)
+        appState.setSearchQuery("")
+      }
+    })
     return true
   }
 
