@@ -287,7 +287,6 @@ export function renderMessage(
       })
       mediaLabelRow.add(timeText)
     }
-
     bubble.add(mediaLabelRow)
   }
 
