@@ -20,6 +20,7 @@ export type WAMessageExtended = Omit<WAMessage, "participant" | "_data" | "reply
       }>
     }>
     // Media metadata (from WAHA message payload)
+    hasMedia?: boolean
     type?: string
     mimetype?: string
     filename?: string
