@@ -17,6 +17,7 @@ import {
 
 import type { ActiveFilter } from "~/state/AppState"
 import { Logo } from "~/components/Logo"
+import { showContactPickerModal } from "~/components/Modal"
 import { Icons, WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
 import { getRenderer } from "~/state/RendererContext"
@@ -83,6 +84,16 @@ export function ChatsView() {
     )
   }
 
+  const newChatBtn = Box({}, Text({ content: Icons.newChat, fg: WhatsAppTheme.textSecondary }))
+  newChatBtn.on("click", () => {
+    showContactPickerModal().then(async (chatId) => {
+      if (chatId) {
+        await startNewChat(chatId)
+        appState.setSearchQuery("")
+      }
+    })
+  })
+
   // Header Section
   const header = Box(
     {
@@ -97,7 +108,7 @@ export function ChatsView() {
     Logo({}),
     Box(
       { flexDirection: "row", gap: 1 },
-      Text({ content: Icons.newChat, fg: WhatsAppTheme.textSecondary }),
+      newChatBtn,
       Text({ content: Icons.menu, fg: WhatsAppTheme.textSecondary })
     )
   )
