@@ -447,6 +447,30 @@ async function handleConversationViewKeys(key: KeyEvent, state: AppState): Promi
     return true
   }
 
+  // 'o' key - open/download last media message
+  if (key.name === "o" && !state.inputMode) {
+    const messages = state.messages.get(state.currentChatId || "")
+    if (messages && messages.length > 0) {
+      // Find the most recent message that has media
+      const targetMessage = [...messages].reverse().find((m) => m.hasMedia || m._data?.hasMedia)
+      if (targetMessage && state.currentChatId) {
+        debugLog(
+          "Keyboard",
+          `Shortcut 'o' pressed - downloading media for message: ${targetMessage.id}`
+        )
+        // Lazy import to avoid circular dependencies
+        import("~/client").then(({ downloadAndOpenMedia }) => {
+          downloadAndOpenMedia(state.currentChatId as string, targetMessage.id).catch((err) => {
+            debugLog("Keyboard", `Failed to download media via shortcut: ${err}`)
+          })
+        })
+      } else {
+        debugLog("Keyboard", "No media messages found in the current chat view to open")
+      }
+    }
+    return true
+  }
+
   // Arrow navigation (when not in input mode)
   if (key.name === "up" && !state.inputMode) {
     debugLog("Keyboard", "Conversation: UP - scrolling up")
