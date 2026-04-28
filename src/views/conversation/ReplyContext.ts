@@ -10,6 +10,7 @@ import { WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
 import { isSelfChat, truncate } from "~/utils/formatters"
+import { getMediaLabelFromReply } from "~/utils/mediaLabels"
 import { getSenderColor } from "~/views/conversation/MessageHelpers"
 
 /**
@@ -124,7 +125,7 @@ export function renderReplyContext(
   const senderColor = isQuotedFromMe
     ? WhatsAppTheme.green
     : getSenderColor(colorSeed, participants, chatId)
-  const quotedText = replyTo.body || "[Media]"
+  const quotedText = replyTo.body || getMediaLabelFromReply(replyTo) || "[Media]"
 
   // Create the reply context container (use darker backgrounds for quote)
   const contextBox = new BoxRenderable(renderer, {
