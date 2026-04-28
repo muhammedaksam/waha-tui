@@ -21,7 +21,7 @@ import {
   stopPresenceManagement,
 } from "~/client"
 import { downloadAndOpenMedia, reactToMessage, sendMediaMessage } from "~/client/messageActions"
-import { getSelectedMenuItem, handleContextMenuKey } from "~/components/ContextMenu"
+import { getSelectedContextMenuActionId, handleContextMenuKey } from "~/components/ContextMenu"
 import { showEmojiPicker } from "~/components/EmojiPicker"
 import {
   handleLogoutConfirm,
@@ -87,9 +87,10 @@ async function handleContextMenuKeys(
   const handled = handleContextMenuKey(key.name)
   if (handled) {
     if (key.name === "return" || key.name === "enter") {
-      const selectedItem = getSelectedMenuItem()
-      if (selectedItem) {
-        await executeContextMenuAction(selectedItem.id, state.contextMenu)
+      // getSelectedContextMenuActionId handles sub-items like quick reactions
+      const actionId = getSelectedContextMenuActionId()
+      if (actionId) {
+        await executeContextMenuAction(actionId, state.contextMenu)
       }
     }
     renderApp(true)

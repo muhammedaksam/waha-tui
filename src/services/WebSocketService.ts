@@ -195,6 +195,32 @@ export class WebSocketService {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
   private pendingEvents: WahaEvent[] = []
 
+  private loadChatsTimer: ReturnType<typeof setTimeout> | null = null
+  private loadMessagesTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
+
+  private scheduleLoadChats(session: string) {
+    if (this.loadChatsTimer) {
+      clearTimeout(this.loadChatsTimer)
+    }
+    cacheService.delete(CacheKeys.chats(session))
+    this.loadChatsTimer = setTimeout(() => {
+      loadChats()
+      this.loadChatsTimer = null
+    }, TIME_MS.SEND_MESSAGE_RELOAD_DELAY)
+  }
+
+  private scheduleLoadMessages(chatId: string) {
+    const existing = this.loadMessagesTimers.get(chatId)
+    if (existing) {
+      clearTimeout(existing)
+    }
+    const timer = setTimeout(() => {
+      loadMessages(chatId)
+      this.loadMessagesTimers.delete(chatId)
+    }, 100)
+    this.loadMessagesTimers.set(chatId, timer)
+  }
+
   private handleMessageWithDebounce(event: MessageEvent) {
     try {
       const data = JSON.parse(event.data as string) as WahaEvent
@@ -289,6 +315,9 @@ export class WebSocketService {
       case "presence.update":
         this.handlePresenceUpdate(data as { event: "presence.update"; payload: WAHAChatPresences })
         break
+      case "engine.event":
+        // Ignore internal engine events to reduce log noise
+        break
       default:
         debugLog("WebSocket", `Unhandled event: ${data.event}`)
         break
@@ -310,6 +339,11 @@ export class WebSocketService {
     // For outgoing messages: payload.to
     const chatId = payload.fromMe ? payload.to : payload.from
 
+    // Ignore status updates to prevent spamming chat list refreshes
+    if (isStatusBroadcast(chatId)) {
+      return
+    }
+
     // Clear typing status for sender - WhatsApp doesn't always send "paused" presence after sending
     if (!payload.fromMe && payload.from) {
       appState.clearTypingForSender(payload.from)
@@ -327,27 +361,19 @@ export class WebSocketService {
       // also reload to ensure sync
       if (payload.fromMe) {
         debugLog("WebSocket", `Message from another device, reloading messages for sync`)
-        setTimeout(() => {
-          loadMessages(chatId)
-        }, 100)
+        this.scheduleLoadMessages(chatId)
       }
 
       // Also update chat list to show new last message
       if (session) {
-        cacheService.delete(CacheKeys.chats(session))
-        setTimeout(() => {
-          loadChats()
-        }, TIME_MS.SEND_MESSAGE_RELOAD_DELAY)
+        this.scheduleLoadChats(session)
       }
     } else {
       debugLog("WebSocket", `New message in other chat: ${chatId}`)
       // Clear chat cache to force refresh with updated last message
       // This handles both incoming messages and messages sent from other devices
       if (session) {
-        cacheService.delete(CacheKeys.chats(session))
-        setTimeout(() => {
-          loadChats()
-        }, TIME_MS.SEND_MESSAGE_RELOAD_DELAY)
+        this.scheduleLoadChats(session)
       }
 
       // Send desktop notification for messages not from self

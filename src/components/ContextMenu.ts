@@ -10,8 +10,10 @@ import { Box, BoxRenderable, ProxiedVNode, TextRenderable } from "@opentui/core"
 import type { ContextMenuType } from "~/state/AppState"
 import type { WAMessageExtended } from "~/types"
 import { Icons, WhatsAppTheme } from "~/config/theme"
+import { QUICK_REACTIONS } from "~/data/emojis"
 import { appState } from "~/state/AppState"
 import { getRenderer } from "~/state/RendererContext"
+import { debugLog } from "~/utils/debug"
 import { isArchived } from "~/utils/filterChats"
 
 export interface ContextMenuItem {
@@ -21,6 +23,7 @@ export interface ContextMenuItem {
   disabled?: boolean
   destructive?: boolean // For delete actions (shown in red)
   separator?: boolean // Draws a line separator before this item
+  isQuickReactions?: boolean // Indicates this is the quick reactions row
 }
 
 // Chat context menu items
@@ -92,7 +95,7 @@ export function getMessageMenuItems(message: WAMessage | WAMessageExtended): Con
   items.push({
     id: "react",
     label: "React",
-    icon: Icons.react,
+    icon: "😀",
   })
 
   if (hasMyReaction) {
@@ -208,18 +211,16 @@ export function ContextMenu(): ProxiedVNode<typeof BoxRenderable> | null {
       paddingRight: 1,
       onMouse(event) {
         if (event.type === "down" && event.button === 0) {
-          // Left click
           if (!item.disabled) {
             appState.setContextMenuSelectedIndex(index)
-            // Emit a custom event that index.ts listens for
             appState.triggerContextMenuAction(item.id)
+            event.stopPropagation()
           }
-          event.stopPropagation()
         }
       },
     })
 
-    // Add text content to menu row
+    // Add text content to normal menu row
     menuItemRow.add(
       new TextRenderable(renderer, {
         content: item.icon || " ",
@@ -325,34 +326,132 @@ export function ContextMenu(): ProxiedVNode<typeof BoxRenderable> | null {
     menuBox.add(item)
   }
 
-  // Store bounds for outside-click detection
-  lastMenuBounds = {
-    left: leftPosition,
-    top: topPosition,
-    right: leftPosition + menuWidth + 2,
-    bottom: topPosition + menuHeight + (contextMenu.type === "message" ? 1 : 0),
+  const anchor = new BoxRenderable(renderer, {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: renderer.width,
+    height: renderer.height,
+    zIndex: 100,
+    onMouse(event) {
+      if (event.type === "down" && event.button === 0) {
+        if (isClickOutsideContextMenu(event.x, event.y)) {
+          appState.closeContextMenu()
+          event.stopPropagation()
+        }
+      }
+    },
+  })
+
+  // Add the menu box to the anchor
+  anchor.add(menuBox)
+
+  // Initialize bounds array
+  lastMenuBounds = [
+    {
+      left: leftPosition,
+      top: topPosition,
+      right: leftPosition + menuWidth + 2,
+      bottom: topPosition + menuHeight + (contextMenu.type === "message" ? 1 : 0),
+    },
+  ]
+
+  // Add Reaction Pill for message context menu
+  if (contextMenu.type === "message") {
+    const reactions = [...QUICK_REACTIONS, "➕"]
+    // Reaction pill styling (whatsapp web style)
+    const pillWidth = reactions.length * 3 + 2 // 3 per emoji + padding
+    const pillHeight = 3 // Pill height
+    const pillTop = Math.max(0, topPosition - pillHeight) // Above the menu
+    const pillLeft = leftPosition // Align with the menu
+
+    const pillBox = new BoxRenderable(renderer, {
+      position: "absolute",
+      top: pillTop,
+      left: pillLeft,
+      width: pillWidth,
+      height: pillHeight,
+      backgroundColor: WhatsAppTheme.panelDark,
+      border: true,
+      borderColor: WhatsAppTheme.borderLight,
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems: "center",
+      onMouse(event) {
+        event.stopPropagation()
+      },
+    })
+
+    const subIndex = contextMenu.selectedSubIndex || 0
+
+    reactions.forEach((reactionStr: string, rIndex: number) => {
+      // For quick reactions, we can highlight the one being hovered
+      // For keyboard navigation, we can use the selectedSubIndex
+      const isSubSelected = contextMenu.selectedIndex === -1 && subIndex === rIndex
+      const reactBg = isSubSelected ? WhatsAppTheme.panelLight : WhatsAppTheme.panelDark
+
+      const reactBox = new BoxRenderable(renderer, {
+        height: 1,
+        width: 3,
+        backgroundColor: reactBg,
+        justifyContent: "center",
+        alignItems: "center",
+        onMouse(event) {
+          if (event.type === "down" && event.button === 0) {
+            debugLog("ContextMenu", `Clicked reaction pill for: ${reactionStr}`)
+            if (reactionStr === "➕") {
+              appState.triggerContextMenuAction("open_emoji_picker")
+            } else {
+              appState.triggerContextMenuAction(`react:${reactionStr}`)
+            }
+            event.stopPropagation()
+          }
+        },
+      })
+
+      reactBox.add(
+        new TextRenderable(renderer, {
+          content: reactionStr,
+        })
+      )
+
+      pillBox.add(reactBox)
+    })
+
+    anchor.add(pillBox)
+
+    // Add pill bounds
+    lastMenuBounds.push({
+      left: pillLeft,
+      top: pillTop,
+      right: pillLeft + pillWidth,
+      bottom: pillTop + pillHeight,
+    })
   }
 
-  return menuBox as unknown as ProxiedVNode<typeof BoxRenderable>
+  return anchor as unknown as ProxiedVNode<typeof BoxRenderable>
 }
 
 // Store menu bounds for outside-click detection
-let lastMenuBounds: { left: number; top: number; right: number; bottom: number } | null = null
+let lastMenuBounds: { left: number; top: number; right: number; bottom: number }[] = []
 
 // Check if a click position is outside the context menu
 export function isClickOutsideContextMenu(x: number, y: number): boolean {
-  if (!lastMenuBounds) return true
-  return (
-    x < lastMenuBounds.left ||
-    x > lastMenuBounds.right ||
-    y < lastMenuBounds.top ||
-    y > lastMenuBounds.bottom
-  )
+  if (lastMenuBounds.length === 0) return true
+
+  // If the click is INSIDE any of the bounds, it's NOT outside
+  for (const bounds of lastMenuBounds) {
+    if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom) {
+      return false
+    }
+  }
+
+  return true
 }
 
 // Clear menu bounds when menu is closed
 export function clearMenuBounds(): void {
-  lastMenuBounds = null
+  lastMenuBounds = []
 }
 
 // Keyboard handler for context menu navigation
@@ -387,11 +486,45 @@ export function handleContextMenuKey(key: string): boolean {
       return true
     }
 
+    case "left":
+    case "h": {
+      const selectedItem = items[contextMenu.selectedIndex]
+      if (selectedItem?.isQuickReactions) {
+        const maxSubIndex = QUICK_REACTIONS.length // +1 for the '+' button
+        const currentSub = contextMenu.selectedSubIndex || 0
+        const newSubIndex = currentSub > 0 ? currentSub - 1 : maxSubIndex
+        appState.setContextMenuSelectedSubIndex(newSubIndex)
+        return true
+      }
+      return false
+    }
+
+    case "right":
+    case "l": {
+      const selectedItem = items[contextMenu.selectedIndex]
+      if (selectedItem?.isQuickReactions) {
+        const maxSubIndex = QUICK_REACTIONS.length
+        const currentSub = contextMenu.selectedSubIndex || 0
+        const newSubIndex = currentSub < maxSubIndex ? currentSub + 1 : 0
+        appState.setContextMenuSelectedSubIndex(newSubIndex)
+        return true
+      }
+      return false
+    }
+
     case "return":
     case "enter": {
       const selectedItem = items[contextMenu.selectedIndex]
       if (selectedItem && !selectedItem.disabled) {
-        // Return the selected action - actual handling done in main app
+        if (selectedItem.isQuickReactions) {
+          const subIndex = contextMenu.selectedSubIndex || 0
+          if (subIndex === QUICK_REACTIONS.length) {
+            appState.triggerContextMenuAction("open_emoji_picker")
+          } else {
+            appState.triggerContextMenuAction(`react:${QUICK_REACTIONS[subIndex]}`)
+          }
+        }
+
         return true
       }
       return true
@@ -408,15 +541,26 @@ export function handleContextMenuKey(key: string): boolean {
   }
 }
 
-// Get the currently selected menu item
-export function getSelectedMenuItem(): ContextMenuItem | null {
+// Get the currently selected action ID (not just menu item, but handles sub-items)
+export function getSelectedContextMenuActionId(): string | null {
   const state = appState.getState()
   const { contextMenu } = state
 
-  if (!contextMenu || !contextMenu.visible) {
-    return null
-  }
+  if (!contextMenu || !contextMenu.visible) return null
 
   const items = getMenuItems(contextMenu.type, contextMenu.targetData)
-  return items[contextMenu.selectedIndex] || null
+  const selectedItem = items[contextMenu.selectedIndex]
+
+  if (!selectedItem || selectedItem.disabled) return null
+
+  if (selectedItem.isQuickReactions) {
+    const subIndex = contextMenu.selectedSubIndex || 0
+    if (subIndex === QUICK_REACTIONS.length) {
+      return "open_emoji_picker"
+    } else {
+      return `react:${QUICK_REACTIONS[subIndex]}`
+    }
+  }
+
+  return selectedItem.id
 }
