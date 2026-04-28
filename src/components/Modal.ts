@@ -9,6 +9,8 @@ import type { RenderContext } from "@opentui/core"
 import {
   BoxRenderable,
   fg,
+  InputRenderable,
+  InputRenderableEvents,
   link,
   t,
   TextAttributes,
@@ -367,4 +369,150 @@ export function showUpdateModal(updateInfo: UpdateInfo): void {
       appState.dismissUpdateModal()
     },
   })
+}
+
+/**
+ * Show a generic input modal
+ * Returns a promise that resolves to the input string or null if cancelled
+ */
+export function showInputModal(
+  title: string,
+  placeholder: string,
+  initialValue = ""
+): Promise<string | null> {
+  const dialogManager = getDialogManager()
+  let inputValue = initialValue
+  let resolved = false
+
+  // Set input mode BEFORE showing dialog to prevent re-render race
+  appState.setInputMode(true)
+
+  return new Promise((resolve) => {
+    const safeResolve = (value: string | null) => {
+      if (resolved) return
+      resolved = true
+      appState.setInputMode(false)
+      resolve(value)
+    }
+
+    const dialogId = dialogManager.show({
+      content: (ctx: RenderContext) => {
+        const wrapper = new BoxRenderable(ctx, {
+          flexDirection: "column",
+          width: "100%",
+        })
+
+        // Title
+        wrapper.add(
+          new TextRenderable(ctx, {
+            content: title,
+            fg: WhatsAppTheme.textPrimary,
+            attributes: TextAttributes.BOLD,
+          })
+        )
+
+        wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+
+        // Input
+        const input = new InputRenderable(ctx, {
+          value: initialValue,
+          placeholder: placeholder,
+          width: "100%",
+          backgroundColor: WhatsAppTheme.inputBg,
+          focusedBackgroundColor: WhatsAppTheme.inputBg,
+          textColor: WhatsAppTheme.textPrimary,
+          focusedTextColor: WhatsAppTheme.white,
+          placeholderColor: WhatsAppTheme.textTertiary,
+          cursorColor: WhatsAppTheme.white,
+        })
+
+        input.on(InputRenderableEvents.INPUT, (val: string) => {
+          inputValue = val
+        })
+
+        input.on(InputRenderableEvents.ENTER, () => {
+          safeResolve(inputValue)
+          dialogManager.close(dialogId)
+        })
+
+        wrapper.add(input)
+
+        wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+
+        // Button row
+        const buttonRow = new BoxRenderable(ctx, {
+          flexDirection: "row",
+          justifyContent: "flex-end",
+        })
+
+        // Cancel button
+        const cancelStyle = getButtonStyle("secondary")
+        const cancelBtn = new BoxRenderable(ctx, {
+          paddingLeft: 2,
+          paddingRight: 2,
+          height: 1,
+          backgroundColor: cancelStyle.bg,
+          justifyContent: "center",
+          alignItems: "center",
+          onMouse(event) {
+            if (event.type === "down" && event.button === 0) {
+              safeResolve(null)
+              dialogManager.close(dialogId)
+              event.stopPropagation()
+            }
+          },
+        })
+        cancelBtn.add(new TextRenderable(ctx, { content: "Cancel", fg: cancelStyle.fg }))
+        buttonRow.add(cancelBtn)
+
+        // OK button
+        const okStyle = getButtonStyle("primary")
+        const okBtn = new BoxRenderable(ctx, {
+          paddingLeft: 2,
+          paddingRight: 2,
+          height: 1,
+          marginLeft: 2,
+          backgroundColor: okStyle.bg,
+          justifyContent: "center",
+          alignItems: "center",
+          onMouse(event) {
+            if (event.type === "down" && event.button === 0) {
+              safeResolve(inputValue)
+              dialogManager.close(dialogId)
+              event.stopPropagation()
+            }
+          },
+        })
+        okBtn.add(new TextRenderable(ctx, { content: "OK", fg: okStyle.fg }))
+        buttonRow.add(okBtn)
+
+        wrapper.add(buttonRow)
+
+        // Auto focus input after it's rendered
+        setTimeout(() => {
+          input.focus()
+        }, 50)
+
+        return wrapper
+      },
+      size: "medium",
+      onClose: () => {
+        safeResolve(null)
+      },
+    })
+  })
+}
+
+/**
+ * Show a file picker modal asking for absolute file path
+ */
+export function showFilePickerModal(): Promise<string | null> {
+  return showInputModal("Attach File", "Enter absolute file path (e.g., /home/user/image.png)", "")
+}
+
+/**
+ * Show a caption modal
+ */
+export function showCaptionModal(): Promise<string | null> {
+  return showInputModal("Add Caption", "Enter an optional caption...", "")
 }
