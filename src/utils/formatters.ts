@@ -4,6 +4,7 @@ import { fg } from "@opentui/core"
 
 import { Icons, WhatsAppTheme } from "~/config/theme"
 import { debugLog } from "~/utils/debug"
+import { getMediaLabel } from "~/utils/mediaLabels"
 
 /**
  * Formatting Utilities
@@ -101,6 +102,10 @@ export function extractMessagePreview(lastMessageObj: unknown): MessagePreview {
 
   const msg = lastMessageObj as Record<string, unknown>
 
+  // Use shared media label utility for consistent detection
+  // We cast to WAMessageExtended-like shape since getMediaLabel reads the same fields
+  const mediaInfo = getMediaLabel(msg as import("~/types").WAMessageExtended)
+
   // Extract message text
   let text = ""
   if (typeof msg.body === "string" && msg.body) {
@@ -110,52 +115,28 @@ export function extractMessagePreview(lastMessageObj: unknown): MessagePreview {
     text = msg.caption.replace(/\r?\n/g, " ").trim()
   }
 
-  // Check for media
+  // Determine media type and label
   let hasMedia = false
   let mediaType: MessagePreview["mediaType"] = undefined
 
-  if (
-    msg.hasMedia === true ||
-    msg.type === "image" ||
-    msg.type === "video" ||
-    msg.type === "audio" ||
-    msg.type === "document"
-  ) {
+  if (mediaInfo.hasMedia) {
     hasMedia = true
+    // Map from our label to the legacy mediaType enum
+    const type = (msg.type as string) ?? ""
+    if (type === "image") mediaType = "image"
+    else if (type === "video" || type === "gif") mediaType = "video"
+    else if (type === "audio" || type === "ptt") mediaType = "audio"
+    else if (type === "document") mediaType = "document"
 
-    // Determine media type
-    if (msg.type === "image" || msg.mimetype?.toString().startsWith("image/")) {
-      mediaType = "image"
-      text = text || "📷 Photo"
-    } else if (msg.type === "video" || msg.mimetype?.toString().startsWith("video/")) {
-      mediaType = "video"
-      text = text || "🎥 Video"
-    } else if (
-      msg.type === "audio" ||
-      msg.type === "ptt" ||
-      msg.mimetype?.toString().startsWith("audio/")
-    ) {
-      mediaType = "audio"
-      text = text || "🎵 Audio"
-    } else if (msg.type === "document") {
-      mediaType = "document"
-      text = text || "📄 Document"
-    } else {
-      text = text || "📎 Media"
+    // Use text from body/caption if available, otherwise use the media label
+    if (!text) {
+      text = mediaInfo.label
     }
   }
 
-  // If still no text, check for special message types
+  // If still no text, check for remaining special message types
   if (!text) {
-    if (msg.type === "location") {
-      text = "📍 Location"
-    } else if (msg.type === "vcard") {
-      text = "👤 Contact"
-    } else if (msg.type === "call_log") {
-      text = "📞 Call"
-    } else {
-      text = "Message"
-    }
+    text = "Message"
   }
 
   // Extract timestamp

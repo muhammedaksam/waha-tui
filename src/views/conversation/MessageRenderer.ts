@@ -12,6 +12,7 @@ import { WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
 import { formatAckStatus, getInitials, isSelfChat } from "~/utils/formatters"
+import { getMediaLabel } from "~/utils/mediaLabels"
 import { centerText, getSenderInfo } from "~/views/conversation/MessageHelpers"
 import { renderReplyContext } from "~/views/conversation/ReplyContext"
 
@@ -81,7 +82,18 @@ export function renderMessage(
   const { senderName, senderColor } = getSenderInfo(message, isGroupChat, participants, chatId)
 
   // Build message bubble content with WhatsApp-like layout
-  const messageText = message.body || "(media)"
+  // Detect media type and produce descriptive label
+  const media = getMediaLabel(message)
+  let messageText: string
+  let isMediaLabel = false
+
+  if (media.hasMedia) {
+    messageText = media.fileSize ? `${media.label}  (${media.fileSize})` : media.label
+    isMediaLabel = true
+  } else {
+    messageText = message.body || ""
+  }
+
   const timestampText = t`${timestamp}${isFromMe ? formatAckStatus(message.ack, {}) : ""}`
 
   // Create outer row container
@@ -230,31 +242,90 @@ export function renderMessage(
     }
   }
 
-  // Row 2: Message content + Timestamp on same line (WhatsApp style)
-  const contentRow = new BoxRenderable(renderer, {
-    id: `msg-${message.id || Date.now()}-content`,
-    flexDirection: "row",
-    alignItems: "flex-end", // Align timestamp to bottom of content
-    justifyContent: "space-between", // Push timestamp to right edge of bubble
-  })
+  // Row 2: Media label (if media) — uses dimmed text for the label line
+  if (isMediaLabel) {
+    const mediaLabelRow = new BoxRenderable(renderer, {
+      id: `msg-${message.id || Date.now()}-media-label`,
+      flexDirection: "row",
+      alignItems: "flex-end",
+      justifyContent: "space-between",
+    })
 
-  const contentText = new TextRenderable(renderer, {
-    content: messageText,
-    fg: WhatsAppTheme.textPrimary,
-    flexGrow: 1, // Take available space, pushing timestamp right
-  })
-  contentRow.add(contentText)
+    const mediaLabelText = new TextRenderable(renderer, {
+      content: messageText,
+      fg: WhatsAppTheme.textSecondary, // Dimmed for media labels
+      flexGrow: 1,
+    })
+    mediaLabelRow.add(mediaLabelText)
 
-  // Timestamp on same line, pushed to right
-  const timeText = new TextRenderable(renderer, {
-    content: timestampText, // Use directly - it's already a t`` template
-    fg: isFromMe ? WhatsAppTheme.textSecondary : WhatsAppTheme.textTertiary,
-    flexShrink: 0, // Don't shrink timestamp
-    marginLeft: 1, // Space before timestamp
-  })
-  contentRow.add(timeText)
+    // If no caption follows, put timestamp on the label row
+    if (!media.caption) {
+      const timeText = new TextRenderable(renderer, {
+        content: timestampText,
+        fg: isFromMe ? WhatsAppTheme.textSecondary : WhatsAppTheme.textTertiary,
+        flexShrink: 0,
+        marginLeft: 1,
+      })
+      mediaLabelRow.add(timeText)
+    }
 
-  bubble.add(contentRow)
+    bubble.add(mediaLabelRow)
+  }
+
+  // Row 2.5: Caption text (if media with caption)
+  if (isMediaLabel && media.caption) {
+    const captionRow = new BoxRenderable(renderer, {
+      id: `msg-${message.id || Date.now()}-caption`,
+      flexDirection: "row",
+      alignItems: "flex-end",
+      justifyContent: "space-between",
+    })
+
+    const captionText = new TextRenderable(renderer, {
+      content: media.caption,
+      fg: WhatsAppTheme.textPrimary, // Normal text for captions
+      flexGrow: 1,
+    })
+    captionRow.add(captionText)
+
+    // Timestamp goes on the caption row (last line of content)
+    const timeText = new TextRenderable(renderer, {
+      content: timestampText,
+      fg: isFromMe ? WhatsAppTheme.textSecondary : WhatsAppTheme.textTertiary,
+      flexShrink: 0,
+      marginLeft: 1,
+    })
+    captionRow.add(timeText)
+
+    bubble.add(captionRow)
+  }
+
+  // Row 3: Regular text content + Timestamp (non-media messages)
+  if (!isMediaLabel) {
+    const contentRow = new BoxRenderable(renderer, {
+      id: `msg-${message.id || Date.now()}-content`,
+      flexDirection: "row",
+      alignItems: "flex-end",
+      justifyContent: "space-between",
+    })
+
+    const contentText = new TextRenderable(renderer, {
+      content: messageText,
+      fg: WhatsAppTheme.textPrimary,
+      flexGrow: 1,
+    })
+    contentRow.add(contentText)
+
+    const timeText = new TextRenderable(renderer, {
+      content: timestampText,
+      fg: isFromMe ? WhatsAppTheme.textSecondary : WhatsAppTheme.textTertiary,
+      flexShrink: 0,
+      marginLeft: 1,
+    })
+    contentRow.add(timeText)
+
+    bubble.add(contentRow)
+  }
 
   // Render reactions
   const reactionBox = renderReactions(renderer, message.reactions, isFromMe)
