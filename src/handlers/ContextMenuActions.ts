@@ -14,6 +14,7 @@ import {
   starMessage,
   unarchiveChat,
 } from "~/client"
+import { showEmojiPicker } from "~/components/EmojiPicker"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
 import { focusMessageInput } from "~/views/ConversationView"
@@ -108,9 +109,15 @@ export async function executeContextMenuAction(
           break
         }
         case "react": {
-          // For now, add a thumbs up reaction
-          // Could show a sub-menu for emoji selection later
-          await reactToMessage(targetId, "👍")
+          const emoji = await showEmojiPicker()
+          if (emoji) {
+            await reactToMessage(targetId, emoji)
+          }
+          break
+        }
+        case "unreact": {
+          // Empty string removes the reaction
+          await reactToMessage(targetId, "")
           break
         }
         case "delete": {
