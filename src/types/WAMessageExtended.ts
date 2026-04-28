@@ -2,6 +2,7 @@ import type { WAMessage } from "@muhammedaksam/waha-node"
 
 export type WAMessageExtended = Omit<WAMessage, "participant" | "_data" | "replyTo"> & {
   participant?: string
+  isForwarded?: boolean
   _data?: {
     notifyName?: string
     pushName?: string
@@ -39,6 +40,7 @@ export type WAMessageExtended = Omit<WAMessage, "participant" | "_data" | "reply
     // vCard data
     vcardFormattedName?: string
     vcardList?: unknown[]
+    isForwarded?: boolean
   }
   replyTo?: {
     id: string
