@@ -3,7 +3,7 @@
  * WhatsApp-themed dialogs using @opentui-ui/dialog
  */
 
-import type { DialogContainerOptions, DialogStyle } from "@opentui-ui/dialog"
+import type { DialogContainerOptions, DialogId, DialogStyle } from "@opentui-ui/dialog"
 import type { RenderContext } from "@opentui/core"
 
 import {
@@ -11,6 +11,7 @@ import {
   fg,
   InputRenderable,
   InputRenderableEvents,
+  KeyEvent,
   link,
   t,
   TextAttributes,
@@ -23,6 +24,8 @@ import { logoutSession } from "~/client"
 import { WDSColors, WhatsAppTheme } from "~/config/theme"
 import { getDialogManager } from "~/router"
 import { appState } from "~/state/AppState"
+import { getRenderer } from "~/state/RendererContext"
+import { getInitials } from "~/utils/formatters"
 
 /**
  * WhatsApp-themed dialog container configuration
@@ -515,4 +518,232 @@ export function showFilePickerModal(): Promise<string | null> {
  */
 export function showCaptionModal(): Promise<string | null> {
   return showInputModal("Add Caption", "Enter an optional caption...", "")
+}
+
+/**
+ * Show a contact picker modal to start a new chat
+ */
+export function showContactPickerModal(): Promise<string | null> {
+  const dialogManager = getDialogManager()
+  const renderer = getRenderer()
+  let resolved = false
+  let searchQuery = ""
+  let selectedIndex = 0
+
+  // Set input mode so global keyboard handlers don't intercept typing
+  appState.setInputMode(true)
+
+  return new Promise((resolve) => {
+    const safeResolve = (value: string | null) => {
+      if (resolved) return
+      resolved = true
+      appState.setInputMode(false)
+      renderer.keyInput.off("keypress", handleKey)
+      resolve(value)
+    }
+
+    let filtered: Array<{ id: string; name: string }> = []
+    let updateResults: () => void = () => {}
+    // eslint-disable-next-line prefer-const
+    let dialogId: DialogId | undefined
+
+    const handleKey = (key: KeyEvent) => {
+      if (filtered.length === 0) return
+
+      if (key.name === "up") {
+        selectedIndex = Math.max(0, selectedIndex - 1)
+        updateResults()
+      } else if (key.name === "down") {
+        selectedIndex = Math.min(filtered.length - 1, selectedIndex + 1)
+        updateResults()
+      } else if (key.name === "return" || key.name === "enter") {
+        // If there's a selection, use it. If not, and search is a phone number, use that.
+        if (filtered[selectedIndex] && dialogId !== undefined) {
+          safeResolve(filtered[selectedIndex].id)
+          dialogManager.close(dialogId)
+        }
+      }
+    }
+
+    dialogId = dialogManager.show({
+      content: (ctx: RenderContext) => {
+        const wrapper = new BoxRenderable(ctx, {
+          flexDirection: "column",
+          width: "100%",
+        })
+
+        // Title
+        wrapper.add(
+          new TextRenderable(ctx, {
+            content: "Start New Chat",
+            fg: WhatsAppTheme.textPrimary,
+            attributes: TextAttributes.BOLD,
+          })
+        )
+
+        wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+
+        // Input
+        const input = new InputRenderable(ctx, {
+          value: searchQuery,
+          placeholder: "Search contacts...",
+          width: "100%",
+          backgroundColor: WhatsAppTheme.inputBg,
+          focusedBackgroundColor: WhatsAppTheme.inputBg,
+          textColor: WhatsAppTheme.textPrimary,
+          focusedTextColor: WhatsAppTheme.white,
+          placeholderColor: WhatsAppTheme.textTertiary,
+          cursorColor: WhatsAppTheme.white,
+        })
+
+        wrapper.add(input)
+        wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+
+        // Results Container
+        const resultsContainer = new BoxRenderable(ctx, {
+          flexDirection: "column",
+          height: 16, // 8 items * 2 height
+        })
+        wrapper.add(resultsContainer)
+
+        updateResults = () => {
+          for (const child of resultsContainer.getChildren()) {
+            child.destroyRecursively()
+          }
+          const contactsMap = appState.getState().allContacts
+
+          filtered = []
+          for (const [id, name] of contactsMap.entries()) {
+            // Only show regular user contacts (exclude @lid duplicates and @g.us groups)
+            if (!id.endsWith("@c.us")) {
+              continue
+            }
+
+            if (!searchQuery.trim()) {
+              filtered.push({ id, name })
+            } else {
+              const q = searchQuery.toLowerCase().trim()
+              if (name.toLowerCase().includes(q) || id.toLowerCase().includes(q)) {
+                filtered.push({ id, name })
+              }
+            }
+          }
+
+          // Sort alphabetically by name
+          filtered.sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+
+          if (selectedIndex >= filtered.length) {
+            selectedIndex = Math.max(0, filtered.length - 1)
+          }
+
+          if (filtered.length === 0) {
+            resultsContainer.add(
+              new TextRenderable(ctx, {
+                content: "No contacts found",
+                fg: WhatsAppTheme.textTertiary,
+              })
+            )
+          } else {
+            const PAGE_SIZE = 8
+            let startIndex = Math.max(0, selectedIndex - Math.floor(PAGE_SIZE / 2))
+            let endIndex = startIndex + PAGE_SIZE
+            if (endIndex > filtered.length) {
+              endIndex = filtered.length
+              startIndex = Math.max(0, endIndex - PAGE_SIZE)
+            }
+
+            for (let index = startIndex; index < endIndex; index++) {
+              const contact = filtered[index]
+              const isSelected = index === selectedIndex
+              const row = new BoxRenderable(ctx, {
+                flexDirection: "row",
+                height: 2,
+                paddingLeft: 1,
+                paddingRight: 1,
+                alignItems: "center",
+                backgroundColor: isSelected ? WhatsAppTheme.hoverBg : "transparent",
+                onMouse(event) {
+                  if (event.type === "down" && event.button === 0 && dialogId !== undefined) {
+                    safeResolve(contact.id)
+                    dialogManager.close(dialogId)
+                    event.stopPropagation()
+                  }
+                },
+              })
+
+              // Avatar
+              const avatarName = contact.name || "Unknown"
+              const initials = getInitials(avatarName, 2)
+              const avatar = new BoxRenderable(ctx, {
+                width: 4,
+                height: 1,
+                backgroundColor: WhatsAppTheme.green,
+                alignItems: "center",
+                justifyContent: "center",
+              })
+              avatar.add(
+                new TextRenderable(ctx, {
+                  content: initials,
+                  fg: WhatsAppTheme.white,
+                })
+              )
+              row.add(avatar)
+
+              // Name
+              const nameBox = new BoxRenderable(ctx, { paddingLeft: 1 })
+              nameBox.add(
+                new TextRenderable(ctx, {
+                  content:
+                    avatarName.length > 25 ? avatarName.substring(0, 22) + "..." : avatarName,
+                  fg: WhatsAppTheme.textPrimary,
+                  attributes: TextAttributes.BOLD,
+                })
+              )
+              row.add(nameBox)
+
+              resultsContainer.add(row)
+            }
+          }
+
+          // Request re-render of this container
+          ctx.requestRender()
+        }
+
+        updateResults()
+
+        input.on(InputRenderableEvents.INPUT, (val: string) => {
+          searchQuery = val
+          selectedIndex = 0
+          updateResults()
+        })
+
+        input.on(InputRenderableEvents.ENTER, () => {
+          if (filtered.length > 0 && filtered[selectedIndex]) {
+            safeResolve(filtered[selectedIndex].id)
+          } else if (searchQuery && /^[0-9+]+$/.test(searchQuery)) {
+            // If it's a number, return it as the chatId (to be validated by the caller)
+            const id = searchQuery.replace(/[^0-9]/g, "") + "@c.us"
+            safeResolve(id)
+          } else {
+            safeResolve(null)
+          }
+          if (dialogId !== undefined) dialogManager.close(dialogId)
+        })
+
+        // Auto focus input after it's rendered
+        setTimeout(() => {
+          input.focus()
+        }, 50)
+
+        // Attach global key listener
+        renderer.keyInput.on("keypress", handleKey)
+
+        return wrapper
+      },
+      size: "medium",
+      onClose: () => {
+        safeResolve(null)
+      },
+    })
+  })
 }
