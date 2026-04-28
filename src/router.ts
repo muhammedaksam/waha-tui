@@ -104,11 +104,11 @@ export function updateSelectionFastPath(state: AppState): void {
  * ```
  */
 export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean) => void {
-  // Initialize the toaster and dialog container once - they manage their own lifecycle
+  // Initialize once - these persist across re-renders to maintain internal state
   let toasterInitialized = false
   let dialogContainerInitialized = false
 
-  // Create dialog manager
+  // Create dialog manager (MUST BE INITIALIZED BEFORE IT IS USED)
   dialogManager = new DialogManager(renderer)
 
   return function renderApp(forceRebuild: boolean = false): void {
@@ -120,10 +120,11 @@ export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean)
       return
     }
 
-    // Clear previous render - remove all children (except toaster)
+    // Clear previous render - remove all children except persistent overlays
+    // DialogContainerRenderable and ToasterRenderable must NOT be removed,
+    // as removing them destroys internal state (e.g., active dialog input focus)
     const children = renderer.root.getChildren()
     for (const child of children) {
-      // Keep the toaster and dialog container renderables
       if (child instanceof ToasterRenderable) continue
       if (child instanceof DialogContainerRenderable) continue
       renderer.root.remove(child.id)
@@ -168,13 +169,8 @@ export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean)
       renderer.root.add(contextMenuBox)
     }
 
-    // Add toaster once (it manages its own toast lifecycle)
-    if (!toasterInitialized) {
-      renderer.root.add(new ToasterRenderable(renderer, WHATSAPP_TOASTER_CONFIG))
-      toasterInitialized = true
-    }
-
-    // Add dialog container once (it manages dialogs via DialogManager)
+    // Add dialog container once - it persists and manages its own dialog lifecycle
+    // Must be added AFTER rootWrapper so it renders on top (higher z-index)
     if (!dialogContainerInitialized && dialogManager) {
       renderer.root.add(
         new DialogContainerRenderable(renderer, {
@@ -184,6 +180,13 @@ export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean)
         })
       )
       dialogContainerInitialized = true
+    }
+
+    // Add toaster once - it persists and manages its own toast lifecycle
+    // Must be added LAST so it renders on top of everything
+    if (!toasterInitialized) {
+      renderer.root.add(new ToasterRenderable(renderer, WHATSAPP_TOASTER_CONFIG))
+      toasterInitialized = true
     }
   }
 }
