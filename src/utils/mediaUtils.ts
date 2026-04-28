@@ -62,3 +62,56 @@ export async function openLocalFile(filePath: string): Promise<boolean> {
     }
   })
 }
+
+/**
+ * Common file extensions to mime types mapping
+ */
+const EXTENSION_TO_MIME: Record<string, string> = {
+  // Images
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+
+  // Video
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mkv: "video/x-matroska",
+  avi: "video/x-msvideo",
+  mov: "video/quicktime",
+
+  // Audio
+  mp3: "audio/mpeg",
+  ogg: "audio/ogg",
+  wav: "audio/wav",
+  m4a: "audio/mp4",
+  opus: "audio/ogg; codecs=opus",
+
+  // Documents
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  csv: "text/csv",
+  txt: "text/plain",
+  rtf: "application/rtf",
+  zip: "application/zip",
+  tar: "application/x-tar",
+  gz: "application/gzip",
+}
+
+/**
+ * Gets the mime type for a given file path based on its extension.
+ * Defaults to "application/octet-stream" if not found.
+ */
+export function getMimeType(filePath: string): string {
+  const parts = filePath.split(".")
+  if (parts.length > 1) {
+    const ext = parts[parts.length - 1].toLowerCase()
+    return EXTENSION_TO_MIME[ext] || "application/octet-stream"
+  }
+  return "application/octet-stream"
+}
