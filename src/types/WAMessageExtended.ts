@@ -19,6 +19,26 @@ export type WAMessageExtended = Omit<WAMessage, "participant" | "_data" | "reply
         timestamp: number
       }>
     }>
+    // Media metadata (from WAHA message payload)
+    hasMedia?: boolean
+    type?: string
+    mimetype?: string
+    filename?: string
+    size?: number
+    fileSizeBytes?: number
+    caption?: string
+    body?: string
+    mediaData?: {
+      filename?: string
+      mimetype?: string
+    }
+    // Location data
+    lat?: number
+    lng?: number
+    loc?: string
+    // vCard data
+    vcardFormattedName?: string
+    vcardList?: unknown[]
   }
   replyTo?: {
     id: string

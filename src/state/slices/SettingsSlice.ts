@@ -26,6 +26,7 @@ export interface SettingsState {
   statusNotifications: NotificationSettings
   showPreviews: boolean
   backgroundSync: boolean
+  recentEmojis: string[]
 }
 
 export const initialSettingsState: SettingsState = {
@@ -50,6 +51,7 @@ export const initialSettingsState: SettingsState = {
   },
   showPreviews: true,
   backgroundSync: true,
+  recentEmojis: [],
 }
 
 export interface SettingsActions extends SliceActions<SettingsState> {
@@ -62,6 +64,7 @@ export interface SettingsActions extends SliceActions<SettingsState> {
   setStatusNotifications(settings: Partial<NotificationSettings>): void
   setShowPreviews(showPreviews: boolean): void
   setBackgroundSync(backgroundSync: boolean): void
+  setRecentEmojis(recentEmojis: string[]): void
 }
 
 export function createSettingsSlice(): StateSlice<SettingsState> & SettingsActions {
@@ -147,6 +150,11 @@ export function createSettingsSlice(): StateSlice<SettingsState> & SettingsActio
 
     setBackgroundSync(backgroundSync: boolean) {
       state = { ...state, backgroundSync }
+      notify()
+    },
+
+    setRecentEmojis(recentEmojis: string[]) {
+      state = { ...state, recentEmojis }
       notify()
     },
   }

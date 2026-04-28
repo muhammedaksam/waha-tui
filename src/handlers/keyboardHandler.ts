@@ -20,8 +20,11 @@ import {
   startPresenceManagement,
   stopPresenceManagement,
 } from "~/client"
-import { getSelectedMenuItem, handleContextMenuKey } from "~/components/ContextMenu"
-import { handleLogoutConfirm } from "~/components/Modal"
+import { downloadAndOpenMedia, reactToMessage, sendMediaMessage } from "~/client/messageActions"
+import { getSelectedContextMenuActionId, handleContextMenuKey } from "~/components/ContextMenu"
+import { showEmojiPicker } from "~/components/EmojiPicker"
+import { handleLogoutConfirm, showCaptionModal, showFilePickerModal } from "~/components/Modal"
+import { showToast } from "~/components/Toast"
 import { saveSettings } from "~/config/manager"
 import { executeContextMenuAction } from "~/handlers"
 import { webSocketService } from "~/services/WebSocketService"
@@ -78,9 +81,10 @@ async function handleContextMenuKeys(
   const handled = handleContextMenuKey(key.name)
   if (handled) {
     if (key.name === "return" || key.name === "enter") {
-      const selectedItem = getSelectedMenuItem()
-      if (selectedItem) {
-        await executeContextMenuAction(selectedItem.id, state.contextMenu)
+      // getSelectedContextMenuActionId handles sub-items like quick reactions
+      const actionId = getSelectedContextMenuActionId()
+      if (actionId) {
+        await executeContextMenuAction(actionId, state.contextMenu)
       }
     }
     renderApp(true)
@@ -443,6 +447,75 @@ async function handleConversationViewKeys(key: KeyEvent, state: AppState): Promi
       const messageId = targetMessage.id
       appState.openContextMenu("message", messageId, targetMessage)
       debugLog("ContextMenu", `Opened message context menu for: ${messageId}`)
+    }
+    return true
+  }
+
+  // 'o' key - open/download last media message
+  if (key.name === "o" && !state.inputMode) {
+    const messages = state.messages.get(state.currentChatId || "")
+    if (messages && messages.length > 0) {
+      // Find the most recent message that has media
+      const targetMessage = [...messages].reverse().find((m) => m.hasMedia || m._data?.hasMedia)
+      if (targetMessage && state.currentChatId) {
+        debugLog(
+          "Keyboard",
+          `Shortcut 'o' pressed - downloading media for message: ${targetMessage.id}`
+        )
+        downloadAndOpenMedia(state.currentChatId as string, targetMessage.id).catch((err) => {
+          debugLog("Keyboard", `Failed to download media via shortcut: ${err}`)
+        })
+      } else {
+        debugLog("Keyboard", "No media messages found in the current chat view to open")
+      }
+    }
+    return true
+  }
+
+  // 'a' key - attach media
+  if (key.name === "a" && !state.inputMode) {
+    if (state.currentChatId) {
+      debugLog(
+        "Keyboard",
+        `Shortcut 'a' pressed - attaching media for chat: ${state.currentChatId}`
+      )
+
+      showFilePickerModal().then((filePath) => {
+        if (!filePath) return // Cancelled
+
+        showCaptionModal().then((caption) => {
+          if (caption === null) return // Cancelled
+
+          showToast("Sending media...", "info")
+          sendMediaMessage(state.currentChatId as string, filePath, caption)
+            .then(() => {
+              showToast("Media sent successfully", "success")
+            })
+            .catch((err) => {
+              debugLog("Keyboard", `Failed to send media: ${err}`)
+              showToast(`Failed to send media`, "error")
+            })
+        })
+      })
+    }
+    return true
+  }
+
+  // 'e' key - react with emoji to last message
+  if (key.name === "e" && !state.inputMode) {
+    const messages = state.messages.get(state.currentChatId || "")
+    if (messages && messages.length > 0) {
+      const targetMessage = messages[messages.length - 1]
+      debugLog("Keyboard", `Shortcut 'e' pressed - reacting to message: ${targetMessage.id}`)
+
+      showEmojiPicker().then((emoji) => {
+        if (emoji) {
+          reactToMessage(targetMessage.id, emoji).catch((err) => {
+            debugLog("Keyboard", `Failed to react: ${err}`)
+            showToast("Failed to react", "error")
+          })
+        }
+      })
     }
     return true
   }

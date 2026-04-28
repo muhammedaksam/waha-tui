@@ -416,12 +416,21 @@ class StateManager {
     this.modalSlice.setContextMenuSelectedIndex(selectedIndex)
   }
 
+  setContextMenuSelectedSubIndex(selectedSubIndex?: number): void {
+    this.modalSlice.setContextMenuSelectedSubIndex(selectedSubIndex)
+  }
+
   setContextMenuActionCallback(callback: (actionId: string) => void): void {
     this.modalSlice.setContextMenuActionCallback(callback)
   }
 
   triggerContextMenuAction(actionId: string): void {
     this.modalSlice.triggerContextMenuAction(actionId)
+  }
+
+  // Emoji Picker
+  setEmojiPicker(emojiPicker: import("~/state/slices").EmojiPickerState | null): void {
+    this.modalSlice.setEmojiPicker(emojiPicker)
   }
 
   // Modal
@@ -480,6 +489,10 @@ class StateManager {
 
   setBackgroundSync(backgroundSync: boolean): void {
     this.settingsSlice.setBackgroundSync(backgroundSync)
+  }
+
+  setRecentEmojis(recentEmojis: string[]): void {
+    this.settingsSlice.setRecentEmojis(recentEmojis)
   }
 
   // Auth
