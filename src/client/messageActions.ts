@@ -17,7 +17,7 @@ import { RetryPresets, withRetry } from "~/services/RetryService"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
 import { getChatIdString } from "~/utils/formatters"
-import { getMediaDownloadDir, openLocalFile } from "~/utils/mediaUtils"
+import { getMediaDownloadDir, getMimeType, openLocalFile } from "~/utils/mediaUtils"
 
 /**
  * Star or unstar a message.
@@ -477,7 +477,7 @@ export async function downloadAndOpenMedia(chatId: string, messageId: string): P
       try {
         const parsed = new URL(mediaUrl)
         relativeUrl = parsed.pathname + parsed.search
-      } catch (_e) {
+      } catch {
         // Fallback to absolute if parsing fails
       }
 
@@ -511,5 +511,95 @@ export async function downloadAndOpenMedia(chatId: string, messageId: string): P
     throw error instanceof Error
       ? new NetworkError("Failed to download and open media", { messageId }, error)
       : new NetworkError("Failed to download and open media", { messageId })
+  }
+}
+
+/**
+ * Sends a media message (image, video, audio, or document) to a chat.
+ * @param chatId - The chat ID
+ * @param filePath - The absolute path to the local file
+ * @param caption - Optional caption for the media
+ * @param replyToMessageId - Optional message ID to reply to
+ */
+export async function sendMediaMessage(
+  chatId: string,
+  filePath: string,
+  caption?: string,
+  replyToMessageId?: string
+): Promise<void> {
+  try {
+    const session = getSession()
+    const wahaClient = getClient()
+    const { readFile } = await import("node:fs/promises")
+    const { basename } = await import("node:path")
+    const { existsSync } = await import("node:fs")
+
+    if (!existsSync(filePath)) {
+      throw new Error(`File not found: ${filePath}`)
+    }
+
+    const mimeType = getMimeType(filePath)
+    const filename = basename(filePath)
+
+    // Read file and convert to base64
+    const fileBuffer = await readFile(filePath)
+    const base64Data = fileBuffer.toString("base64")
+
+    const filePayload = {
+      mimetype: mimeType,
+      filename: filename,
+      data: base64Data,
+    }
+
+    debugLog("Client", `Sending media message to ${chatId}. Mimetype: ${mimeType}`)
+
+    // Route based on mimetype
+    if (mimeType.startsWith("image/")) {
+      await wahaClient.chatting.chattingControllerSendImage({
+        session,
+        chatId,
+        file: filePayload,
+        caption,
+        reply_to: replyToMessageId,
+      })
+    } else if (mimeType.startsWith("video/")) {
+      await wahaClient.chatting.chattingControllerSendVideo({
+        session,
+        chatId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        file: filePayload as any, // VideoBinaryFile types are incorrect in the SDK
+        caption,
+        reply_to: replyToMessageId,
+        convert: false,
+      })
+    } else if (mimeType.startsWith("audio/")) {
+      await wahaClient.chatting.chattingControllerSendVoice({
+        session,
+        chatId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        file: filePayload as any, // VoiceBinaryFile types are incorrect in the SDK
+        reply_to: replyToMessageId,
+        convert: false,
+      })
+    } else {
+      // Document / other
+      await wahaClient.chatting.chattingControllerSendFile({
+        session,
+        chatId,
+        file: filePayload,
+        caption,
+        reply_to: replyToMessageId,
+      })
+    }
+
+    debugLog("Client", `Media message sent successfully to ${chatId}`)
+
+    // Reload messages to show the new one
+    await loadMessages(chatId)
+  } catch (error) {
+    errorService.handle(error, { context: { action: "sendMediaMessage", chatId } })
+    throw error instanceof Error
+      ? new NetworkError("Failed to send media", { chatId }, error)
+      : new NetworkError("Failed to send media", { chatId })
   }
 }
