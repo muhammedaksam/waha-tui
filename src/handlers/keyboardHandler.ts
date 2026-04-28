@@ -20,8 +20,9 @@ import {
   startPresenceManagement,
   stopPresenceManagement,
 } from "~/client"
-import { downloadAndOpenMedia, sendMediaMessage } from "~/client/messageActions"
+import { downloadAndOpenMedia, reactToMessage, sendMediaMessage } from "~/client/messageActions"
 import { getSelectedMenuItem, handleContextMenuKey } from "~/components/ContextMenu"
+import { showEmojiPicker } from "~/components/EmojiPicker"
 import {
   handleLogoutConfirm,
   showCaptionModal,
@@ -512,6 +513,25 @@ async function handleConversationViewKeys(key: KeyEvent, state: AppState): Promi
               showToast(`Failed to send media`, "error")
             })
         })
+      })
+    }
+    return true
+  }
+
+  // 'e' key - react with emoji to last message
+  if (key.name === "e" && !state.inputMode) {
+    const messages = state.messages.get(state.currentChatId || "")
+    if (messages && messages.length > 0) {
+      const targetMessage = messages[messages.length - 1]
+      debugLog("Keyboard", `Shortcut 'e' pressed - reacting to message: ${targetMessage.id}`)
+
+      showEmojiPicker().then((emoji) => {
+        if (emoji) {
+          reactToMessage(targetMessage.id, emoji).catch((err) => {
+            debugLog("Keyboard", `Failed to react: ${err}`)
+            showToast("Failed to react", "error")
+          })
+        }
       })
     }
     return true

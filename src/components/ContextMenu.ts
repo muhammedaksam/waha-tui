@@ -54,6 +54,20 @@ export function getMessageMenuItems(message: WAMessage | WAMessageExtended): Con
   // Check if message is starred
   const isStarred = (message as { isStarred?: boolean }).isStarred === true
 
+  // Check if user has reacted to this message
+  const state = appState.getState()
+  const myProfileId = state.myProfile?.id ?? null
+  const extMessage = message as WAMessageExtended
+  const hasMyReaction =
+    myProfileId &&
+    extMessage.reactions?.some((r) => {
+      if (!r.from) return false
+      // Compare by numeric prefix (strip @c.us / @lid suffix)
+      const fromNum = r.from.split("@")[0]
+      const myNum = myProfileId.split("@")[0]
+      return fromNum === myNum
+    })
+
   const items: ContextMenuItem[] = [
     {
       id: "reply",
@@ -75,12 +89,21 @@ export function getMessageMenuItems(message: WAMessage | WAMessageExtended): Con
     })
   }
 
+  items.push({
+    id: "react",
+    label: "React",
+    icon: Icons.react,
+  })
+
+  if (hasMyReaction) {
+    items.push({
+      id: "unreact",
+      label: "Remove Reaction",
+      icon: "❌",
+    })
+  }
+
   items.push(
-    {
-      id: "react",
-      label: "React",
-      icon: Icons.react,
-    },
     {
       id: "forward",
       label: "Forward",
