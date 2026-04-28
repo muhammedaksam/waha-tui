@@ -8,6 +8,7 @@ import type { WAMessage } from "@muhammedaksam/waha-node"
 import type { ChatId, MessageId, WAMessageExtended } from "~/types"
 import { getClient, getSession } from "~/client/core"
 import { loadChats } from "~/client/sessionActions"
+import { loadConfig } from "~/config/manager"
 import { TIME_MS, TIME_S } from "~/constants"
 import { CacheKeys, cacheService } from "~/services/CacheService"
 import { NetworkError } from "~/services/Errors"
@@ -16,6 +17,7 @@ import { RetryPresets, withRetry } from "~/services/RetryService"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
 import { getChatIdString } from "~/utils/formatters"
+import { getMediaDownloadDir, openLocalFile } from "~/utils/mediaUtils"
 
 /**
  * Star or unstar a message.
@@ -408,4 +410,106 @@ export async function prefetchMessagesForTopChats(count: number = 5): Promise<vo
   }
 
   debugLog("BackgroundSync", "Pre-fetch complete")
+}
+
+/**
+ * Downloads media from a message and opens it in the system's default viewer.
+ * @param chatId - The chat ID
+ * @param messageId - The message ID containing the media
+ * @throws {NetworkError} If network connection fails
+ */
+export async function downloadAndOpenMedia(chatId: string, messageId: string): Promise<void> {
+  try {
+    const session = getSession()
+    const wahaClient = getClient()
+
+    debugLog("Client", `Downloading media for message: ${messageId}`)
+
+    // Fetch message with media URL
+    const response = await wahaClient.chats.chatsControllerGetChatMessage(
+      session,
+      chatId,
+      messageId,
+      {
+        downloadMedia: true,
+      }
+    )
+
+    const message = response.data as unknown as WAMessageExtended
+    if (!message.hasMedia && !message.mediaUrl) {
+      throw new Error("Message does not contain media")
+    }
+
+    let mediaUrl = message.media?.url || message.mediaUrl
+    if (!mediaUrl) {
+      throw new Error("Media URL not found in message payload")
+    }
+
+    // WAHA sometimes returns internal docker URLs (e.g. http://localhost:3000) for media.
+    // We should substitute it with the actual connected waha API url if available.
+    if (wahaClient.httpClient?.defaults.baseURL && mediaUrl.startsWith("http")) {
+      try {
+        const parsedMediaUrl = new URL(mediaUrl)
+        const baseUrl = new URL(wahaClient.httpClient.defaults.baseURL)
+        parsedMediaUrl.protocol = baseUrl.protocol
+        parsedMediaUrl.host = baseUrl.host
+        parsedMediaUrl.port = baseUrl.port
+        mediaUrl = parsedMediaUrl.toString()
+      } catch (e) {
+        debugLog("Client", `Failed to parse URLs for substitution: ${e}`)
+      }
+    }
+
+    // Determine filename from mime type or object
+    const filename =
+      message.media?.filename ||
+      `media_${messageId}.${message.media?.mimetype?.split("/")[1]?.split(";")[0] || "bin"}`
+
+    const downloadDir = await getMediaDownloadDir()
+    const { join } = await import("node:path")
+    const { writeFile } = await import("node:fs/promises")
+    const filePath = join(downloadDir, filename)
+
+    debugLog("Client", `Downloading from ${mediaUrl} to ${filePath}`)
+
+    if (wahaClient.httpClient) {
+      let relativeUrl = mediaUrl
+      try {
+        const parsed = new URL(mediaUrl)
+        relativeUrl = parsed.pathname + parsed.search
+      } catch (_e) {
+        // Fallback to absolute if parsing fails
+      }
+
+      const config = await loadConfig()
+      const apiKey = config?.wahaApiKey
+      const headers: Record<string, string> = {}
+      if (apiKey) {
+        headers["X-Api-Key"] = apiKey
+      }
+
+      const fileResponse = await wahaClient.httpClient.get(relativeUrl, {
+        responseType: "arraybuffer",
+        headers,
+      })
+      await writeFile(filePath, Buffer.from(fileResponse.data))
+    } else {
+      // Fallback for custom fetch, rarely used
+      const fetchResponse = await fetch(mediaUrl)
+      const arrayBuffer = await fetchResponse.arrayBuffer()
+      await writeFile(filePath, Buffer.from(arrayBuffer))
+    }
+
+    debugLog("Client", `Opening media file: ${filePath}`)
+    const opened = await openLocalFile(filePath)
+
+    if (!opened) {
+      throw new Error("System failed to open the file")
+    }
+  } catch (error) {
+    errorService.handle(error, { context: { action: "downloadAndOpenMedia", messageId } })
+    throw error instanceof Error
+      ? new NetworkError("Failed to download and open media", { messageId }, error)
+      : new NetworkError("Failed to download and open media", { messageId })
+  }
 }

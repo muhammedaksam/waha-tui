@@ -28,6 +28,7 @@ export {
   sendMessage,
   sendTypingState,
   prefetchMessagesForTopChats,
+  downloadAndOpenMedia,
 } from "~/client/messageActions"
 
 // Session & data loading actions
