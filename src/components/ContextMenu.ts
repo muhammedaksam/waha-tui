@@ -54,7 +54,7 @@ export function getMessageMenuItems(message: WAMessage | WAMessageExtended): Con
   // Check if message is starred
   const isStarred = (message as { isStarred?: boolean }).isStarred === true
 
-  return [
+  const items: ContextMenuItem[] = [
     {
       id: "reply",
       label: "Reply",
@@ -65,6 +65,17 @@ export function getMessageMenuItems(message: WAMessage | WAMessageExtended): Con
       label: "Copy",
       icon: Icons.copy,
     },
+  ]
+
+  if (message.hasMedia || (message as WAMessageExtended)._data?.hasMedia) {
+    items.push({
+      id: "download",
+      label: "Download & Open",
+      icon: Icons.download,
+    })
+  }
+
+  items.push(
     {
       id: "react",
       label: "React",
@@ -92,8 +103,10 @@ export function getMessageMenuItems(message: WAMessage | WAMessageExtended): Con
       icon: Icons.delete,
       destructive: true,
       separator: true,
-    },
-  ]
+    }
+  )
+
+  return items
 }
 
 // Get menu items based on context type

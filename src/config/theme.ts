@@ -249,6 +249,7 @@ export const Icons = {
   reply: "↩",
   forward: "➡",
   copy: "📋",
+  download: "⬇",
   pin: "📌",
   star: "☆",
   starFilled: "★",
