@@ -627,9 +627,6 @@ export function showContactPickerModal(): Promise<string | null> {
           // Sort alphabetically by name
           filtered.sort((a, b) => (a.name || "").localeCompare(b.name || ""))
 
-          // Limit to 8 results
-          filtered = filtered.slice(0, 8)
-
           if (selectedIndex >= filtered.length) {
             selectedIndex = Math.max(0, filtered.length - 1)
           }
@@ -642,7 +639,16 @@ export function showContactPickerModal(): Promise<string | null> {
               })
             )
           } else {
-            filtered.forEach((contact, index) => {
+            const PAGE_SIZE = 8
+            let startIndex = Math.max(0, selectedIndex - Math.floor(PAGE_SIZE / 2))
+            let endIndex = startIndex + PAGE_SIZE
+            if (endIndex > filtered.length) {
+              endIndex = filtered.length
+              startIndex = Math.max(0, endIndex - PAGE_SIZE)
+            }
+
+            for (let index = startIndex; index < endIndex; index++) {
+              const contact = filtered[index]
               const isSelected = index === selectedIndex
               const row = new BoxRenderable(ctx, {
                 flexDirection: "row",
@@ -691,7 +697,7 @@ export function showContactPickerModal(): Promise<string | null> {
               row.add(nameBox)
 
               resultsContainer.add(row)
-            })
+            }
           }
 
           // Request re-render of this container
