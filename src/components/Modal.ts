@@ -614,6 +614,11 @@ export function showContactPickerModal(): Promise<string | null> {
 
           filtered = []
           for (const [id, name] of contactsMap.entries()) {
+            // Only show regular user contacts (exclude @lid duplicates and @g.us groups)
+            if (!id.endsWith("@c.us")) {
+              continue
+            }
+
             if (!searchQuery.trim()) {
               filtered.push({ id, name })
             } else {
