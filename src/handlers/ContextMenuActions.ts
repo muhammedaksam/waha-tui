@@ -1,6 +1,7 @@
 import type { WAMessage } from "@muhammedaksam/waha-node"
 
 import type { ContextMenuState } from "~/state/AppState"
+import type { WAMessageExtended } from "~/types"
 import {
   archiveChat,
   copyToClipboard,
@@ -16,6 +17,7 @@ import {
 } from "~/client"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
+import { getChatIdString } from "~/utils/formatters"
 import { focusMessageInput } from "~/views/ConversationView"
 
 /**
@@ -113,12 +115,53 @@ export async function executeContextMenuAction(
           break
         }
         case "forward": {
-          // TODO: Implement chat picker UI for selecting destination
-          // For now, just log that forward was requested
-          debugLog(
-            "ContextMenu",
-            `Forward requested for message: ${targetId} - need chat picker UI`
-          )
+          const message = contextMenu.targetData as WAMessageExtended
+          if (!message) break
+
+          // Dynamically import to avoid circular dependencies if any
+          const { showChatPicker } = await import("~/components/ChatPickerDialog")
+
+          debugLog("ContextMenu", `Opening ChatPicker for message ${targetId}`)
+          const selectedChats = await showChatPicker(message)
+          debugLog("ContextMenu", `ChatPicker closed with ${selectedChats.length} selected chats`)
+
+          if (selectedChats.length > 0) {
+            let successCount = 0
+            appState.showToast(`Forwarding message to ${selectedChats.length} chat(s)...`, "info")
+
+            for (const chat of selectedChats) {
+              try {
+                // message.chatId might not be directly on message in all WAHA versions,
+                // but WAMessageExtended typically has it or we can get it from state
+                const originalChatId = state.currentChatId
+                debugLog(
+                  "ContextMenu",
+                  `OriginalChatId: ${originalChatId}, ToChatId: ${getChatIdString(chat.id)}`
+                )
+                if (originalChatId) {
+                  await import("~/client").then((m) =>
+                    m.forwardMessage(originalChatId, targetId, getChatIdString(chat.id))
+                  )
+                  successCount++
+                } else {
+                  debugLog("ContextMenu", `Failed to forward: originalChatId is missing`)
+                }
+              } catch (e) {
+                debugLog("ContextMenu", `Failed to forward to ${getChatIdString(chat.id)}: ${e}`)
+              }
+            }
+
+            if (successCount === selectedChats.length) {
+              appState.showToast(`${successCount} item(s) forwarded`, "success")
+            } else if (successCount > 0) {
+              appState.showToast(
+                `Forwarded to ${successCount}/${selectedChats.length} chats`,
+                "warning"
+              )
+            } else {
+              appState.showToast(`Failed to forward message`, "error")
+            }
+          }
           break
         }
       }
