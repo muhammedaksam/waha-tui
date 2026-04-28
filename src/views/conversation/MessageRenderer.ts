@@ -242,6 +242,25 @@ export function renderMessage(
     }
   }
 
+  // Row 1.75: Forwarded indicator
+  const isForwarded = message.isForwarded || message._data?.isForwarded
+  if (isForwarded) {
+    const forwardedRow = new BoxRenderable(renderer, {
+      flexDirection: "row",
+      justifyContent: "flex-start",
+      marginBottom: 0,
+    })
+
+    forwardedRow.add(
+      new TextRenderable(renderer, {
+        content: t`➦ Forwarded`,
+        fg: WhatsAppTheme.textSecondary,
+        attributes: TextAttributes.ITALIC,
+      })
+    )
+    bubble.add(forwardedRow)
+  }
+
   // Row 2: Media label (if media) — uses dimmed text for the label line
   if (isMediaLabel) {
     const mediaLabelRow = new BoxRenderable(renderer, {
