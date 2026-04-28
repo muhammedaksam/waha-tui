@@ -82,6 +82,14 @@ export async function executeContextMenuAction(
           }
           break
         }
+        case "download": {
+          if (state.currentChatId) {
+            // Lazy import to avoid circular dependencies
+            const { downloadAndOpenMedia } = await import("~/client")
+            await downloadAndOpenMedia(state.currentChatId, targetId)
+          }
+          break
+        }
         case "star": {
           const message = contextMenu.targetData as { isStarred?: boolean }
           const isStarred = message?.isStarred === true
