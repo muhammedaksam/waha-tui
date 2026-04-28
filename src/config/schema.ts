@@ -37,6 +37,7 @@ export interface WahaTuiSettings {
   statusNotifications: NotificationCategorySettings
   showPreviews: boolean // Preview message text inside notifications (global)
   backgroundSync: boolean // Keep syncing messages in background for faster performance
+  recentEmojis: string[] // Recently used emojis
 }
 
 export const DEFAULT_SETTINGS: WahaTuiSettings = {
@@ -58,6 +59,7 @@ export const DEFAULT_SETTINGS: WahaTuiSettings = {
   },
   showPreviews: true,
   backgroundSync: true,
+  recentEmojis: [],
 }
 
 /**

@@ -3,6 +3,9 @@
  * Functions for message-level operations (star, pin, delete, forward, react, load, send)
  */
 
+import { existsSync } from "node:fs"
+import { readFile, writeFile } from "node:fs/promises"
+import { basename, join } from "node:path"
 import type { WAMessage } from "@muhammedaksam/waha-node"
 
 import type { ChatId, MessageId, WAMessageExtended } from "~/types"
@@ -466,8 +469,6 @@ export async function downloadAndOpenMedia(chatId: string, messageId: string): P
       `media_${messageId}.${message.media?.mimetype?.split("/")[1]?.split(";")[0] || "bin"}`
 
     const downloadDir = await getMediaDownloadDir()
-    const { join } = await import("node:path")
-    const { writeFile } = await import("node:fs/promises")
     const filePath = join(downloadDir, filename)
 
     debugLog("Client", `Downloading from ${mediaUrl} to ${filePath}`)
@@ -530,9 +531,6 @@ export async function sendMediaMessage(
   try {
     const session = getSession()
     const wahaClient = getClient()
-    const { readFile } = await import("node:fs/promises")
-    const { basename } = await import("node:path")
-    const { existsSync } = await import("node:fs")
 
     if (!existsSync(filePath)) {
       throw new Error(`File not found: ${filePath}`)

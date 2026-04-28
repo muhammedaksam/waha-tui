@@ -6,6 +6,7 @@ import {
   copyToClipboard,
   deleteChat,
   deleteMessage,
+  downloadAndOpenMedia,
   loadChats,
   loadMessages,
   markChatUnread,
@@ -15,6 +16,7 @@ import {
   unarchiveChat,
 } from "~/client"
 import { showEmojiPicker } from "~/components/EmojiPicker"
+import { getSettings, saveSettings } from "~/config/manager"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
 import { focusMessageInput } from "~/views/ConversationView"
@@ -38,9 +40,18 @@ export async function executeContextMenuAction(
   debugLog("ContextMenu", `Executing action: ${actionId} on ${contextMenu.type} ${targetId}`)
 
   try {
+    // Check if actionId has a prefix (e.g. react:👍)
+    let action = actionId
+    let payload = ""
+    if (actionId.includes(":")) {
+      const parts = actionId.split(":")
+      action = parts[0]
+      payload = parts.slice(1).join(":")
+    }
+
     if (contextMenu.type === "chat") {
       // Chat actions
-      switch (actionId) {
+      switch (action) {
         case "archive": {
           const chat = contextMenu.targetData as { _chat?: { archived?: boolean } }
           const isArchivedChat = chat?._chat?.archived === true
@@ -64,7 +75,7 @@ export async function executeContextMenuAction(
       }
     } else if (contextMenu.type === "message") {
       // Message actions
-      switch (actionId) {
+      switch (action) {
         case "reply": {
           // Set replying to message state and focus input
           const message = contextMenu.targetData
@@ -85,8 +96,6 @@ export async function executeContextMenuAction(
         }
         case "download": {
           if (state.currentChatId) {
-            // Lazy import to avoid circular dependencies
-            const { downloadAndOpenMedia } = await import("~/client")
             await downloadAndOpenMedia(state.currentChatId, targetId)
           }
           break
@@ -108,10 +117,34 @@ export async function executeContextMenuAction(
           }
           break
         }
-        case "react": {
-          const emoji = await showEmojiPicker()
+        case "open_emoji_picker": {
+          const position = state.contextMenu?.position
+          appState.closeContextMenu()
+          const emoji = await showEmojiPicker(position)
           if (emoji) {
             await reactToMessage(targetId, emoji)
+          }
+          break
+        }
+        case "react": {
+          let emoji: string | null = payload
+          if (!emoji) {
+            // In case it's still sent as "react" without payload
+            const position = state.contextMenu?.position
+            appState.closeContextMenu()
+            emoji = await showEmojiPicker(position)
+          }
+          if (emoji) {
+            await reactToMessage(targetId, emoji)
+
+            // Add to recent emojis
+            const currentSettings = await getSettings()
+            const recent = currentSettings.recentEmojis || []
+
+            // Keep only latest 24 unique emojis
+            const newRecent = [emoji, ...recent.filter((e: string) => e !== emoji)].slice(0, 24)
+            appState.setRecentEmojis(newRecent)
+            await saveSettings({ recentEmojis: newRecent })
           }
           break
         }

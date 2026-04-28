@@ -14,11 +14,23 @@ export interface ContextMenuState {
   targetId: string | null // Chat ID or Message ID
   targetData?: ChatSummary | WAMessage | WAMessageExtended | null // The actual chat or message data
   selectedIndex: number // Currently highlighted menu item
+  selectedSubIndex?: number // Currently highlighted sub-item (e.g. horizontal quick reactions)
   position: {
     x: number
     y: number
     bubbleWidth?: number // For message bubbles - the width of the bubble
     bubbleHeight?: number // For message bubbles - the height of the bubble
+  }
+}
+
+// Emoji Picker state
+export interface EmojiPickerState {
+  visible: boolean
+  position?: {
+    x: number
+    y: number
+    bubbleWidth?: number
+    bubbleHeight?: number
   }
 }
 
@@ -44,6 +56,7 @@ export interface ModalState {
   updateInfo: UpdateInfo | null
   toast: ToastState | null
   configStep: ConfigStep | null
+  emojiPicker: EmojiPickerState | null
 }
 
 export const initialModalState: ModalState = {
@@ -53,6 +66,7 @@ export const initialModalState: ModalState = {
   updateInfo: null,
   toast: null,
   configStep: null,
+  emojiPicker: null,
 }
 
 export interface ModalActions extends SliceActions<ModalState> {
@@ -65,10 +79,14 @@ export interface ModalActions extends SliceActions<ModalState> {
   ): void
   closeContextMenu(): void
   setContextMenuSelectedIndex(selectedIndex: number): void
+  setContextMenuSelectedSubIndex(selectedSubIndex?: number): void
 
   // Context Menu Action Callback
   setContextMenuActionCallback(callback: (actionId: string) => void): void
   triggerContextMenuAction(actionId: string): void
+
+  // Emoji Picker
+  setEmojiPicker(emojiPicker: EmojiPickerState | null): void
 
   // Modals
   setShowLogoutModal(showLogoutModal: boolean): void
@@ -151,6 +169,20 @@ export function createModalSlice(): StateSlice<ModalState> & ModalActions {
           contextMenu: {
             ...state.contextMenu,
             selectedIndex,
+            selectedSubIndex: undefined, // Reset sub-index when moving up/down
+          },
+        }
+        notify()
+      }
+    },
+
+    setContextMenuSelectedSubIndex(selectedSubIndex?: number) {
+      if (state.contextMenu) {
+        state = {
+          ...state,
+          contextMenu: {
+            ...state.contextMenu,
+            selectedSubIndex,
           },
         }
         notify()
@@ -183,6 +215,12 @@ export function createModalSlice(): StateSlice<ModalState> & ModalActions {
 
     setConfigStep(configStep: ConfigStep | null) {
       state = { ...state, configStep }
+      notify()
+    },
+
+    // Emoji Picker
+    setEmojiPicker(emojiPicker: EmojiPickerState | null) {
+      state = { ...state, emojiPicker }
       notify()
     },
 

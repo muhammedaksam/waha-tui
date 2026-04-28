@@ -12,6 +12,7 @@ import { Box, BoxRenderable, Text } from "@opentui/core"
 
 import type { AppState, ViewType } from "~/state/AppState"
 import { clearMenuBounds, ContextMenu, isClickOutsideContextMenu } from "~/components/ContextMenu"
+import { EmojiPicker } from "~/components/EmojiPicker"
 import { Footer } from "~/components/Footer"
 import { WHATSAPP_DIALOG_CONFIG } from "~/components/Modal"
 import { WHATSAPP_TOASTER_CONFIG } from "~/components/Toast"
@@ -163,10 +164,15 @@ export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean)
     // Add root wrapper to renderer
     renderer.root.add(rootWrapper)
 
-    // Render context menu overlay if visible
     const contextMenuBox = ContextMenu()
     if (contextMenuBox) {
       renderer.root.add(contextMenuBox)
+    }
+
+    // Render emoji picker overlay if visible
+    const emojiPickerBox = EmojiPicker()
+    if (emojiPickerBox) {
+      renderer.root.add(emojiPickerBox)
     }
 
     // Add dialog container once - it persists and manages its own dialog lifecycle
