@@ -3,7 +3,7 @@
  * WhatsApp-themed dialogs using @opentui-ui/dialog
  */
 
-import type { DialogContainerOptions, DialogStyle } from "@opentui-ui/dialog"
+import type { DialogContainerOptions, DialogId, DialogStyle } from "@opentui-ui/dialog"
 import type { RenderContext } from "@opentui/core"
 
 import {
@@ -11,6 +11,7 @@ import {
   fg,
   InputRenderable,
   InputRenderableEvents,
+  KeyEvent,
   link,
   t,
   TextAttributes,
@@ -23,6 +24,8 @@ import { logoutSession } from "~/client"
 import { WDSColors, WhatsAppTheme } from "~/config/theme"
 import { getDialogManager } from "~/router"
 import { appState } from "~/state/AppState"
+import { getRenderer } from "~/state/RendererContext"
+import { getInitials } from "~/utils/formatters"
 
 /**
  * WhatsApp-themed dialog container configuration
@@ -522,8 +525,10 @@ export function showCaptionModal(): Promise<string | null> {
  */
 export function showContactPickerModal(): Promise<string | null> {
   const dialogManager = getDialogManager()
+  const renderer = getRenderer()
   let resolved = false
   let searchQuery = ""
+  let selectedIndex = 0
 
   // Set input mode so global keyboard handlers don't intercept typing
   appState.setInputMode(true)
@@ -533,15 +538,38 @@ export function showContactPickerModal(): Promise<string | null> {
       if (resolved) return
       resolved = true
       appState.setInputMode(false)
+      renderer.keyInput.off("keypress", handleKey)
       resolve(value)
     }
 
-    const dialogId = dialogManager.show({
+    let filtered: Array<{ id: string; name: string }> = []
+    let updateResults: () => void = () => {}
+    // eslint-disable-next-line prefer-const
+    let dialogId: DialogId | undefined
+
+    const handleKey = (key: KeyEvent) => {
+      if (filtered.length === 0) return
+
+      if (key.name === "up") {
+        selectedIndex = Math.max(0, selectedIndex - 1)
+        updateResults()
+      } else if (key.name === "down") {
+        selectedIndex = Math.min(filtered.length - 1, selectedIndex + 1)
+        updateResults()
+      } else if (key.name === "return" || key.name === "enter") {
+        // If there's a selection, use it. If not, and search is a phone number, use that.
+        if (filtered[selectedIndex] && dialogId !== undefined) {
+          safeResolve(filtered[selectedIndex].id)
+          dialogManager.close(dialogId)
+        }
+      }
+    }
+
+    dialogId = dialogManager.show({
       content: (ctx: RenderContext) => {
         const wrapper = new BoxRenderable(ctx, {
           flexDirection: "column",
           width: "100%",
-          height: 15,
         })
 
         // Title
@@ -574,19 +602,17 @@ export function showContactPickerModal(): Promise<string | null> {
         // Results Container
         const resultsContainer = new BoxRenderable(ctx, {
           flexDirection: "column",
-          flexGrow: 1,
+          height: 16, // 8 items * 2 height
         })
         wrapper.add(resultsContainer)
 
-        let topResultId: string | null = null
-
-        const updateResults = () => {
+        updateResults = () => {
           for (const child of resultsContainer.getChildren()) {
             child.destroyRecursively()
           }
           const contactsMap = appState.getState().allContacts
 
-          let filtered: Array<{ id: string; name: string }> = []
+          filtered = []
           for (const [id, name] of contactsMap.entries()) {
             if (!searchQuery.trim()) {
               filtered.push({ id, name })
@@ -603,7 +629,10 @@ export function showContactPickerModal(): Promise<string | null> {
 
           // Limit to 8 results
           filtered = filtered.slice(0, 8)
-          topResultId = filtered.length > 0 ? filtered[0].id : null
+
+          if (selectedIndex >= filtered.length) {
+            selectedIndex = Math.max(0, filtered.length - 1)
+          }
 
           if (filtered.length === 0) {
             resultsContainer.add(
@@ -614,15 +643,16 @@ export function showContactPickerModal(): Promise<string | null> {
             )
           } else {
             filtered.forEach((contact, index) => {
-              const isSelected = index === 0 // Highlight top result
+              const isSelected = index === selectedIndex
               const row = new BoxRenderable(ctx, {
                 flexDirection: "row",
-                height: 1,
+                height: 2,
                 paddingLeft: 1,
                 paddingRight: 1,
-                backgroundColor: isSelected ? WhatsAppTheme.panelLight : "transparent",
+                alignItems: "center",
+                backgroundColor: isSelected ? WhatsAppTheme.hoverBg : "transparent",
                 onMouse(event) {
-                  if (event.type === "down" && event.button === 0) {
+                  if (event.type === "down" && event.button === 0 && dialogId !== undefined) {
                     safeResolve(contact.id)
                     dialogManager.close(dialogId)
                     event.stopPropagation()
@@ -630,12 +660,35 @@ export function showContactPickerModal(): Promise<string | null> {
                 },
               })
 
-              row.add(
+              // Avatar
+              const avatarName = contact.name || "Unknown"
+              const initials = getInitials(avatarName, 2)
+              const avatar = new BoxRenderable(ctx, {
+                width: 4,
+                height: 1,
+                backgroundColor: WhatsAppTheme.green,
+                alignItems: "center",
+                justifyContent: "center",
+              })
+              avatar.add(
                 new TextRenderable(ctx, {
-                  content: contact.name || contact.id,
-                  fg: isSelected ? WhatsAppTheme.white : WhatsAppTheme.textPrimary,
+                  content: initials,
+                  fg: WhatsAppTheme.white,
                 })
               )
+              row.add(avatar)
+
+              // Name
+              const nameBox = new BoxRenderable(ctx, { paddingLeft: 1 })
+              nameBox.add(
+                new TextRenderable(ctx, {
+                  content:
+                    avatarName.length > 25 ? avatarName.substring(0, 22) + "..." : avatarName,
+                  fg: WhatsAppTheme.textPrimary,
+                  attributes: TextAttributes.BOLD,
+                })
+              )
+              row.add(nameBox)
 
               resultsContainer.add(row)
             })
@@ -649,12 +702,13 @@ export function showContactPickerModal(): Promise<string | null> {
 
         input.on(InputRenderableEvents.INPUT, (val: string) => {
           searchQuery = val
+          selectedIndex = 0
           updateResults()
         })
 
         input.on(InputRenderableEvents.ENTER, () => {
-          if (topResultId) {
-            safeResolve(topResultId)
+          if (filtered.length > 0 && filtered[selectedIndex]) {
+            safeResolve(filtered[selectedIndex].id)
           } else if (searchQuery && /^[0-9+]+$/.test(searchQuery)) {
             // If it's a number, return it as the chatId (to be validated by the caller)
             const id = searchQuery.replace(/[^0-9]/g, "") + "@c.us"
@@ -662,13 +716,16 @@ export function showContactPickerModal(): Promise<string | null> {
           } else {
             safeResolve(null)
           }
-          dialogManager.close(dialogId)
+          if (dialogId !== undefined) dialogManager.close(dialogId)
         })
 
         // Auto focus input after it's rendered
         setTimeout(() => {
           input.focus()
         }, 50)
+
+        // Attach global key listener
+        renderer.keyInput.on("keypress", handleKey)
 
         return wrapper
       },
