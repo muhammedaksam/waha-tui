@@ -581,7 +581,9 @@ export function showContactPickerModal(): Promise<string | null> {
         let topResultId: string | null = null
 
         const updateResults = () => {
-          resultsContainer.clear()
+          for (const child of resultsContainer.getChildren()) {
+            child.destroyRecursively()
+          }
           const contactsMap = appState.getState().allContacts
 
           let filtered: Array<{ id: string; name: string }> = []
@@ -640,7 +642,7 @@ export function showContactPickerModal(): Promise<string | null> {
           }
 
           // Request re-render of this container
-          ctx.requestLayout()
+          ctx.requestRender()
         }
 
         updateResults()
