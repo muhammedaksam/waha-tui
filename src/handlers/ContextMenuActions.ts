@@ -8,6 +8,7 @@ import {
   deleteChat,
   deleteMessage,
   downloadAndOpenMedia,
+  editMessage,
   loadChats,
   loadMessages,
   markChatUnread,
@@ -17,6 +18,8 @@ import {
   unarchiveChat,
 } from "~/client"
 import { showEmojiPicker } from "~/components/EmojiPicker"
+import { showInputModal } from "~/components/Modal"
+import { showToast } from "~/components/Toast"
 import { getSettings, saveSettings } from "~/config/manager"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
@@ -159,6 +162,29 @@ export async function executeContextMenuAction(
           if (state.currentChatId) {
             await deleteMessage(state.currentChatId, targetId)
             await loadMessages(state.currentChatId)
+          }
+          break
+        }
+        case "edit": {
+          const message = contextMenu.targetData as WAMessageExtended
+          if (!message?.body || !state.currentChatId) break
+
+          // Close context menu before showing modal
+          appState.closeContextMenu()
+
+          const newText = await showInputModal(
+            "Edit Message",
+            "Enter new message text...",
+            message.body
+          )
+
+          if (newText !== null && newText.trim() && newText !== message.body) {
+            try {
+              await editMessage(state.currentChatId, targetId, newText.trim())
+              showToast("Message edited", "success")
+            } catch {
+              showToast("Failed to edit message", "error")
+            }
           }
           break
         }

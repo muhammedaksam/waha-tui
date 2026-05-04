@@ -41,6 +41,7 @@ export interface MessageActions extends SliceActions<MessageState> {
     senderId?: string
   ): void
   markMessageRevoked(chatId: string, messageId: string): void
+  updateMessageBody(chatId: string, messageId: string, newBody: string, isEdited?: boolean): void
   setScrollPosition(scrollPosition: number): void
   setMessageInput(messageInput: string): void
   setInputMode(inputMode: boolean): void
@@ -255,6 +256,27 @@ export function createMessageSlice(): StateSlice<MessageState> & MessageActions 
       const isLoadingMore = new Map(state.isLoadingMore)
       isLoadingMore.set(chatId, isLoading)
       state = { ...state, isLoadingMore }
+      notify()
+    },
+
+    updateMessageBody(chatId: string, messageId: string, newBody: string, isEdited?: boolean) {
+      const messages = new Map(state.messages)
+      const chatMessages = messages.get(chatId)
+      if (!chatMessages) return
+
+      const msgIndex = chatMessages.findIndex((m) => m.id === messageId)
+      if (msgIndex === -1) return
+
+      const updatedMsg = {
+        ...chatMessages[msgIndex],
+        body: newBody,
+        ...(isEdited ? { isEdited: true } : {}),
+      }
+      const newChatMessages = [...chatMessages]
+      newChatMessages[msgIndex] = updatedMsg
+
+      messages.set(chatId, newChatMessages)
+      state = { ...state, messages }
       notify()
     },
   }

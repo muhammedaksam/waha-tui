@@ -122,15 +122,26 @@ export function getMessageMenuItems(message: WAMessage | WAMessageExtended): Con
       id: "star",
       label: isStarred ? "Unstar" : "Star",
       icon: isStarred ? Icons.starFilled : Icons.star,
-    },
-    {
-      id: "delete",
-      label: "Delete",
-      icon: Icons.delete,
-      destructive: true,
-      separator: true,
     }
   )
+
+  // Edit option: only for own text messages
+  if (message.fromMe && message.body && !message.hasMedia) {
+    items.push({
+      id: "edit",
+      label: "Edit",
+      icon: Icons.edit || "✏️",
+      separator: true,
+    })
+  }
+
+  items.push({
+    id: "delete",
+    label: "Delete",
+    icon: Icons.delete,
+    destructive: true,
+    separator: !message.fromMe, // Only show separator if edit wasn't just added
+  })
 
   return items
 }

@@ -158,6 +158,38 @@ export async function forwardMessage(
   }
 }
 
+/**
+ * Edit a previously sent message.
+ * Only works for messages sent by the current user (fromMe).
+ * @param chatId - The chat ID
+ * @param messageId - The message ID to edit
+ * @param newText - The new text content
+ * @throws {NetworkError} If the edit fails
+ */
+export async function editMessage(
+  chatId: ChatId,
+  messageId: MessageId,
+  newText: string
+): Promise<void> {
+  try {
+    const session = getSession()
+    debugLog("Client", `Editing message ${messageId} in ${chatId}`)
+    const wahaClient = getClient()
+    await wahaClient.chats.chatsControllerEditMessage(session, chatId, messageId, {
+      text: newText,
+    })
+    debugLog("Client", `Message edited: ${messageId}`)
+
+    // Optimistically update local state
+    appState.updateMessageBody(chatId, messageId, newText, true)
+  } catch (error) {
+    errorService.handle(error, { context: { action: "editMessage", messageId } })
+    throw error instanceof Error
+      ? new NetworkError("Failed to edit message", { messageId }, error)
+      : new NetworkError("Failed to edit message", { messageId })
+  }
+}
+
 export async function reactToMessage(messageId: string, reaction: string): Promise<void> {
   try {
     const session = getSession()

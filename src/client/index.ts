@@ -21,6 +21,7 @@ export {
   pinMessage,
   unpinMessage,
   deleteMessage,
+  editMessage,
   forwardMessage,
   reactToMessage,
   loadMessages,

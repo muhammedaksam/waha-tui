@@ -255,6 +255,7 @@ export const Icons = {
   starFilled: "★",
   react: "😀",
   delete: "✕",
+  edit: "✏",
   archive: "📦",
   unread: "●",
   info: "ⓘ",

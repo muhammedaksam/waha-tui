@@ -94,7 +94,9 @@ export function renderMessage(
     messageText = message.body || ""
   }
 
-  const timestampText = t`${timestamp}${isFromMe ? formatAckStatus(message.ack, {}) : ""}`
+  const isEdited = (message as WAMessageExtended).isEdited === true
+  const editedLabel = isEdited ? "edited " : ""
+  const timestampText = t`${editedLabel}${timestamp}${isFromMe ? formatAckStatus(message.ack, {}) : ""}`
 
   // Create outer row container
   const row = new BoxRenderable(renderer, {

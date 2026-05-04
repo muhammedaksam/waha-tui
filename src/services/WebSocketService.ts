@@ -8,6 +8,7 @@ import {
   WAHAWebhookMessage,
   WAHAWebhookMessageAck,
   WAHAWebhookMessageAny,
+  WAHAWebhookMessageEdited,
   WAHAWebhookMessageReaction,
   WAHAWebhookMessageRevoked,
   WAHAWebhookSessionStatus,
@@ -312,6 +313,9 @@ export class WebSocketService {
       case "message.revoked":
         this.handleMessageRevoked(data as WAHAWebhookMessageRevoked)
         break
+      case "message.edited":
+        this.handleMessageEdited(data as WAHAWebhookMessageEdited)
+        break
       case "presence.update":
         this.handlePresenceUpdate(data as { event: "presence.update"; payload: WAHAChatPresences })
         break
@@ -480,6 +484,23 @@ export class WebSocketService {
     const state = appState.getState()
     if (state.currentChatId && revokedId) {
       appState.markMessageRevoked(state.currentChatId, revokedId)
+    }
+  }
+
+  private handleMessageEdited(data: WAHAWebhookMessageEdited) {
+    const payload = data.payload
+    if (!payload) return
+
+    // Determine chat ID: for outgoing messages (fromMe: true), use 'to'; for incoming, use 'from'
+    const chatId = payload.fromMe ? payload.to : payload.from
+    const messageId = payload.id
+    const newBody = payload.body
+
+    debugLog("WebSocket", `Message edited: ${messageId} in ${chatId}`)
+
+    const state = appState.getState()
+    if (state.currentChatId === chatId && messageId && newBody !== undefined) {
+      appState.updateMessageBody(chatId, messageId, newBody, true)
     }
   }
 

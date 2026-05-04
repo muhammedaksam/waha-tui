@@ -323,6 +323,11 @@ class StateManager {
     this.navigationSlice.set({ lastChangeType: "data" })
   }
 
+  updateMessageBody(chatId: string, messageId: string, newBody: string, isEdited?: boolean): void {
+    this.messageSlice.updateMessageBody(chatId, messageId, newBody, isEdited)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
   setScrollPosition(scrollPosition: number): void {
     this.messageSlice.setScrollPosition(scrollPosition)
   }
