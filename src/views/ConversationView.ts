@@ -17,7 +17,7 @@ import {
   TextRenderable,
 } from "@opentui/core"
 
-import { loadChatDetails, sendMessage, sendTypingState } from "~/client"
+import { loadChatDetails, loadOlderMessages, sendMessage, sendTypingState } from "~/client"
 import { Icons, WhatsAppTheme } from "~/config/theme"
 import { TIME_MS } from "~/constants"
 import { appState } from "~/state/AppState"
@@ -291,6 +291,43 @@ export function ConversationView() {
   const existingChildren = conversationScrollBox.getChildren()
   for (const child of existingChildren) {
     conversationScrollBox.remove(child.id)
+  }
+
+  // Add loading indicator at top (shown when loading older messages)
+  const isLoadingMore = state.isLoadingMore.get(state.currentChatId) ?? false
+  const hasMoreMessages = state.hasMoreMessages.get(state.currentChatId) !== false
+
+  if (isLoadingMore) {
+    const loadingRow = new BoxRenderable(renderer, {
+      id: "loading-older-messages",
+      flexDirection: "row",
+      justifyContent: "center",
+      height: 1,
+      marginBottom: 1,
+    })
+    loadingRow.add(
+      new TextRenderable(renderer, {
+        content: "⟳ Loading older messages...",
+        fg: WhatsAppTheme.textSecondary,
+      })
+    )
+    conversationScrollBox.add(loadingRow)
+  } else if (hasMoreMessages && messages.length > 0) {
+    // Show a subtle hint that more messages can be loaded
+    const hintRow = new BoxRenderable(renderer, {
+      id: "load-more-hint",
+      flexDirection: "row",
+      justifyContent: "center",
+      height: 1,
+      marginBottom: 1,
+    })
+    hintRow.add(
+      new TextRenderable(renderer, {
+        content: "↑ Scroll up to load more",
+        fg: WhatsAppTheme.textTertiary,
+      })
+    )
+    conversationScrollBox.add(hintRow)
   }
 
   // Add messages
@@ -737,9 +774,26 @@ export function destroyConversationScrollBox(): void {
   lastEnterIsSend = null
 }
 
+/**
+ * Get the current scroll position of the conversation scroll box.
+ * Returns scrollTop value, or -1 if no scroll box exists.
+ */
+export function getConversationScrollTop(): number {
+  if (conversationScrollBox) {
+    return conversationScrollBox.scrollTop
+  }
+  return -1
+}
+
 // Scroll the conversation by a given amount (for keyboard navigation)
+// Automatically triggers loadOlderMessages when scrolled near the top
 export function scrollConversation(delta: number): void {
   if (conversationScrollBox) {
     conversationScrollBox.scrollBy(delta)
+
+    // Auto-load when scrolled near the top (within 5 lines threshold)
+    if (conversationScrollBox.scrollTop <= 5) {
+      loadOlderMessages()
+    }
   }
 }

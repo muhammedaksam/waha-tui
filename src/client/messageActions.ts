@@ -246,49 +246,93 @@ export async function loadMessages(chatId: string): Promise<void> {
   }
 }
 
-let isLoadingMore = false
+/** Debounce timer for loadOlderMessages to prevent rapid-fire calls when scrolling */
+let loadOlderDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
+/**
+ * Load older messages for the current chat (pagination).
+ * Uses state-based `isLoadingMore` tracking so the UI can show indicators.
+ * Respects `hasMoreMessages` to avoid unnecessary API calls.
+ * Debounced to prevent rapid-fire calls when scrolling.
+ */
 export async function loadOlderMessages(): Promise<void> {
   const state = appState.getState()
-  if (!state.currentChatId || !state.currentSession || isLoadingMore) {
+  if (!state.currentChatId || !state.currentSession) {
+    return
+  }
+
+  // Guard: already loading
+  if (state.isLoadingMore.get(state.currentChatId)) {
+    return
+  }
+
+  // Guard: no more messages available
+  if (state.hasMoreMessages.get(state.currentChatId) === false) {
+    debugLog("Messages", "No more older messages (hasMoreMessages=false)")
     return
   }
 
   const currentMessages = state.messages.get(state.currentChatId) || []
   if (currentMessages.length === 0) return
 
-  isLoadingMore = true
-  const offset = currentMessages.length
-  debugLog("Messages", `Loading older messages with offset ${offset}`)
+  // Debounce: clear any pending timer and schedule a new one
+  if (loadOlderDebounceTimer) {
+    clearTimeout(loadOlderDebounceTimer)
+  }
 
-  try {
-    const wahaClient = getClient()
-    const response = await wahaClient.chats.chatsControllerGetChatMessages(
-      state.currentSession,
-      state.currentChatId,
-      {
+  const chatId = state.currentChatId
+  const session = state.currentSession
+
+  loadOlderDebounceTimer = setTimeout(async () => {
+    loadOlderDebounceTimer = null
+
+    // Re-check guards after debounce delay
+    const freshState = appState.getState()
+    if (freshState.currentChatId !== chatId) return
+    if (freshState.isLoadingMore.get(chatId)) return
+    if (freshState.hasMoreMessages.get(chatId) === false) return
+
+    const messages = freshState.messages.get(chatId) || []
+    if (messages.length === 0) return
+
+    appState.setIsLoadingMore(chatId, true)
+    const offset = messages.length
+    debugLog("Messages", `Loading older messages with offset ${offset}`)
+
+    try {
+      const wahaClient = getClient()
+      const response = await wahaClient.chats.chatsControllerGetChatMessages(session, chatId, {
         limit: 50,
         offset: offset,
         downloadMedia: false,
         sortBy: "messageTimestamp",
         sortOrder: "desc",
+      })
+
+      const newMessages = (response.data as unknown as WAMessage[]) || []
+
+      if (newMessages.length > 0) {
+        debugLog("Messages", `Loaded ${newMessages.length} older messages`)
+        // Re-fetch current messages in case they changed during the request
+        const latestMessages = appState.getState().messages.get(chatId) || []
+        const combinedMessages = [...latestMessages, ...newMessages]
+        appState.setMessages(chatId, combinedMessages)
+
+        // If we got fewer than requested, there are no more
+        if (newMessages.length < 50) {
+          appState.setHasMoreMessages(chatId, false)
+          debugLog("Messages", "Reached end of message history")
+        }
+      } else {
+        debugLog("Messages", "No more older messages available")
+        appState.setHasMoreMessages(chatId, false)
       }
-    )
-
-    const newMessages = (response.data as unknown as WAMessage[]) || []
-
-    if (newMessages.length > 0) {
-      debugLog("Messages", `Loaded ${newMessages.length} older messages`)
-      const combinedMessages = [...currentMessages, ...newMessages]
-      appState.setMessages(state.currentChatId, combinedMessages)
-    } else {
-      debugLog("Messages", "No more older messages available")
+    } catch (error) {
+      debugLog("Messages", `Failed to load older messages: ${error}`)
+    } finally {
+      appState.setIsLoadingMore(chatId, false)
     }
-  } catch (error) {
-    debugLog("Messages", `Failed to load older messages: ${error}`)
-  } finally {
-    isLoadingMore = false
-  }
+  }, 300) // 300ms debounce
 }
 
 export async function sendMessage(
