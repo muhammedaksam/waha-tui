@@ -7,6 +7,8 @@ import {
   Box,
   BoxRenderable,
   fg,
+  InputRenderable,
+  InputRenderableEvents,
   RenderableEvents,
   ScrollBarRenderable,
   ScrollBoxRenderable,
@@ -45,6 +47,7 @@ let conversationScrollBox: ScrollBoxRenderable | null = null
 let messageInputComponent: TextareaRenderable | null = null
 let inputContainer: BoxRenderable | null = null
 let inputScrollBar: ScrollBarRenderable | null = null
+let searchInputComponent: InputRenderable | null = null
 let typingTimeout: ReturnType<typeof setTimeout> | null = null
 let lastEnterIsSend: boolean | null = null // Track enterIsSend setting to recreate input when changed
 
@@ -343,7 +346,18 @@ export function ConversationView() {
     let lastTimestamp = 0
     let lastFromMe: boolean | null = null
 
-    for (const message of reversedMessages) {
+    // Search highlighting: determine which original indices are search results
+    const searchResultSet = new Set(state.searchResultIndices)
+    const activeOriginalIndex =
+      state.isSearchActive && state.searchActiveIndex >= 0
+        ? state.searchResultIndices[state.searchActiveIndex]
+        : -1
+
+    for (let rIdx = 0; rIdx < reversedMessages.length; rIdx++) {
+      const message = reversedMessages[rIdx]
+      // Original index in the messages array (messages are oldest-first, reversed is newest-first)
+      const originalIndex = messages.length - 1 - rIdx
+
       // Date Separator
       const dateLabel = formatDateSeparator(message.timestamp)
       if (dateLabel !== lastDateLabel) {
@@ -370,21 +384,46 @@ export function ConversationView() {
 
       const isSequenceStart = senderChanged || (lastTimestamp > 0 && timeGap > 60 * 60 * 1.5)
 
-      conversationScrollBox.add(
-        renderMessage(
-          renderer,
-          message,
-          isGroup,
-          isSequenceStart,
-          participantIds,
-          state.currentChatId
-        )
+      const isSearchMatch = searchResultSet.has(originalIndex)
+      const isActiveMatch = originalIndex === activeOriginalIndex
+
+      const msgRenderable = renderMessage(
+        renderer,
+        message,
+        isGroup,
+        isSequenceStart,
+        participantIds,
+        state.currentChatId
       )
+
+      if (isSearchMatch && state.isSearchActive) {
+        // Wrap in a highlight container
+        const highlight = new BoxRenderable(renderer, {
+          id: `search-highlight-${message.id || rIdx}`,
+          border: isActiveMatch,
+          borderColor: isActiveMatch ? WhatsAppTheme.green : WhatsAppTheme.textTertiary,
+          borderStyle: "rounded",
+          backgroundColor: isActiveMatch ? "#1a332e" : "transparent",
+        })
+        highlight.add(msgRenderable)
+        conversationScrollBox.add(highlight)
+      } else {
+        conversationScrollBox.add(msgRenderable)
+      }
 
       // Update last sender, timestamp, and fromMe flag
       lastSenderId = senderId
       lastTimestamp = message.timestamp
       lastFromMe = currentFromMe
+    }
+
+    // Auto-scroll to active search result index
+    if (activeOriginalIndex >= 0 && conversationScrollBox) {
+      // Calculate approximate scroll position based on the reversed index
+      const rIdx = messages.length - 1 - activeOriginalIndex
+      // Each message is ~3 lines, plus day separators. Rough estimate:
+      const estimatedLine = Math.max(0, rIdx * 3 - 5)
+      conversationScrollBox.scrollTop = estimatedLine
     }
 
     // Add a spacer at the bottom to prevent messages from being "crushed" by the input bar
@@ -725,6 +764,79 @@ export function ConversationView() {
     replyPreviewBar.add(cancelButton)
   }
 
+  // Search bar (conditional, between header and messages)
+  let searchBar: ReturnType<typeof Box> | null = null
+  if (state.isSearchActive) {
+    // Create or reuse the search input
+    if (!searchInputComponent) {
+      searchInputComponent = new InputRenderable(renderer, {
+        value: state.searchQuery,
+        placeholder: "Search messages...",
+        width: "100%",
+        backgroundColor: WhatsAppTheme.inputBg,
+        focusedBackgroundColor: WhatsAppTheme.inputBg,
+        textColor: WhatsAppTheme.textPrimary,
+        focusedTextColor: WhatsAppTheme.white,
+        placeholderColor: WhatsAppTheme.textTertiary,
+        cursorColor: WhatsAppTheme.white,
+      })
+
+      searchInputComponent.on(InputRenderableEvents.INPUT, (val: string) => {
+        appState.setMessageSearchQuery(val)
+      })
+
+      // Auto-focus
+      setTimeout(() => {
+        searchInputComponent?.focus()
+      }, 50)
+    }
+
+    const resultCount = state.searchResultIndices.length
+    const currentIdx = state.searchActiveIndex >= 0 ? state.searchActiveIndex + 1 : 0
+    const resultLabel = state.searchQuery.trim() ? `${currentIdx}/${resultCount}` : ""
+
+    searchBar = Box(
+      {
+        height: 3,
+        flexDirection: "row",
+        alignItems: "center",
+        paddingLeft: 1,
+        paddingRight: 1,
+        backgroundColor: WhatsAppTheme.panelDark,
+        border: true,
+        borderColor: WhatsAppTheme.borderColor,
+      },
+      Box(
+        {
+          flexGrow: 1,
+          marginRight: 1,
+        },
+        searchInputComponent
+      ),
+      Text({
+        content: resultLabel,
+        fg: WhatsAppTheme.textSecondary,
+        width: 8,
+      }),
+      Text({
+        content: "↑↓",
+        fg: WhatsAppTheme.textTertiary,
+        marginLeft: 1,
+      }),
+      Text({
+        content: "ESC",
+        fg: WhatsAppTheme.textTertiary,
+        marginLeft: 1,
+      })
+    )
+  } else if (searchInputComponent) {
+    // Clean up search input when search is deactivated
+    if (!searchInputComponent.isDestroyed) {
+      searchInputComponent.destroy()
+    }
+    searchInputComponent = null
+  }
+
   return Box(
     {
       flexDirection: "column",
@@ -732,6 +844,7 @@ export function ConversationView() {
       backgroundColor: WhatsAppTheme.deepDark,
     },
     header,
+    ...(searchBar ? [searchBar] : []),
     conversationScrollBox,
     ...(replyPreviewBar ? [replyPreviewBar] : []),
     inputContainer
@@ -764,6 +877,13 @@ export function destroyConversationScrollBox(): void {
       inputScrollBar.destroy()
     }
     inputScrollBar = null
+  }
+  // Cleanup search input
+  if (searchInputComponent) {
+    if (!searchInputComponent.isDestroyed) {
+      searchInputComponent.destroy()
+    }
+    searchInputComponent = null
   }
   // Clear typing timeout
   if (typingTimeout) {

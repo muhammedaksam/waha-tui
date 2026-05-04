@@ -347,7 +347,6 @@ class StateManager {
   setInputHeight(inputHeight: number): void {
     this.messageSlice.setInputHeight(inputHeight)
   }
-
   setReplyingToMessage(message: WAMessageExtended | WAMessage | null): void {
     this.messageSlice.setReplyingToMessage(message)
   }
@@ -359,6 +358,30 @@ class StateManager {
 
   setIsLoadingMore(chatId: string, isLoading: boolean): void {
     this.messageSlice.setIsLoadingMore(chatId, isLoading)
+  }
+
+  // In-chat message search
+  setMessageSearchActive(active: boolean): void {
+    this.messageSlice.setSearchActive(active)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  setMessageSearchQuery(query: string): void {
+    const chatId = this.getState().currentChatId
+    if (chatId) {
+      this.messageSlice.setSearchQuery(query, chatId)
+      this.navigationSlice.set({ lastChangeType: "data" })
+    }
+  }
+
+  navigateMessageSearchResult(direction: 1 | -1): void {
+    this.messageSlice.navigateSearchResult(direction)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  clearMessageSearch(): void {
+    this.messageSlice.clearSearch()
+    this.navigationSlice.set({ lastChangeType: "data" })
   }
 
   // Navigation

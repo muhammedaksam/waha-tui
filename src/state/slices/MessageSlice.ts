@@ -16,6 +16,12 @@ export interface MessageState {
   // Pagination state
   hasMoreMessages: Map<string, boolean>
   isLoadingMore: Map<string, boolean>
+
+  // In-chat search state
+  searchQuery: string
+  searchResultIndices: number[] // Indices into the current chat's messages array
+  searchActiveIndex: number // Which result is currently focused
+  isSearchActive: boolean
 }
 
 export const initialMessageState: MessageState = {
@@ -28,6 +34,10 @@ export const initialMessageState: MessageState = {
   replyingToMessage: null,
   hasMoreMessages: new Map(),
   isLoadingMore: new Map(),
+  searchQuery: "",
+  searchResultIndices: [],
+  searchActiveIndex: -1,
+  isSearchActive: false,
 }
 
 export interface MessageActions extends SliceActions<MessageState> {
@@ -52,6 +62,12 @@ export interface MessageActions extends SliceActions<MessageState> {
   // Pagination actions
   setHasMoreMessages(chatId: string, hasMore: boolean): void
   setIsLoadingMore(chatId: string, isLoading: boolean): void
+
+  // Search actions
+  setSearchActive(active: boolean): void
+  setSearchQuery(query: string, chatId: string): void
+  navigateSearchResult(direction: 1 | -1): void
+  clearSearch(): void
 }
 
 export function createMessageSlice(): StateSlice<MessageState> & MessageActions {
@@ -277,6 +293,81 @@ export function createMessageSlice(): StateSlice<MessageState> & MessageActions 
 
       messages.set(chatId, newChatMessages)
       state = { ...state, messages }
+      notify()
+    },
+
+    setSearchActive(active: boolean) {
+      if (active) {
+        state = {
+          ...state,
+          isSearchActive: true,
+          searchQuery: "",
+          searchResultIndices: [],
+          searchActiveIndex: -1,
+        }
+      } else {
+        state = {
+          ...state,
+          isSearchActive: false,
+          searchQuery: "",
+          searchResultIndices: [],
+          searchActiveIndex: -1,
+        }
+      }
+      notify()
+    },
+
+    setSearchQuery(query: string, chatId: string) {
+      if (!query.trim()) {
+        state = { ...state, searchQuery: query, searchResultIndices: [], searchActiveIndex: -1 }
+        notify()
+        return
+      }
+
+      const messages = state.messages.get(chatId) || []
+      const lowerQuery = query.toLowerCase()
+      const indices: number[] = []
+
+      for (let i = 0; i < messages.length; i++) {
+        const body = messages[i].body || ""
+        if (body.toLowerCase().includes(lowerQuery)) {
+          indices.push(i)
+        }
+      }
+
+      state = {
+        ...state,
+        searchQuery: query,
+        searchResultIndices: indices,
+        searchActiveIndex: indices.length > 0 ? indices.length - 1 : -1, // Start at the bottom-most result
+      }
+      notify()
+    },
+
+    navigateSearchResult(direction: 1 | -1) {
+      if (state.searchResultIndices.length === 0) return
+
+      let nextIndex = state.searchActiveIndex + direction
+
+      // Wrap around
+      if (nextIndex < 0) {
+        nextIndex = state.searchResultIndices.length - 1
+      } else if (nextIndex >= state.searchResultIndices.length) {
+        nextIndex = 0
+      }
+
+      state = { ...state, searchActiveIndex: nextIndex }
+      notify()
+    },
+
+    clearSearch() {
+      state = {
+        ...state,
+        isSearchActive: false,
+        searchQuery: "",
+        searchResultIndices: [],
+        searchActiveIndex: -1,
+      }
       notify()
     },
   }
