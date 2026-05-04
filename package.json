@@ -74,7 +74,7 @@
     "@muhammedaksam/waha-node": "^2026.4.2",
     "@opentui-ui/dialog": "^0.1.2",
     "@opentui-ui/toast": "^0.0.5",
-    "@opentui/core": "^0.1.107",
+    "@opentui/core": "^0.2.2",
     "node-notifier": "^10.0.1",
     "qrcode": "^1.5.4"
   },
