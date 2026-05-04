@@ -161,6 +161,7 @@ export async function executeContextMenuAction(
         case "delete": {
           if (state.currentChatId) {
             await deleteMessage(state.currentChatId, targetId)
+            // For "delete for me", just remove from the local message list
             await loadMessages(state.currentChatId)
           }
           break
@@ -185,6 +186,14 @@ export async function executeContextMenuAction(
             } catch {
               showToast("Failed to edit message", "error")
             }
+          }
+          break
+        }
+        case "delete-for-everyone": {
+          if (state.currentChatId) {
+            await deleteMessage(state.currentChatId, targetId)
+            // Optimistically show the revoked placeholder
+            appState.markMessageRevoked(state.currentChatId, targetId)
           }
           break
         }
