@@ -20,6 +20,7 @@ import {
   startPresenceManagement,
   stopPresenceManagement,
 } from "~/client"
+import { markChatRead } from "~/client/chatActions"
 import { downloadAndOpenMedia, reactToMessage, sendMediaMessage } from "~/client/messageActions"
 import { getSelectedContextMenuActionId, handleContextMenuKey } from "~/components/ContextMenu"
 import { showEmojiPicker } from "~/components/EmojiPicker"
@@ -349,6 +350,7 @@ async function handleChatsViewKeys(key: KeyEvent, state: AppState): Promise<bool
       loadContacts()
       await loadMessages(chatId)
       startPresenceManagement(chatId)
+      markChatRead(chatId)
     }
     return true
   }
