@@ -747,3 +747,157 @@ export function showContactPickerModal(): Promise<string | null> {
     })
   })
 }
+
+/**
+ * Show a poll creation modal
+ * Returns a promise that resolves to the poll data or null if cancelled
+ */
+export function showPollModal(): Promise<{
+  question: string
+  options: string[]
+  multipleAnswers: boolean
+} | null> {
+  const dialogManager = getDialogManager()
+  const renderer = getRenderer()
+  let resolved = false
+
+  let question = ""
+  let optionsText = ""
+  let multipleAnswers = false
+  let focusedField: "question" | "options" | "multiple" = "question"
+
+  appState.setInputMode(true)
+
+  return new Promise((resolve) => {
+    const safeResolve = (value: any) => {
+      if (resolved) return
+      resolved = true
+      appState.setInputMode(false)
+      renderer.keyInput.off("keypress", handleKey)
+      resolve(value)
+    }
+
+    const handleKey = (key: KeyEvent) => {
+      if (key.name === "tab") {
+        if (focusedField === "question") focusedField = "options"
+        else if (focusedField === "options") focusedField = "multiple"
+        else focusedField = "question"
+        dialogManager.refresh()
+      } else if (key.name === "escape") {
+        safeResolve(null)
+        dialogManager.closeAll()
+      } else if (key.name === "return" || key.name === "enter") {
+        if (question.trim() && optionsText.trim()) {
+          const options = optionsText
+            .split(",")
+            .map((o) => o.trim())
+            .filter((o) => o !== "")
+          if (options.length >= 2) {
+            safeResolve({ question, options, multipleAnswers })
+            dialogManager.closeAll()
+          }
+        }
+      }
+    }
+
+    renderer.keyInput.on("keypress", handleKey)
+
+    const dialogId = dialogManager.show({
+      content: (ctx: RenderContext) => {
+        const wrapper = new BoxRenderable(ctx, {
+          flexDirection: "column",
+          width: "100%",
+        })
+
+        wrapper.add(
+          new TextRenderable(ctx, {
+            content: "Create Poll",
+            fg: WhatsAppTheme.textPrimary,
+            attributes: TextAttributes.BOLD,
+          })
+        )
+
+        wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+
+        // Question field
+        wrapper.add(
+          new TextRenderable(ctx, { content: "Question:", fg: WhatsAppTheme.textSecondary })
+        )
+        const qInput = new InputRenderable(ctx, {
+          value: question,
+          placeholder: "Enter question...",
+          width: "100%",
+          backgroundColor: WhatsAppTheme.inputBg,
+          textColor: WhatsAppTheme.textPrimary,
+          cursorColor: WhatsAppTheme.white,
+        })
+        qInput.on(InputRenderableEvents.INPUT, (v) => (question = v))
+        wrapper.add(qInput)
+
+        wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+
+        // Options field
+        wrapper.add(
+          new TextRenderable(ctx, {
+            content: "Options (comma separated):",
+            fg: WhatsAppTheme.textSecondary,
+          })
+        )
+        const oInput = new InputRenderable(ctx, {
+          value: optionsText,
+          placeholder: "Option 1, Option 2, ...",
+          width: "100%",
+          backgroundColor: WhatsAppTheme.inputBg,
+          textColor: WhatsAppTheme.textPrimary,
+          cursorColor: WhatsAppTheme.white,
+        })
+        oInput.on(InputRenderableEvents.INPUT, (v) => (optionsText = v))
+        wrapper.add(oInput)
+
+        wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+
+        // Multiple answers toggle
+        const multiRow = new BoxRenderable(ctx, { flexDirection: "row", alignItems: "center" })
+        multiRow.add(
+          new TextRenderable(ctx, {
+            content: multipleAnswers ? " [X] " : " [ ] ",
+            fg: multipleAnswers ? WhatsAppTheme.green : WhatsAppTheme.textSecondary,
+            onMouse: (e) => {
+              if (e.type === "down") {
+                multipleAnswers = !multipleAnswers
+                dialogManager.refresh()
+              }
+            },
+          })
+        )
+        multiRow.add(
+          new TextRenderable(ctx, {
+            content: "Allow multiple answers",
+            fg: WhatsAppTheme.textPrimary,
+          })
+        )
+        wrapper.add(multiRow)
+
+        wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+
+        // Help text
+        wrapper.add(
+          new TextRenderable(ctx, {
+            content: "Tab: Cycle fields | Enter: Create | Esc: Cancel",
+            fg: WhatsAppTheme.textTertiary,
+          })
+        )
+
+        // Focus management
+        setTimeout(() => {
+          if (focusedField === "question") qInput.focus()
+          else if (focusedField === "options") oInput.focus()
+        }, 10)
+
+        return wrapper
+      },
+      size: "medium",
+      onClose: () => safeResolve(null),
+    })
+  })
+}

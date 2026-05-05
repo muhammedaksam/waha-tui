@@ -210,6 +210,7 @@ WAHA_API_KEY=your-api-key-here
 | `PageUp/Left`    | Scroll up (large jump)              |
 | `PageDown/Right` | Scroll down (large jump)            |
 | `o`              | Open/download last media message    |
+| `p`              | Create poll                         |
 | `a`              | Attach media                        |
 | `e`              | React with emoji to last message    |
 | `m`              | Open message context menu           |

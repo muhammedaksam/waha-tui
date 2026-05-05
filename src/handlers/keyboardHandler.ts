@@ -544,6 +544,34 @@ async function handleConversationViewKeys(key: KeyEvent, state: AppState): Promi
     return true
   }
 
+  // 'p' key - create poll
+  if (key.name === "p" && !state.inputMode) {
+    if (state.currentChatId) {
+      const { showPollModal } = await import("~/components/Modal")
+      const { sendPoll } = await import("~/client/messageActions")
+
+      showPollModal().then((pollData) => {
+        if (pollData) {
+          showToast("Sending poll...", "info")
+          sendPoll(
+            state.currentChatId as string,
+            pollData.question,
+            pollData.options,
+            pollData.multipleAnswers
+          )
+            .then(() => {
+              showToast("Poll sent successfully", "success")
+            })
+            .catch((err) => {
+              debugLog("Keyboard", `Failed to send poll: ${err}`)
+              showToast("Failed to send poll", "error")
+            })
+        }
+      })
+    }
+    return true
+  }
+
   // Arrow navigation (when not in input mode)
   if (key.name === "up" && !state.inputMode) {
     debugLog("Keyboard", "Conversation: UP - scrolling up")
