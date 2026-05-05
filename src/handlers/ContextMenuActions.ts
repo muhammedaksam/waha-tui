@@ -17,6 +17,7 @@ import {
   starMessage,
   unarchiveChat,
 } from "~/client"
+import { markChatRead } from "~/client/chatActions"
 import { showEmojiPicker } from "~/components/EmojiPicker"
 import { showInputModal } from "~/components/Modal"
 import { showToast } from "~/components/Toast"
@@ -73,6 +74,20 @@ export async function executeContextMenuAction(
           await markChatUnread(targetId)
           await loadChats()
           break
+        case "read":
+          await markChatRead(targetId)
+          await loadChats()
+          break
+        case "pin": {
+          // WAHA doesn't expose a pin/unpin chat API — only message pinning is available
+          showToast("Pin/unpin chat is not supported by WAHA API", "info")
+          break
+        }
+        case "mute": {
+          // WAHA doesn't expose a mute/unmute chat API
+          showToast("Mute/unmute is not supported by WAHA API", "info")
+          break
+        }
         case "delete":
           await deleteChat(targetId)
           await loadChats()
