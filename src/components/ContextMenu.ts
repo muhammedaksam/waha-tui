@@ -124,6 +124,28 @@ export function getMessageMenuItems(message: WAMessage | WAMessageExtended): Con
       icon: isStarred ? Icons.starFilled : Icons.star,
     }
   )
+  // Delete options: "Delete for everyone" only for own messages within 48h window
+  const DELETE_FOR_EVERYONE_WINDOW_S = 48 * 60 * 60 // 48 hours in seconds
+  const messageAge = Math.floor(Date.now() / 1000) - (message.timestamp || 0)
+  const canDeleteForEveryone = message.fromMe && messageAge < DELETE_FOR_EVERYONE_WINDOW_S
+
+  if (canDeleteForEveryone) {
+    items.push({
+      id: "delete-for-everyone",
+      label: "Delete for everyone",
+      icon: Icons.delete,
+      destructive: true,
+      separator: true,
+    })
+  }
+
+  items.push({
+    id: "delete",
+    label: "Delete for me",
+    icon: Icons.delete,
+    destructive: true,
+    separator: !canDeleteForEveryone, // Only show separator if "delete for everyone" wasn't just added
+  })
 
   // Edit option: only for own text messages
   if (message.fromMe && message.body && !message.hasMedia) {
