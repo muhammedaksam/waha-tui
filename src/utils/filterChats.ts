@@ -34,7 +34,7 @@ function getChatProperties(chat: ChatSummary): ExtendedChat {
       pinned: c.pinned,
       unreadCount: c.unreadCount,
       star: c.star,
-      labels: (c as Record<string, unknown>).labels as string[] | undefined,
+      labels: (c as ChatSummary & { labels?: string[] }).labels,
     }
   }
 

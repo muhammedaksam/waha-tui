@@ -6,7 +6,7 @@
 import type { ChatSummary } from "@muhammedaksam/waha-node"
 import type { KeyEvent } from "@opentui/core"
 
-import type { AppState } from "~/state/AppState"
+import type { ActiveFilter, AppState } from "~/state/AppState"
 import {
   deleteSession,
   fetchMyProfile,
@@ -235,12 +235,7 @@ async function handleChatsViewKeys(key: KeyEvent, state: AppState): Promise<bool
 
   // Tab/Shift+Tab to cycle through filters
   if (key.name === "tab" && !state.inputMode) {
-    const filters: Array<"all" | "unread" | "favorites" | "groups"> = [
-      "all",
-      "unread",
-      "favorites",
-      "groups",
-    ]
+    const filters: ActiveFilter[] = ["all", "unread", "favorites", "groups", "labeled"]
     const currentIndex = filters.indexOf(state.activeFilter)
 
     if (key.shift) {

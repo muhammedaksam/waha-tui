@@ -496,37 +496,41 @@ class ChatListManager {
 
       // 5. Message Preview - check for typing status
       const extChat = chat as unknown as ExtendedChatSummary
-      const isTyping = state.isChatTyping(chatIdStr)
+      const isTyping = appState.isChatTyping(chatIdStr)
 
-      // Update labels
+      // Update labels by recreating the container to maintain order before unreadBadge
+      if (rowData.labelsContainer) {
+        rowData.labelsContainer.destroyRecursively()
+      }
+      rowData.labelsContainer = new BoxRenderable(this.renderer!, {
+        id: `labels-container-${index}`,
+        flexDirection: "row",
+        gap: 1,
+      })
+      rowData.timeUnreadContainer.add(rowData.labelsContainer)
       this.renderLabels(rowData.labelsContainer, extChat)
 
       rowData.messageText.content = isTyping ? "typing..." : truncate(lastMessageText, 50)
       rowData.messageText.fg = isTyping ? WhatsAppTheme.green : WhatsAppTheme.textSecondary
 
       // 6. Update unread badge
+      // We destroy and recreate it to ensure it stays at the end of timeUnreadContainer after labels
+      if (rowData.unreadBadge) {
+        rowData.unreadBadge.destroyRecursively()
+        rowData.unreadBadge = null
+      }
+
       if (extChat.unreadCount && extChat.unreadCount > 0) {
         const count = extChat.unreadCount > 20 ? "20+" : `${extChat.unreadCount}`
 
-        if (rowData.unreadBadge) {
-          // Update existing badge
-          rowData.unreadBadge.content = ` ${count} `
-        } else {
-          const badge = new TextRenderable(this.renderer!, {
-            content: ` ${count} `,
-            fg: WhatsAppTheme.white,
-            bg: WhatsAppTheme.green,
-            attributes: TextAttributes.BOLD,
-          })
-          rowData.timeUnreadContainer.add(badge)
-          rowData.unreadBadge = badge
-        }
-      } else {
-        // Remove badge if no unread messages
-        if (rowData.unreadBadge) {
-          rowData.unreadBadge.destroy()
-          rowData.unreadBadge = null
-        }
+        const badge = new TextRenderable(this.renderer!, {
+          content: ` ${count} `,
+          fg: WhatsAppTheme.white,
+          bg: WhatsAppTheme.green,
+          attributes: TextAttributes.BOLD,
+        })
+        rowData.timeUnreadContainer.add(badge)
+        rowData.unreadBadge = badge
       }
 
       // 7. Update Ack Status
@@ -724,7 +728,6 @@ class ChatListManager {
   }
 
   private renderLabels(container: BoxRenderable, chat: ExtendedChatSummary) {
-    container.clear()
     const state = appState.getState()
     const labelIds = chat.labels || chat._chat?.labels || []
 
