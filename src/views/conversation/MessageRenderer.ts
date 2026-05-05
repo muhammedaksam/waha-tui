@@ -118,33 +118,27 @@ export function renderMessage(
     marginTop: isSequenceStart ? 1 : 0, // Add spacing only between groups
   })
 
-  // Avatar Column - WhatsApp Web shows consistent left spacing for all messages
-  // In groups: received messages show avatar, sent messages get margin
-  // In 1:1: both sent and received get margin
-  if (isGroupChat && !isFromMe) {
-    // Group chat received messages: show avatar column with avatar or empty placeholder
+  // Use explicit spacers instead of margins for rock-solid alignment
+  if (!isFromMe) {
+    // Received side: Avatar column (6) + Gap (1)
     const avatarColumn = new BoxRenderable(renderer, {
-      width: 6, // Match avatarBox width
-      height: 3, // Approximate height of avatar
-      marginRight: 1, // Gap between avatar column and message bubble
+      width: 6,
+      height: 1,
       flexDirection: "column",
       justifyContent: "center",
       alignItems: "center",
     })
 
-    if (isSequenceStart) {
-      // Show Avatar
+    if (isGroupChat && isSequenceStart) {
       const avatarBox = new BoxRenderable(renderer, {
-        width: 6, // Wider avatar box
-        height: 3, // Match column height for vertical centering
+        width: 6,
+        height: 3,
         backgroundColor: senderColor,
         justifyContent: "center",
         alignItems: "center",
       })
       const initials = getInitials(senderName)
-      // Manually center text for TUI (width 6)
       const centeredInitials = centerText(initials, 6)
-
       avatarBox.add(
         new TextRenderable(renderer, {
           content: centeredInitials,
@@ -154,18 +148,13 @@ export function renderMessage(
       )
       avatarColumn.add(avatarBox)
     }
-    // else: Empty placeholder - width ensures alignment
-
     row.add(avatarColumn)
+    row.add(new BoxRenderable(renderer, { width: 1 })) // 1 char gap
   } else {
-    // All other cases: use marginLeft on row to create gap (like WhatsApp Web)
-    // This includes: sent messages in groups, and ALL messages in 1:1 chats
-    // Using marginLeft instead of spacer box because flex-end ignores spacers
-    if (isFromMe) {
-      row.marginRight = 7
-    } else {
-      row.marginLeft = 7
-    }
+    // Sent side: add a flexible spacer at the start to push everything to the right
+    // This replaces justifyContent: "flex-end" for more predictable behavior with spacers
+    row.add(new BoxRenderable(renderer, { flexGrow: 1 }))
+    row.justifyContent = "flex-start" // We use flexGrow spacer instead
   }
 
   // Create bubble container
@@ -675,14 +664,25 @@ export function renderMessage(
     row.add(bubble)
   }
 
-  // Add tail after bubble for sent messages
+  // Add tail/spacer after bubble for sent messages to maintain alignment
   if (isFromMe) {
-    const tailRight = new TextRenderable(renderer, {
-      content: isSequenceStart ? "◤" : " ",
-      fg: WhatsAppTheme.greenDark,
-      marginRight: 1, // Spacing from scrollbar
+    // Wrap tail in a solid Box to act as a physical barrier against bubble overlap
+    const tailContainer = new BoxRenderable(renderer, {
+      width: 1,
+      height: 1,
+      backgroundColor: WhatsAppTheme.deepDark, // Force separation with chat background
     })
-    row.add(tailRight)
+
+    tailContainer.add(
+      new TextRenderable(renderer, {
+        content: isSequenceStart ? "◤" : " ",
+        fg: isSequenceStart ? WhatsAppTheme.sentBubble : "transparent",
+      })
+    )
+
+    row.add(tailContainer)
+    row.add(new BoxRenderable(renderer, { width: 1 })) // 1 char gap
+    row.add(new BoxRenderable(renderer, { width: 6 })) // 6 char avatar placeholder
   }
 
   return row
