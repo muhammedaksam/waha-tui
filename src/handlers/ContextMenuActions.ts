@@ -9,6 +9,7 @@ import {
   deleteMessage,
   downloadAndOpenMedia,
   editMessage,
+  forwardMessage,
   loadChats,
   loadMessages,
   markChatUnread,
@@ -18,6 +19,7 @@ import {
   unarchiveChat,
 } from "~/client"
 import { markChatRead } from "~/client/chatActions"
+import { showChatPicker } from "~/components/ChatPickerDialog"
 import { showEmojiPicker } from "~/components/EmojiPicker"
 import { showInputModal } from "~/components/Modal"
 import { showToast } from "~/components/Toast"
@@ -216,9 +218,6 @@ export async function executeContextMenuAction(
           const message = contextMenu.targetData as WAMessageExtended
           if (!message) break
 
-          // Dynamically import to avoid circular dependencies if any
-          const { showChatPicker } = await import("~/components/ChatPickerDialog")
-
           debugLog("ContextMenu", `Opening ChatPicker for message ${targetId}`)
           const selectedChats = await showChatPicker(message)
           debugLog("ContextMenu", `ChatPicker closed with ${selectedChats.length} selected chats`)
@@ -237,9 +236,7 @@ export async function executeContextMenuAction(
                   `OriginalChatId: ${originalChatId}, ToChatId: ${getChatIdString(chat.id)}`
                 )
                 if (originalChatId) {
-                  await import("~/client").then((m) =>
-                    m.forwardMessage(originalChatId, targetId, getChatIdString(chat.id))
-                  )
+                  await forwardMessage(originalChatId, targetId, getChatIdString(chat.id))
                   successCount++
                 } else {
                   debugLog("ContextMenu", `Failed to forward: originalChatId is missing`)

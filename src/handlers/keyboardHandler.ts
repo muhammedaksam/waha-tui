@@ -20,7 +20,12 @@ import {
   stopPresenceManagement,
 } from "~/client"
 import { markChatRead } from "~/client/chatActions"
-import { downloadAndOpenMedia, reactToMessage, sendMediaMessage } from "~/client/messageActions"
+import {
+  downloadAndOpenMedia,
+  reactToMessage,
+  sendMediaMessage,
+  sendPoll,
+} from "~/client/messageActions"
 import { getSelectedContextMenuActionId, handleContextMenuKey } from "~/components/ContextMenu"
 import { showEmojiPicker } from "~/components/EmojiPicker"
 import {
@@ -28,6 +33,7 @@ import {
   showCaptionModal,
   showContactPickerModal,
   showFilePickerModal,
+  showPollModal,
 } from "~/components/Modal"
 import { showToast } from "~/components/Toast"
 import { saveSettings } from "~/config/manager"
@@ -547,9 +553,6 @@ async function handleConversationViewKeys(key: KeyEvent, state: AppState): Promi
   // 'p' key - create poll
   if (key.name === "p" && !state.inputMode) {
     if (state.currentChatId) {
-      const { showPollModal } = await import("~/components/Modal")
-      const { sendPoll } = await import("~/client/messageActions")
-
       showPollModal().then((pollData) => {
         if (pollData) {
           showToast("Sending poll...", "info")

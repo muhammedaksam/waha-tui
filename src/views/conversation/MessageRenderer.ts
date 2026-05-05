@@ -8,6 +8,7 @@ import type { WAMessage } from "@muhammedaksam/waha-node"
 import { BoxRenderable, CliRenderer, t, TextAttributes, TextRenderable } from "@opentui/core"
 
 import type { WAMessageExtended } from "~/types"
+import { sendPollVote } from "~/client"
 import { WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
@@ -322,7 +323,8 @@ export function renderMessage(
   }
 
   // Row 3: Regular text content + Timestamp (non-media messages)
-  if (!isMediaLabel) {
+  // Suppress Row 3 if it's a poll message or a media message with a label
+  if (!isMediaLabel && !isPoll) {
     const contentRow = new BoxRenderable(renderer, {
       id: `msg-${message.id || Date.now()}-content`,
       flexDirection: "row",
@@ -349,7 +351,13 @@ export function renderMessage(
   }
 
   // Row 4: Poll (if this is a poll message)
-  const isPoll = message.type === "poll" || message._data?.type === "poll"
+  // Check for both direct type and _data.type, as well as the presence of poll data
+  const isPoll =
+    message.type === "poll" ||
+    message.type === "poll_creation" ||
+    message._data?.type === "poll" ||
+    message._data?.type === "poll_creation" ||
+    !!message._data?.poll
   if (isPoll && message._data) {
     interface PollOption {
       name?: string
@@ -411,10 +419,8 @@ export function renderMessage(
             const state = appState.getState()
             const chatId = state.currentChatId
             if (chatId && message.id) {
-              import("~/client").then(({ sendPollVote }) => {
-                sendPollVote(chatId, message.id, [optionName]).catch((err) => {
-                  debugLog("Poll", `Failed to vote: ${err.message}`)
-                })
+              sendPollVote(chatId, message.id, [optionName]).catch((err) => {
+                debugLog("Poll", `Failed to vote: ${err.message}`)
               })
             }
           }
