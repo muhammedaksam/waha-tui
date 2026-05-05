@@ -192,6 +192,12 @@ export function ConversationView() {
     }
   }
 
+  // Check for disappearing messages mode
+  const disappearingDuration = (
+    currentChat as unknown as { _chat?: { disappearingMode?: { duration?: number } } }
+  )?._chat?.disappearingMode?.duration
+  const disappearingIcon = disappearingDuration && disappearingDuration > 0 ? " ⏱️" : ""
+
   const header = Box(
     {
       height: 5,
@@ -229,13 +235,17 @@ export function ConversationView() {
       },
       ...(headerSubtitle
         ? [
-            Text({ content: chatName, fg: WhatsAppTheme.white, attributes: TextAttributes.BOLD }),
+            Text({
+              content: chatName + disappearingIcon,
+              fg: WhatsAppTheme.white,
+              attributes: TextAttributes.BOLD,
+            }),
             Text({ content: headerSubtitle, fg: headerSubtitleColor }),
           ]
         : [
             Text({}),
             Text({
-              content: chatName,
+              content: chatName + disappearingIcon,
               fg: WhatsAppTheme.white,
               attributes: TextAttributes.BOLD,
             }),
