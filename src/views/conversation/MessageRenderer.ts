@@ -12,6 +12,7 @@ import { WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
 import { formatAckStatus, getInitials, isSelfChat } from "~/utils/formatters"
+import { getLinkPreviewData } from "~/utils/linkPreview"
 import { getMediaLabel } from "~/utils/mediaLabels"
 import { centerText, getSenderInfo } from "~/views/conversation/MessageHelpers"
 import { renderReplyContext } from "~/views/conversation/ReplyContext"
@@ -345,6 +346,67 @@ export function renderMessage(
     contentRow.add(timeText)
 
     bubble.add(contentRow)
+  }
+
+  // Row 3.5: Link preview box (if URL metadata is available from WAHA)
+  const linkPreview = getLinkPreviewData(message)
+  if (linkPreview) {
+    const previewWrapper = new BoxRenderable(renderer, {
+      flexDirection: "row",
+      marginTop: 1,
+    })
+
+    // Left accent bar
+    previewWrapper.add(
+      new TextRenderable(renderer, {
+        content: "▎",
+        fg: WhatsAppTheme.blue,
+      })
+    )
+
+    const previewContent = new BoxRenderable(renderer, {
+      flexDirection: "column",
+      backgroundColor: isFromMe ? WhatsAppTheme.quoteSentBg : WhatsAppTheme.quoteReceivedBg,
+      paddingLeft: 1,
+      paddingRight: 1,
+      flexGrow: 1,
+    })
+
+    if (linkPreview.title) {
+      previewContent.add(
+        new TextRenderable(renderer, {
+          content: linkPreview.title,
+          fg: WhatsAppTheme.textPrimary,
+          attributes: TextAttributes.BOLD,
+        })
+      )
+    }
+
+    if (linkPreview.description) {
+      // Truncate long descriptions
+      const desc =
+        linkPreview.description.length > 120
+          ? linkPreview.description.slice(0, 117) + "..."
+          : linkPreview.description
+      previewContent.add(
+        new TextRenderable(renderer, {
+          content: desc,
+          fg: WhatsAppTheme.textSecondary,
+        })
+      )
+    }
+
+    // Show the URL in blue
+    const displayUrl = linkPreview.canonicalUrl || linkPreview.url
+    previewContent.add(
+      new TextRenderable(renderer, {
+        content: displayUrl,
+        fg: WhatsAppTheme.blue,
+      })
+    )
+
+    previewWrapper.add(previewContent)
+    bubble.add(previewWrapper)
   }
 
   // Render reactions
