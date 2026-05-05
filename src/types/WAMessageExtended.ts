@@ -3,6 +3,7 @@ import type { WAMessage } from "@muhammedaksam/waha-node"
 export type WAMessageExtended = Omit<WAMessage, "participant" | "_data" | "replyTo"> & {
   participant?: string
   isForwarded?: boolean
+  isEdited?: boolean
   _data?: {
     notifyName?: string
     pushName?: string
