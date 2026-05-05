@@ -6,6 +6,7 @@
 import type {
   ChatSummary,
   GroupParticipant,
+  Label,
   MyProfile,
   SessionDTO,
   WAHAChatPresences,
@@ -233,6 +234,11 @@ class StateManager {
 
   setChats(chats: ChatSummary[]): void {
     this.chatSlice.setChats(chats)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  setLabels(labels: Label[]): void {
+    this.chatSlice.setLabels(labels)
     this.navigationSlice.set({ lastChangeType: "data" })
   }
 

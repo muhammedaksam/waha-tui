@@ -14,6 +14,7 @@ interface ExtendedChat {
   pinned?: boolean
   // star is for favorited chats in WhatsApp
   star?: boolean
+  labels?: string[] // Label IDs
 }
 
 /**
@@ -33,6 +34,7 @@ function getChatProperties(chat: ChatSummary): ExtendedChat {
       pinned: c.pinned,
       unreadCount: c.unreadCount,
       star: c.star,
+      labels: (c as ChatSummary & { labels?: string[] }).labels,
     }
   }
 
@@ -45,6 +47,7 @@ function getChatProperties(chat: ChatSummary): ExtendedChat {
     unreadCount: rawChat.unreadCount as number | undefined,
     pinned: (rawChat.pinned ?? rawChat.pin) as boolean | undefined,
     star: rawChat.star as boolean | undefined,
+    labels: rawChat.labels as string[] | undefined,
   }
 }
 
@@ -79,6 +82,14 @@ export function isPinned(chat: ChatSummary): boolean {
 export function isFavorite(chat: ChatSummary): boolean {
   const props = getChatProperties(chat)
   return props.pinned === true
+}
+
+/**
+ * Check if a chat has any labels
+ */
+export function hasLabel(chat: ChatSummary): boolean {
+  const props = getChatProperties(chat)
+  return Array.isArray(props.labels) && props.labels.length > 0
 }
 
 /**
@@ -118,6 +129,9 @@ export function filterChats(
       break
     case "groups":
       filtered = filtered.filter((chat) => isGroupChat(getChatIdString(chat.id)))
+      break
+    case "labeled":
+      filtered = filtered.filter(hasLabel)
       break
   }
 

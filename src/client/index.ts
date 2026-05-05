@@ -46,6 +46,7 @@ export {
   loadLidMappings,
   loadChatDetails,
   fetchMyProfile,
+  loadLabels,
 } from "~/client/sessionActions"
 
 // Presence actions

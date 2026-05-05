@@ -17,7 +17,7 @@ import {
 } from "@muhammedaksam/waha-node"
 
 import type { WahaTuiConfig } from "~/config/schema"
-import { loadChats, loadMessages } from "~/client"
+import { loadChats, loadLabels, loadMessages } from "~/client"
 import { TIME_MS } from "~/constants"
 import { CacheKeys, cacheService } from "~/services/CacheService"
 import { WebSocketError } from "~/services/Errors"
@@ -331,6 +331,20 @@ export class WebSocketService {
         break
       case "poll.vote.failed":
         this.handlePollVoteFailed(data as WAHAWebhookPollVoteFailed)
+        break
+      case "label.upsert":
+      case "label.deleted":
+        debugLog("WebSocket", `Label definitions changed (${data.event})`)
+        loadLabels().catch((error) => {
+          debugLog("WebSocket", `Failed to reload labels: ${error}`)
+        })
+        break
+      case "label.chat.added":
+      case "label.chat.deleted":
+        debugLog("WebSocket", `Chat labels changed (${data.event})`)
+        if (currentSession) {
+          this.scheduleLoadChats(currentSession)
+        }
         break
       default:
         debugLog("WebSocket", `Unhandled event: ${data.event}`)
