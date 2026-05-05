@@ -96,6 +96,14 @@ export function renderMessage(
     messageText = message.body || ""
   }
 
+  // Identify if this is a poll message early for UI decisions
+  const isPoll =
+    message.type === "poll" ||
+    message.type === "poll_creation" ||
+    message._data?.type === "poll" ||
+    message._data?.type === "poll_creation" ||
+    !!message._data?.poll
+
   const isEdited = (message as WAMessageExtended).isEdited === true
   const editedLabel = isEdited ? "edited " : ""
   const timestampText = t`${editedLabel}${timestamp}${isFromMe ? formatAckStatus(message.ack, {}) : ""}`
@@ -351,13 +359,6 @@ export function renderMessage(
   }
 
   // Row 4: Poll (if this is a poll message)
-  // Check for both direct type and _data.type, as well as the presence of poll data
-  const isPoll =
-    message.type === "poll" ||
-    message.type === "poll_creation" ||
-    message._data?.type === "poll" ||
-    message._data?.type === "poll_creation" ||
-    !!message._data?.poll
   if (isPoll && message._data) {
     interface PollOption {
       name?: string
