@@ -174,7 +174,7 @@ export function ChatsView() {
   )
 
   // Filter Pills - using imperative API for click handlers
-  const filters: ActiveFilter[] = ["all", "unread", "favorites", "groups"]
+  const filters: ActiveFilter[] = ["all", "unread", "favorites", "groups", "labeled"]
   const filterPillsContainer = new BoxRenderable(renderer, {
     id: "filter-pills",
     height: 3,

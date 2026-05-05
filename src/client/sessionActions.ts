@@ -6,6 +6,7 @@
 import type {
   ChatSummary,
   GroupParticipant,
+  Label,
   SessionInfo,
   WAHAChatPresences,
 } from "@muhammedaksam/waha-node"
@@ -204,6 +205,11 @@ export async function loadChats(): Promise<void> {
     const allContacts = await loadAllContacts()
     appState.setAllContacts(allContacts)
 
+    // Load labels concurrently or subsequently
+    loadLabels().catch((error) => {
+      debugLog("Chats", `Failed to load labels: ${error}`)
+    })
+
     // Trigger background sync to pre-fetch messages for top chats
     // Run in background (don't await) so UI isn't blocked
     prefetchMessagesForTopChats(5).catch((error) => {
@@ -212,6 +218,28 @@ export async function loadChats(): Promise<void> {
   } catch (error) {
     errorService.handle(error, { context: { action: "loadChats" } })
     appState.setChats([])
+  }
+}
+
+export async function loadLabels(): Promise<void> {
+  try {
+    const session = getSession()
+    debugLog("Labels", `Loading labels for session: ${session}`)
+    const wahaClient = getClient()
+
+    const response = await withRetry(() => wahaClient.labels.labelsControllerGetAll(session), {
+      ...RetryPresets.standard,
+      onRetry: (attempt, delay) => {
+        debugLog("Labels", `Retry attempt ${attempt}, waiting ${delay}ms...`)
+      },
+    })
+
+    const labels = (response.data as unknown as Label[]) || []
+    debugLog("Labels", `Loaded ${labels.length} labels`)
+    appState.setLabels(labels)
+  } catch (error) {
+    errorService.handle(error, { context: { action: "loadLabels" } })
+    appState.setLabels([])
   }
 }
 

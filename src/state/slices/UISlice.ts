@@ -9,7 +9,7 @@ export type ViewType =
   | "qr"
   | "loading"
 
-export type ActiveFilter = "all" | "unread" | "favorites" | "groups"
+export type ActiveFilter = "all" | "unread" | "favorites" | "groups" | "labeled"
 export type ActiveIcon = "chats" | "status" | "profile" | "settings" | "channels" | "communities"
 
 export interface UIState {

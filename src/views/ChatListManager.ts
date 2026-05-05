@@ -42,6 +42,7 @@ interface ChatRowData {
   nameText: TextRenderable
   timeText: TextRenderable
   timeUnreadContainer: BoxRenderable
+  labelsContainer: BoxRenderable
   unreadBadge: TextRenderable | null
   chatInfo: BoxRenderable
   messageRow: BoxRenderable
@@ -57,9 +58,11 @@ interface ExtendedChatSummary extends Omit<ChatSummary, "lastMessage" | "_chat">
   }
   unreadCount?: number | null
   isMuted?: boolean
+  labels?: string[]
   _chat?: {
     unreadCount?: number | null
     isMuted?: boolean
+    labels?: string[]
   }
 }
 
@@ -342,6 +345,14 @@ class ChatListManager {
     timeContainer.add(timeText)
     timeUnreadContainer.add(timeContainer)
 
+    const labelsContainer = new BoxRenderable(renderer, {
+      id: `labels-container-${index}`,
+      flexDirection: "row",
+      gap: 1,
+    })
+    timeUnreadContainer.add(labelsContainer)
+    this.renderLabels(labelsContainer, chat as unknown as ExtendedChatSummary)
+
     let unreadBadge: TextRenderable | null = null
     const extChat = chat as unknown as ExtendedChatSummary
     if (extChat.unreadCount && extChat.unreadCount > 0) {
@@ -427,6 +438,7 @@ class ChatListManager {
       nameText,
       timeText,
       timeUnreadContainer,
+      labelsContainer,
       unreadBadge,
       chatInfo,
       messageRow,
@@ -483,12 +495,16 @@ class ChatListManager {
       rowData.timeText.content = preview.timestamp
 
       // 5. Message Preview - check for typing status
-      const isTyping = appState.isChatTyping(chatIdStr)
+      const extChat = chat as unknown as ExtendedChatSummary
+      const isTyping = state.isChatTyping(chatIdStr)
+
+      // Update labels
+      this.renderLabels(rowData.labelsContainer, extChat)
+
       rowData.messageText.content = isTyping ? "typing..." : truncate(lastMessageText, 50)
       rowData.messageText.fg = isTyping ? WhatsAppTheme.green : WhatsAppTheme.textSecondary
 
       // 6. Update unread badge
-      const extChat = chat as unknown as ExtendedChatSummary
       if (extChat.unreadCount && extChat.unreadCount > 0) {
         const count = extChat.unreadCount > 20 ? "20+" : `${extChat.unreadCount}`
 
@@ -705,6 +721,24 @@ class ChatListManager {
     this.currentChatsHash = ""
     this.currentStructureHash = ""
     this.renderer = null
+  }
+
+  private renderLabels(container: BoxRenderable, chat: ExtendedChatSummary) {
+    container.clear()
+    const state = appState.getState()
+    const labelIds = chat.labels || chat._chat?.labels || []
+
+    for (const labelId of labelIds) {
+      const labelDef = state.labels.find((l) => l.id === labelId)
+      if (labelDef && labelDef.name) {
+        container.add(
+          new TextRenderable(this.renderer!, {
+            content: `[${labelDef.name}]`,
+            fg: labelDef.colorHex || WhatsAppTheme.textSecondary,
+          })
+        )
+      }
+    }
   }
 }
 
