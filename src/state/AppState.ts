@@ -352,6 +352,15 @@ class StateManager {
     this.messageSlice.setReplyingToMessage(message)
   }
 
+  // Pagination
+  setHasMoreMessages(chatId: string, hasMore: boolean): void {
+    this.messageSlice.setHasMoreMessages(chatId, hasMore)
+  }
+
+  setIsLoadingMore(chatId: string, isLoading: boolean): void {
+    this.messageSlice.setIsLoadingMore(chatId, isLoading)
+  }
+
   // Navigation
   setSelectedSessionIndex(selectedSessionIndex: number): void {
     this.navigationSlice.setSelectedSessionIndex(selectedSessionIndex)

@@ -13,7 +13,6 @@ import {
   loadChats,
   loadContacts,
   loadMessages,
-  loadOlderMessages,
   loadSessions,
   logoutSession,
   markActivity,
@@ -542,7 +541,6 @@ async function handleConversationViewKeys(key: KeyEvent, state: AppState): Promi
   if (key.name === "up" && !state.inputMode) {
     debugLog("Keyboard", "Conversation: UP - scrolling up")
     scrollConversation(-4)
-    loadOlderMessages()
     return true
   }
 
