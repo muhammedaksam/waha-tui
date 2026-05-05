@@ -1,4 +1,9 @@
-import type { ChatSummary, GroupParticipant, WAHAChatPresences } from "@muhammedaksam/waha-node"
+import type {
+  ChatSummary,
+  GroupParticipant,
+  Label,
+  WAHAChatPresences,
+} from "@muhammedaksam/waha-node"
 
 import { SliceActions, StateSlice } from "~/state/slices/types"
 import { debugLog } from "~/utils/debug"
@@ -12,6 +17,7 @@ export interface ChatState {
   currentChatParticipants: GroupParticipant[] | null
   showingArchivedChats: boolean
   lidToPhoneMap: Map<string, string> // Moved here as it's relevant to chat/presence
+  labels: Label[]
 }
 
 export const initialChatState: ChatState = {
@@ -22,6 +28,7 @@ export const initialChatState: ChatState = {
   currentChatParticipants: null,
   showingArchivedChats: false,
   lidToPhoneMap: new Map(),
+  labels: [],
 }
 
 export interface ChatActions extends SliceActions<ChatState> {
@@ -37,7 +44,9 @@ export interface ChatActions extends SliceActions<ChatState> {
   clearTypingForSender(senderId: string): void
   setLidToPhoneMap(lidToPhoneMap: Map<string, string>): void
   addLidMappings(mappings: Array<{ lid?: string; pn?: string }>): void
+  addLidMappings(mappings: Array<{ lid?: string; pn?: string }>): void
   getPhoneFromLid(lid: string): string | undefined
+  setLabels(labels: Label[]): void
 }
 
 export function createChatSlice(): StateSlice<ChatState> & ChatActions {
@@ -84,6 +93,11 @@ export function createChatSlice(): StateSlice<ChatState> & ChatActions {
 
     setChats(chats: ChatSummary[]) {
       state = { ...state, chats }
+      notify()
+    },
+
+    setLabels(labels: Label[]) {
+      state = { ...state, labels }
       notify()
     },
 
