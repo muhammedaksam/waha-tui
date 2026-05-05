@@ -677,3 +677,67 @@ export async function sendMediaMessage(
       : new NetworkError("Failed to send media", { chatId })
   }
 }
+
+/**
+ * Send a poll to a chat.
+ */
+export async function sendPoll(
+  chatId: string,
+  name: string,
+  options: string[],
+  multipleAnswers: boolean = false
+): Promise<void> {
+  const session = getSession()
+  if (!session) return
+
+  try {
+    const wahaClient = await getClient()
+    await wahaClient.chatting.chattingControllerSendPoll({
+      session,
+      chatId,
+      poll: {
+        name,
+        options,
+        multipleAnswers: multipleAnswers ? {} : (Object.create(null) as object),
+      },
+    })
+
+    debugLog("Client", `Poll sent successfully to ${chatId}`)
+    await loadMessages(chatId)
+  } catch (error) {
+    errorService.handle(error, { context: { action: "sendPoll", chatId } })
+    throw error instanceof Error
+      ? new NetworkError("Failed to send poll", { chatId }, error)
+      : new NetworkError("Failed to send poll", { chatId })
+  }
+}
+
+/**
+ * Vote on a poll.
+ */
+export async function sendPollVote(
+  chatId: string,
+  pollMessageId: string,
+  selectedOptions: string[]
+): Promise<void> {
+  const session = getSession()
+  if (!session) return
+
+  try {
+    const wahaClient = await getClient()
+    await wahaClient.chatting.chattingControllerSendPollVote({
+      session,
+      chatId,
+      pollMessageId,
+      votes: [selectedOptions],
+    })
+
+    debugLog("Client", `Poll vote sent successfully to ${chatId}`)
+    // Message list will be updated via WebSocket poll.vote event
+  } catch (error) {
+    errorService.handle(error, { context: { action: "sendPollVote", chatId } })
+    throw error instanceof Error
+      ? new NetworkError("Failed to vote on poll", { chatId }, error)
+      : new NetworkError("Failed to vote on poll", { chatId })
+  }
+}

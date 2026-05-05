@@ -27,6 +27,8 @@ export {
   loadMessages,
   loadOlderMessages,
   sendMessage,
+  sendPoll,
+  sendPollVote,
   sendTypingState,
   prefetchMessagesForTopChats,
   downloadAndOpenMedia,

@@ -133,6 +133,17 @@ export function getMediaLabel(message: WAMessageExtended): MediaLabel {
     case "revoked":
       return { label: "🚫 This message was deleted", hasMedia: true }
 
+    case "poll":
+    case "poll_creation": {
+      interface PollData {
+        pollName?: string
+        poll?: { name?: string }
+      }
+      const pollData = data as PollData
+      const pollName = pollData.pollName || pollData.poll?.name || "Poll"
+      return { label: `📊 Poll: ${pollName}`, hasMedia: true }
+    }
+
     default:
       break
   }

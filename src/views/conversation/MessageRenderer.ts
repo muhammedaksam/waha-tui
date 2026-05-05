@@ -348,6 +348,129 @@ export function renderMessage(
     bubble.add(contentRow)
   }
 
+  // Row 4: Poll (if this is a poll message)
+  const isPoll = (message as any).type === "poll" || message._data?.type === "poll"
+  if (isPoll && message._data) {
+    interface PollOption {
+      name?: string
+      localId?: number | string
+    }
+    interface PollVoteInfo {
+      optionLocalId: number | string
+      count: number
+    }
+    interface PollData {
+      name?: string
+      pollName?: string
+      options?: PollOption[]
+      votes?: PollVoteInfo[]
+      multipleAnswers?: boolean
+    }
+
+    const pollData = ((message._data as any).poll || message._data) as PollData
+    const question = pollData.name || pollData.pollName || "Poll"
+    const options = pollData.options || []
+    const votes = pollData.votes || []
+    const multipleAnswers = pollData.multipleAnswers || false
+
+    // Total votes for percentage calculation
+    const totalVotes = votes.reduce((sum, v) => sum + (v.count || 0), 0)
+
+    const pollBox = new BoxRenderable(renderer, {
+      flexDirection: "column",
+      marginTop: 1,
+      padding: 1,
+      backgroundColor: WhatsAppTheme.panelLight,
+      border: false,
+    })
+
+    // Question
+    pollBox.add(
+      new TextRenderable(renderer, {
+        content: `📊 ${question}`,
+        fg: WhatsAppTheme.textPrimary,
+        attributes: TextAttributes.BOLD,
+        marginBottom: 1,
+      })
+    )
+
+    // Options
+    options.forEach((opt) => {
+      const optionName = opt.name || (opt as unknown as string)
+      const optionId = opt.localId !== undefined ? opt.localId : optionName
+      const voteInfo = votes.find((v) => v.optionLocalId === optionId)
+      const count = voteInfo ? voteInfo.count : 0
+      const percentage = totalVotes > 0 ? (count / totalVotes) * 100 : 0
+
+      const optionRow = new BoxRenderable(renderer, {
+        flexDirection: "column",
+        marginBottom: 1,
+        // Interactive voting
+        onMouse: function (event) {
+          if (event.type === "down" && event.button === 0) {
+            const state = appState.getState()
+            const chatId = state.currentChatId
+            if (chatId && message.id) {
+              import("~/client").then(({ sendPollVote }) => {
+                sendPollVote(chatId, message.id, [optionName]).catch((err) => {
+                  debugLog("Poll", `Failed to vote: ${err.message}`)
+                })
+              })
+            }
+          }
+        },
+      })
+
+      // Option name and count
+      const labelRow = new BoxRenderable(renderer, {
+        flexDirection: "row",
+        justifyContent: "space-between",
+      })
+
+      labelRow.add(
+        new TextRenderable(renderer, {
+          content: optionName,
+          fg: WhatsAppTheme.textPrimary,
+        })
+      )
+
+      labelRow.add(
+        new TextRenderable(renderer, {
+          content: `${count}`,
+          fg: WhatsAppTheme.textSecondary,
+        })
+      )
+
+      optionRow.add(labelRow)
+
+      // Progress bar
+      const barWidth = 20
+      const filledWidth = Math.round((percentage / 100) * barWidth)
+      const bar = "█".repeat(filledWidth) + "░".repeat(barWidth - filledWidth)
+
+      optionRow.add(
+        new TextRenderable(renderer, {
+          content: bar,
+          fg: percentage > 0 ? WhatsAppTheme.green : WhatsAppTheme.textTertiary,
+        })
+      )
+
+      pollBox.add(optionRow)
+    })
+
+    if (multipleAnswers) {
+      pollBox.add(
+        new TextRenderable(renderer, {
+          content: "Select one or more",
+          fg: WhatsAppTheme.textTertiary,
+          attributes: TextAttributes.ITALIC,
+        })
+      )
+    }
+
+    bubble.add(pollBox)
+  }
+
   // Row 3.5: Link preview box (if URL metadata is available from WAHA)
   const linkPreview = getLinkPreviewData(message)
   if (linkPreview) {
