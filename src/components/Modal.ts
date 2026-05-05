@@ -19,6 +19,7 @@ import {
   underline,
 } from "@opentui/core"
 
+import type { WAMessageExtended } from "~/types"
 import type { UpdateInfo } from "~/utils/update-checker"
 import { logoutSession } from "~/client"
 import { WDSColors, WhatsAppTheme } from "~/config/theme"
@@ -745,5 +746,340 @@ export function showContactPickerModal(): Promise<string | null> {
         safeResolve(null)
       },
     })
+  })
+}
+
+/**
+ * Show a poll creation modal
+ * Returns a promise that resolves to the poll data or null if cancelled
+ */
+export function showPollModal(): Promise<{
+  question: string
+  options: string[]
+  multipleAnswers: boolean
+} | null> {
+  const dialogManager = getDialogManager()
+  const renderer = getRenderer()
+  let resolved = false
+
+  let question = ""
+  let optionsText = ""
+  let multipleAnswers = false
+  let focusedField: "question" | "options" | "multiple" = "question"
+
+  appState.setInputMode(true)
+
+  return new Promise((resolve) => {
+    // eslint-disable-next-line prefer-const
+    let dialogId: DialogId | undefined
+    let qInput: InputRenderable | undefined
+    let oInput: InputRenderable | undefined
+    let updateUI: () => void = () => {}
+
+    const safeResolve = (
+      value: { question: string; options: string[]; multipleAnswers: boolean } | null
+    ) => {
+      if (resolved) return
+      resolved = true
+      appState.setInputMode(false)
+      renderer.keyInput.off("keypress", handleKey)
+      resolve(value)
+      if (dialogId !== undefined) dialogManager.close(dialogId)
+    }
+
+    const handleKey = (key: KeyEvent) => {
+      if (key.name === "tab") {
+        if (focusedField === "question") focusedField = "options"
+        else if (focusedField === "options") focusedField = "multiple"
+        else focusedField = "question"
+        updateUI()
+      } else if (key.name === "escape") {
+        safeResolve(null)
+      } else if (key.name === "return" || key.name === "enter") {
+        if (question.trim() && optionsText.trim()) {
+          const options = optionsText
+            .split(",")
+            .map((o) => o.trim())
+            .filter((o) => o !== "")
+          if (options.length >= 2) {
+            safeResolve({ question, options, multipleAnswers })
+          }
+        }
+      }
+    }
+
+    renderer.keyInput.on("keypress", handleKey)
+
+    dialogId = dialogManager.show({
+      content: (ctx: RenderContext) => {
+        const wrapper = new BoxRenderable(ctx, {
+          flexDirection: "column",
+          width: "100%",
+        })
+
+        updateUI = () => {
+          for (const child of wrapper.getChildren()) {
+            child.destroyRecursively()
+          }
+
+          wrapper.add(
+            new TextRenderable(ctx, {
+              content: "Create Poll",
+              fg: WhatsAppTheme.textPrimary,
+              attributes: TextAttributes.BOLD,
+            })
+          )
+
+          wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+
+          // Question field
+          wrapper.add(
+            new TextRenderable(ctx, { content: "Question:", fg: WhatsAppTheme.textSecondary })
+          )
+          qInput = new InputRenderable(ctx, {
+            value: question,
+            placeholder: "Enter question...",
+            width: "100%",
+            backgroundColor: WhatsAppTheme.inputBg,
+            textColor: WhatsAppTheme.textPrimary,
+            cursorColor: WhatsAppTheme.white,
+          })
+          qInput.on(InputRenderableEvents.INPUT, (v) => (question = v))
+          wrapper.add(qInput)
+
+          wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+
+          // Options field
+          wrapper.add(
+            new TextRenderable(ctx, {
+              content: "Options (comma separated):",
+              fg: WhatsAppTheme.textSecondary,
+            })
+          )
+          oInput = new InputRenderable(ctx, {
+            value: optionsText,
+            placeholder: "Option 1, Option 2, ...",
+            width: "100%",
+            backgroundColor: WhatsAppTheme.inputBg,
+            textColor: WhatsAppTheme.textPrimary,
+            cursorColor: WhatsAppTheme.white,
+          })
+          oInput.on(InputRenderableEvents.INPUT, (v) => (optionsText = v))
+          wrapper.add(oInput)
+
+          wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+
+          // Multiple answers toggle
+          const multiRow = new BoxRenderable(ctx, { flexDirection: "row", alignItems: "center" })
+          multiRow.add(
+            new TextRenderable(ctx, {
+              content: multipleAnswers ? " [X] " : " [ ] ",
+              fg: multipleAnswers ? WhatsAppTheme.green : WhatsAppTheme.textSecondary,
+              onMouse: (e) => {
+                if (e.type === "down") {
+                  multipleAnswers = !multipleAnswers
+                  updateUI()
+                }
+              },
+            })
+          )
+          multiRow.add(
+            new TextRenderable(ctx, {
+              content: "Allow multiple answers",
+              fg: WhatsAppTheme.textPrimary,
+            })
+          )
+          wrapper.add(multiRow)
+
+          wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+
+          // Help text
+          wrapper.add(
+            new TextRenderable(ctx, {
+              content: "Tab: Cycle fields | Enter: Create | Esc: Cancel",
+              fg: WhatsAppTheme.textTertiary,
+            })
+          )
+
+          // Focus management
+          setTimeout(() => {
+            if (focusedField === "question") qInput?.focus()
+            else if (focusedField === "options") oInput?.focus()
+          }, 10)
+
+          ctx.requestRender()
+        }
+
+        updateUI()
+        return wrapper
+      },
+      size: "medium",
+      onClose: () => safeResolve(null),
+    })
+  })
+}
+
+/**
+ * Show poll votes modal
+ */
+export function showPollVotesModal(message: WAMessageExtended): void {
+  const dialogManager = getDialogManager()
+
+  interface PollOption {
+    name?: string
+    localId?: number | string
+  }
+  interface PollVoteInfo {
+    optionLocalId: number | string
+    count: number
+    voters?: string[]
+  }
+  interface PollData {
+    name?: string
+    pollName?: string
+    options?: PollOption[]
+    pollOptions?: PollOption[]
+    votes?: PollVoteInfo[]
+    pollVotesSnapshot?: {
+      pollVotes: PollVoteInfo[]
+    }
+  }
+
+  const pollData = (message._data?.poll || message._data) as PollData
+  const question = pollData.name || pollData.pollName || "Poll"
+  const options = pollData.options || pollData.pollOptions || []
+  const votes = pollData.votes || pollData.pollVotesSnapshot?.pollVotes || []
+
+  dialogManager.show({
+    content: (ctx: RenderContext) => {
+      try {
+        const wrapper = new BoxRenderable(ctx, {
+          flexDirection: "column",
+          width: "100%",
+        })
+
+        // Title
+        wrapper.add(
+          new TextRenderable(ctx, {
+            content: "Poll results",
+            fg: WhatsAppTheme.textPrimary,
+            attributes: TextAttributes.BOLD,
+          })
+        )
+
+        wrapper.add(
+          new TextRenderable(ctx, {
+            content: question,
+            fg: WhatsAppTheme.textSecondary,
+            marginBottom: 1,
+          })
+        )
+
+        // List of options and who voted
+        options.forEach((opt) => {
+          const optionName = opt.name || (opt as unknown as string)
+          const optionId = opt.localId !== undefined ? opt.localId : optionName
+          const voteInfo = votes.find((v) => v.optionLocalId === optionId)
+          const voters = voteInfo?.voters || []
+          const count = voteInfo?.count || 0
+
+          const optionBox = new BoxRenderable(ctx, {
+            flexDirection: "column",
+            marginBottom: 1,
+            padding: 1,
+            backgroundColor: WhatsAppTheme.background,
+          })
+
+          const header = new BoxRenderable(ctx, {
+            flexDirection: "row",
+            justifyContent: "space-between",
+          })
+          header.add(
+            new TextRenderable(ctx, {
+              content: optionName,
+              fg: WhatsAppTheme.textPrimary,
+              attributes: TextAttributes.BOLD,
+            })
+          )
+          header.add(
+            new TextRenderable(ctx, { content: `${count}`, fg: WhatsAppTheme.textSecondary })
+          )
+          optionBox.add(header)
+
+          if (voters.length > 0) {
+            const votersBox = new BoxRenderable(ctx, {
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: 1,
+              marginTop: 0,
+            })
+
+            voters.forEach((voterId) => {
+              const name = appState.getContactName(voterId) || voterId.split("@")[0]
+              const isMe = voterId === appState.getState().myProfile?.id
+              const voterBadge = new BoxRenderable(ctx, {
+                backgroundColor: WhatsAppTheme.panelLight,
+                paddingLeft: 1,
+                paddingRight: 1,
+              })
+              voterBadge.add(
+                new TextRenderable(ctx, {
+                  content: isMe ? "You" : name,
+                  fg: isMe ? WhatsAppTheme.green : WhatsAppTheme.textPrimary,
+                })
+              )
+              votersBox.add(voterBadge)
+            })
+            optionBox.add(votersBox)
+          } else {
+            optionBox.add(
+              new TextRenderable(ctx, {
+                content: "No votes yet",
+                fg: WhatsAppTheme.textTertiary,
+              })
+            )
+          }
+
+          wrapper.add(optionBox)
+        })
+
+        // Close button
+        const buttonRow = new BoxRenderable(ctx, {
+          flexDirection: "row",
+          justifyContent: "flex-end",
+          marginTop: 1,
+        })
+        const closeBtn = new BoxRenderable(ctx, {
+          paddingLeft: 2,
+          paddingRight: 2,
+          height: 1,
+          backgroundColor: WhatsAppTheme.green,
+          justifyContent: "center",
+          alignItems: "center",
+          onMouse: (e) => {
+            if (e.type === "down" && e.button === 0) {
+              dialogManager.closeAll()
+              e.stopPropagation()
+            }
+          },
+        })
+        closeBtn.add(new TextRenderable(ctx, { content: "Close", fg: WhatsAppTheme.white }))
+        buttonRow.add(closeBtn)
+        wrapper.add(buttonRow)
+
+        return wrapper
+      } catch (error: unknown) {
+        const errorBox = new BoxRenderable(ctx, { padding: 1 })
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        errorBox.add(
+          new TextRenderable(ctx, {
+            content: `Error rendering votes: ${errorMessage}`,
+            fg: WDSColors.red[500],
+          })
+        )
+        return errorBox
+      }
+    },
+    size: "medium",
   })
 }

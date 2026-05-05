@@ -158,6 +158,38 @@ export async function forwardMessage(
   }
 }
 
+/**
+ * Edit a previously sent message.
+ * Only works for messages sent by the current user (fromMe).
+ * @param chatId - The chat ID
+ * @param messageId - The message ID to edit
+ * @param newText - The new text content
+ * @throws {NetworkError} If the edit fails
+ */
+export async function editMessage(
+  chatId: ChatId,
+  messageId: MessageId,
+  newText: string
+): Promise<void> {
+  try {
+    const session = getSession()
+    debugLog("Client", `Editing message ${messageId} in ${chatId}`)
+    const wahaClient = getClient()
+    await wahaClient.chats.chatsControllerEditMessage(session, chatId, messageId, {
+      text: newText,
+    })
+    debugLog("Client", `Message edited: ${messageId}`)
+
+    // Optimistically update local state
+    appState.updateMessageBody(chatId, messageId, newText, true)
+  } catch (error) {
+    errorService.handle(error, { context: { action: "editMessage", messageId } })
+    throw error instanceof Error
+      ? new NetworkError("Failed to edit message", { messageId }, error)
+      : new NetworkError("Failed to edit message", { messageId })
+  }
+}
+
 export async function reactToMessage(messageId: string, reaction: string): Promise<void> {
   try {
     const session = getSession()
@@ -246,49 +278,93 @@ export async function loadMessages(chatId: string): Promise<void> {
   }
 }
 
-let isLoadingMore = false
+/** Debounce timer for loadOlderMessages to prevent rapid-fire calls when scrolling */
+let loadOlderDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
+/**
+ * Load older messages for the current chat (pagination).
+ * Uses state-based `isLoadingMore` tracking so the UI can show indicators.
+ * Respects `hasMoreMessages` to avoid unnecessary API calls.
+ * Debounced to prevent rapid-fire calls when scrolling.
+ */
 export async function loadOlderMessages(): Promise<void> {
   const state = appState.getState()
-  if (!state.currentChatId || !state.currentSession || isLoadingMore) {
+  if (!state.currentChatId || !state.currentSession) {
+    return
+  }
+
+  // Guard: already loading
+  if (state.isLoadingMore.get(state.currentChatId)) {
+    return
+  }
+
+  // Guard: no more messages available
+  if (state.hasMoreMessages.get(state.currentChatId) === false) {
+    debugLog("Messages", "No more older messages (hasMoreMessages=false)")
     return
   }
 
   const currentMessages = state.messages.get(state.currentChatId) || []
   if (currentMessages.length === 0) return
 
-  isLoadingMore = true
-  const offset = currentMessages.length
-  debugLog("Messages", `Loading older messages with offset ${offset}`)
+  // Debounce: clear any pending timer and schedule a new one
+  if (loadOlderDebounceTimer) {
+    clearTimeout(loadOlderDebounceTimer)
+  }
 
-  try {
-    const wahaClient = getClient()
-    const response = await wahaClient.chats.chatsControllerGetChatMessages(
-      state.currentSession,
-      state.currentChatId,
-      {
+  const chatId = state.currentChatId
+  const session = state.currentSession
+
+  loadOlderDebounceTimer = setTimeout(async () => {
+    loadOlderDebounceTimer = null
+
+    // Re-check guards after debounce delay
+    const freshState = appState.getState()
+    if (freshState.currentChatId !== chatId) return
+    if (freshState.isLoadingMore.get(chatId)) return
+    if (freshState.hasMoreMessages.get(chatId) === false) return
+
+    const messages = freshState.messages.get(chatId) || []
+    if (messages.length === 0) return
+
+    appState.setIsLoadingMore(chatId, true)
+    const offset = messages.length
+    debugLog("Messages", `Loading older messages with offset ${offset}`)
+
+    try {
+      const wahaClient = getClient()
+      const response = await wahaClient.chats.chatsControllerGetChatMessages(session, chatId, {
         limit: 50,
         offset: offset,
         downloadMedia: false,
         sortBy: "messageTimestamp",
         sortOrder: "desc",
+      })
+
+      const newMessages = (response.data as unknown as WAMessage[]) || []
+
+      if (newMessages.length > 0) {
+        debugLog("Messages", `Loaded ${newMessages.length} older messages`)
+        // Re-fetch current messages in case they changed during the request
+        const latestMessages = appState.getState().messages.get(chatId) || []
+        const combinedMessages = [...latestMessages, ...newMessages]
+        appState.setMessages(chatId, combinedMessages)
+
+        // If we got fewer than requested, there are no more
+        if (newMessages.length < 50) {
+          appState.setHasMoreMessages(chatId, false)
+          debugLog("Messages", "Reached end of message history")
+        }
+      } else {
+        debugLog("Messages", "No more older messages available")
+        appState.setHasMoreMessages(chatId, false)
       }
-    )
-
-    const newMessages = (response.data as unknown as WAMessage[]) || []
-
-    if (newMessages.length > 0) {
-      debugLog("Messages", `Loaded ${newMessages.length} older messages`)
-      const combinedMessages = [...currentMessages, ...newMessages]
-      appState.setMessages(state.currentChatId, combinedMessages)
-    } else {
-      debugLog("Messages", "No more older messages available")
+    } catch (error) {
+      debugLog("Messages", `Failed to load older messages: ${error}`)
+    } finally {
+      appState.setIsLoadingMore(chatId, false)
     }
-  } catch (error) {
-    debugLog("Messages", `Failed to load older messages: ${error}`)
-  } finally {
-    isLoadingMore = false
-  }
+  }, 300) // 300ms debounce
 }
 
 export async function sendMessage(
@@ -599,5 +675,90 @@ export async function sendMediaMessage(
     throw error instanceof Error
       ? new NetworkError("Failed to send media", { chatId }, error)
       : new NetworkError("Failed to send media", { chatId })
+  }
+}
+
+/**
+ * Send a poll to a chat.
+ */
+export async function sendPoll(
+  chatId: string,
+  name: string,
+  options: string[],
+  multipleAnswers: boolean = false
+): Promise<void> {
+  const session = getSession()
+  if (!session) return
+
+  try {
+    const wahaClient = await getClient()
+    await wahaClient.chatting.chattingControllerSendPoll({
+      session,
+      chatId,
+      poll: {
+        name,
+        options,
+        multipleAnswers: multipleAnswers ? {} : (Object.create(null) as object),
+      },
+    })
+
+    debugLog("Client", `Poll sent successfully to ${chatId}`)
+    await loadMessages(chatId)
+  } catch (error) {
+    errorService.handle(error, { context: { action: "sendPoll", chatId } })
+    throw error instanceof Error
+      ? new NetworkError("Failed to send poll", { chatId }, error)
+      : new NetworkError("Failed to send poll", { chatId })
+  }
+}
+
+/**
+ * Vote on a poll.
+ */
+export async function sendPollVote(
+  chatId: string,
+  pollMessageId: string,
+  selectedOptions: string[]
+): Promise<void> {
+  const session = getSession()
+  if (!session) return
+
+  try {
+    const wahaClient = await getClient()
+    debugLog("Client", `Sending vote for ${pollMessageId}: ${selectedOptions.join(", ")}`)
+    await wahaClient.chatting.chattingControllerSendPollVote({
+      session,
+      chatId,
+      pollMessageId,
+      votes: selectedOptions as unknown as string[][],
+    })
+
+    debugLog("Client", `Poll vote sent successfully to ${chatId}`)
+    // Message list will be updated via WebSocket poll.vote event
+  } catch (error: unknown) {
+    const isAxiosError = (err: unknown): err is { response: { status: number } } => {
+      if (!err || typeof err !== "object") return false
+      const e = err as Record<string, unknown>
+      if (!("response" in e) || !e.response || typeof e.response !== "object") return false
+      const r = e.response as Record<string, unknown>
+      return "status" in r && typeof r.status === "number"
+    }
+
+    if (isAxiosError(error) && error.response.status === 501) {
+      debugLog(
+        "Client",
+        "SERVER ERROR 501: This engine (likely WEBJS) does not support voting via API."
+      )
+    }
+    errorService.handle(error as Error, { context: { action: "sendPollVote", chatId } })
+    throw error instanceof Error
+      ? new NetworkError(
+          "Failed to vote on poll. This engine may not support voting via API.",
+          { chatId },
+          error
+        )
+      : new NetworkError("Failed to vote on poll. This engine may not support voting via API.", {
+          chatId,
+        })
   }
 }

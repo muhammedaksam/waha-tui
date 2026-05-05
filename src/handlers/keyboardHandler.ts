@@ -13,14 +13,19 @@ import {
   loadChats,
   loadContacts,
   loadMessages,
-  loadOlderMessages,
   loadSessions,
   logoutSession,
   markActivity,
   startPresenceManagement,
   stopPresenceManagement,
 } from "~/client"
-import { downloadAndOpenMedia, reactToMessage, sendMediaMessage } from "~/client/messageActions"
+import { markChatRead } from "~/client/chatActions"
+import {
+  downloadAndOpenMedia,
+  reactToMessage,
+  sendMediaMessage,
+  sendPoll,
+} from "~/client/messageActions"
 import { getSelectedContextMenuActionId, handleContextMenuKey } from "~/components/ContextMenu"
 import { showEmojiPicker } from "~/components/EmojiPicker"
 import {
@@ -28,6 +33,7 @@ import {
   showCaptionModal,
   showContactPickerModal,
   showFilePickerModal,
+  showPollModal,
 } from "~/components/Modal"
 import { showToast } from "~/components/Toast"
 import { saveSettings } from "~/config/manager"
@@ -344,6 +350,7 @@ async function handleChatsViewKeys(key: KeyEvent, state: AppState): Promise<bool
       loadContacts()
       await loadMessages(chatId)
       startPresenceManagement(chatId)
+      markChatRead(chatId)
     }
     return true
   }
@@ -452,6 +459,16 @@ async function handleChatsViewKeys(key: KeyEvent, state: AppState): Promise<bool
 async function handleConversationViewKeys(key: KeyEvent, state: AppState): Promise<boolean> {
   if (state.currentView !== "conversation") return false
 
+  // When search is active, handle navigation keys
+  if (state.isSearchActive) {
+    if (key.name === "return" || key.name === "enter") {
+      // Enter: next result, Shift+Enter: previous result
+      const direction = key.shift ? -1 : 1
+      appState.navigateMessageSearchResult(direction)
+      return true
+    }
+  }
+
   // 'm' key - open message context menu
   if (key.name === "m" && !state.inputMode) {
     const messages = state.messages.get(state.currentChatId || "")
@@ -533,11 +550,35 @@ async function handleConversationViewKeys(key: KeyEvent, state: AppState): Promi
     return true
   }
 
+  // 'p' key - create poll
+  if (key.name === "p" && !state.inputMode) {
+    if (state.currentChatId) {
+      showPollModal().then((pollData) => {
+        if (pollData) {
+          showToast("Sending poll...", "info")
+          sendPoll(
+            state.currentChatId as string,
+            pollData.question,
+            pollData.options,
+            pollData.multipleAnswers
+          )
+            .then(() => {
+              showToast("Poll sent successfully", "success")
+            })
+            .catch((err) => {
+              debugLog("Keyboard", `Failed to send poll: ${err}`)
+              showToast("Failed to send poll", "error")
+            })
+        }
+      })
+    }
+    return true
+  }
+
   // Arrow navigation (when not in input mode)
   if (key.name === "up" && !state.inputMode) {
     debugLog("Keyboard", "Conversation: UP - scrolling up")
     scrollConversation(-4)
-    loadOlderMessages()
     return true
   }
 
@@ -567,9 +608,23 @@ async function handleConversationViewKeys(key: KeyEvent, state: AppState): Promi
     return true
   }
 
+  // '/' or Ctrl+F — open in-chat search
+  if (
+    (!state.inputMode && !state.isSearchActive && key.sequence === "/") ||
+    (key.ctrl && key.name === "f")
+  ) {
+    debugLog("Keyboard", "Conversation: Opening in-chat search")
+    appState.setMessageSearchActive(true)
+    appState.setInputMode(true)
+    return true
+  }
+
   // Escape key
   if (key.name === "escape") {
-    if (state.inputMode) {
+    if (state.isSearchActive) {
+      appState.clearMessageSearch()
+      appState.setInputMode(false)
+    } else if (state.inputMode) {
       blurMessageInput()
     } else {
       stopPresenceManagement()

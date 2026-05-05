@@ -8,6 +8,8 @@ import {
   deleteChat,
   deleteMessage,
   downloadAndOpenMedia,
+  editMessage,
+  forwardMessage,
   loadChats,
   loadMessages,
   markChatUnread,
@@ -16,7 +18,11 @@ import {
   starMessage,
   unarchiveChat,
 } from "~/client"
+import { markChatRead } from "~/client/chatActions"
+import { showChatPicker } from "~/components/ChatPickerDialog"
 import { showEmojiPicker } from "~/components/EmojiPicker"
+import { showInputModal } from "~/components/Modal"
+import { showToast } from "~/components/Toast"
 import { getSettings, saveSettings } from "~/config/manager"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
@@ -70,6 +76,20 @@ export async function executeContextMenuAction(
           await markChatUnread(targetId)
           await loadChats()
           break
+        case "read":
+          await markChatRead(targetId)
+          await loadChats()
+          break
+        case "pin": {
+          // WAHA doesn't expose a pin/unpin chat API — only message pinning is available
+          showToast("Pin/unpin chat is not supported by WAHA API", "info")
+          break
+        }
+        case "mute": {
+          // WAHA doesn't expose a mute/unmute chat API
+          showToast("Mute/unmute is not supported by WAHA API", "info")
+          break
+        }
         case "delete":
           await deleteChat(targetId)
           await loadChats()
@@ -158,16 +178,45 @@ export async function executeContextMenuAction(
         case "delete": {
           if (state.currentChatId) {
             await deleteMessage(state.currentChatId, targetId)
+            // For "delete for me", just remove from the local message list
             await loadMessages(state.currentChatId)
+          }
+          break
+        }
+        case "edit": {
+          const message = contextMenu.targetData as WAMessageExtended
+          if (!message?.body || !state.currentChatId) break
+
+          // Close context menu before showing modal
+          appState.closeContextMenu()
+
+          const newText = await showInputModal(
+            "Edit Message",
+            "Enter new message text...",
+            message.body
+          )
+
+          if (newText !== null && newText.trim() && newText !== message.body) {
+            try {
+              await editMessage(state.currentChatId, targetId, newText.trim())
+              showToast("Message edited", "success")
+            } catch {
+              showToast("Failed to edit message", "error")
+            }
+          }
+          break
+        }
+        case "delete-for-everyone": {
+          if (state.currentChatId) {
+            await deleteMessage(state.currentChatId, targetId)
+            // Optimistically show the revoked placeholder
+            appState.markMessageRevoked(state.currentChatId, targetId)
           }
           break
         }
         case "forward": {
           const message = contextMenu.targetData as WAMessageExtended
           if (!message) break
-
-          // Dynamically import to avoid circular dependencies if any
-          const { showChatPicker } = await import("~/components/ChatPickerDialog")
 
           debugLog("ContextMenu", `Opening ChatPicker for message ${targetId}`)
           const selectedChats = await showChatPicker(message)
@@ -187,9 +236,7 @@ export async function executeContextMenuAction(
                   `OriginalChatId: ${originalChatId}, ToChatId: ${getChatIdString(chat.id)}`
                 )
                 if (originalChatId) {
-                  await import("~/client").then((m) =>
-                    m.forwardMessage(originalChatId, targetId, getChatIdString(chat.id))
-                  )
+                  await forwardMessage(originalChatId, targetId, getChatIdString(chat.id))
                   successCount++
                 } else {
                   debugLog("ContextMenu", `Failed to forward: originalChatId is missing`)

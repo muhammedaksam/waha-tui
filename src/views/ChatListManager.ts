@@ -425,6 +425,19 @@ class ChatListManager {
       )
     }
 
+    // Add disappearing messages icon if enabled
+    const disappearingMode = (
+      chat as unknown as { _chat?: { disappearingMode?: { duration?: number } } }
+    )._chat?.disappearingMode
+    if (disappearingMode && disappearingMode.duration && disappearingMode.duration > 0) {
+      messageRow.add(
+        new TextRenderable(renderer, {
+          content: "⏱️",
+          fg: WhatsAppTheme.textTertiary,
+        })
+      )
+    }
+
     chatInfo.add(messageRow)
 
     chatRow.add(chatInfo)

@@ -20,16 +20,15 @@ A beautiful Terminal User Interface for WhatsApp using [WAHA (WhatsApp HTTP API)
 
 - 📱 **Session Management** - Create, view, and manage WAHA sessions with QR code or phone number pairing
 - 💬 **Chat Interface** - Browse chats with WhatsApp-style layout and real-time updates
-- ✉️ **Messaging** - Send and receive messages with read receipts
-- 🔍 **Search & Filters** - Filter chats by all, unread, favorites, or groups with instant search
-- 📋 **Context Menus** - Right-click style menus for chats (archive, delete, mark unread) and messages (star, pin, react, forward, delete)
-- ⚙️ **Settings** - Configurable notification preferences (messages, groups, status), enter-to-send, and background sync
-- 🔔 **Desktop Notifications** - Native OS notifications for incoming messages with per-category controls
-- 🔄 **Real-Time Updates** - WebSocket-powered live updates, auto-refreshing QR codes, and typing indicators
-- 🔢 **Unread Badges** - Visual unread message counts on the chat list
-- 🎨 **Beautiful UI** - WhatsApp Web-inspired interface with colors and icons
-- ⚡ **Fast & Lightweight** - Built with Bun for blazing-fast performance
-- 🔒 **Secure** - All configuration stored locally in `$XDG_CONFIG_HOME/waha-tui/`
+- ✉️ **Messaging** - Send and receive messages with read receipts, **(edited)** indicators, and auto-history loading
+- 📊 **Interactive Polls** - View and vote in polls with real-time result progress bars (`█░`)
+- 🔗 **Link Previews** - Rich metadata rendering for URLs (title, description, domain) directly in the chat
+- 🔍 **Search & Filters** - Filter chats by all, unread, favorites, groups, or **labeled** with instant global and in-chat search
+- 📋 **Context Menus** - Right-click style menus for chats (archive, delete, mark unread, pin, mute) and messages (star, pin, react, forward, delete)
+- ⚙️ **Settings** - Configurable notification preferences, enter-to-send, and background sync
+- 🔔 **Desktop Notifications** - Native OS notifications for messages and calls with per-category controls
+- ⏱️ **Disappearing Messages** - Visibility indicators for chats with disappearing mode enabled
+- 🔄 **Real-Time Updates** - WebSocket-powered live updates for messages, reactions, polls, labels, and typing indicators
 - 🆕 **Update Checker** - Automatic notification when a new version is available
 
 ## Screenshots
@@ -113,7 +112,7 @@ WAHA_API_KEY=your-api-key-here
 
 ```json
 {
-  "version": "1.5.17",
+  "version": "1.6.1",
   "createdAt": "2024-12-19T00:00:00.000Z",
   "updatedAt": "2024-12-19T00:00:00.000Z",
   "settings": {
@@ -186,31 +185,39 @@ WAHA_API_KEY=your-api-key-here
 
 #### Chats
 
-| Key              | Action                                      |
-| ---------------- | ------------------------------------------- |
-| `↑/↓`            | Navigate chat list                          |
-| `Enter`          | Open selected chat                          |
-| `Home/End`       | Jump to first / last chat                   |
-| `PageUp/Left`    | Page up (12 items)                          |
-| `PageDown/Right` | Page down (12 items)                        |
-| `Tab/Shift+Tab`  | Cycle filters (all/unread/favorites/groups) |
-| `/` or `Ctrl+F`  | Focus search input                          |
-| `c`              | Open chat context menu                      |
-| `s`              | Open settings                               |
-| `r`              | Refresh chats                               |
-| `Ctrl+A`         | Toggle archived chats view                  |
-| `Esc`            | Clear search / Exit archived / Go back      |
+| Key              | Action                                              |
+| ---------------- | --------------------------------------------------- |
+| `↑/↓`            | Navigate chat list                                  |
+| `Enter`          | Open selected chat                                  |
+| `Home/End`       | Jump to first / last chat                           |
+| `PageUp/Left`    | Page up (12 items)                                  |
+| `PageDown/Right` | Page down (12 items)                                |
+| `Tab/Shift+Tab`  | Cycle filters (all/unread/favorites/groups/labeled) |
+| `/` or `Ctrl+F`  | Focus search input                                  |
+| `n`              | Start new chat                                      |
+| `c`              | Open chat context menu                              |
+| `s`              | Open settings                                       |
+| `r`              | Refresh chats                                       |
+| `Ctrl+A`         | Toggle archived chats view                          |
+| `Esc`            | Clear search / Exit archived / Go back              |
 
 #### Conversation
 
-| Key              | Action                    |
-| ---------------- | ------------------------- |
-| `i`              | Enter message input mode  |
-| `↑/↓`            | Scroll messages           |
-| `PageUp/Left`    | Scroll up (large jump)    |
-| `PageDown/Right` | Scroll down (large jump)  |
-| `m`              | Open message context menu |
-| `Esc`            | Exit input mode / Go back |
+| Key              | Action                              |
+| ---------------- | ----------------------------------- |
+| `i`              | Enter message input mode            |
+| `↑/↓`            | Scroll messages                     |
+| `PageUp/Left`    | Scroll up (large jump)              |
+| `PageDown/Right` | Scroll down (large jump)            |
+| `o`              | Open/download last media message    |
+| `p`              | Create poll                         |
+| `a`              | Attach media                        |
+| `e`              | React with emoji to last message    |
+| `m`              | Open message context menu           |
+| `/` or `Ctrl+F`  | Open in-chat search                 |
+| `Esc`            | Exit input mode / Clear search      |
+| `Enter`          | Next search result (when searching) |
+| `Shift+Enter`    | Prev search result (when searching) |
 
 #### Settings
 

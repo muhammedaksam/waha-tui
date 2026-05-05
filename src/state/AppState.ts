@@ -24,6 +24,7 @@ import type {
   ContactState,
   ContextMenuState,
   ContextMenuType,
+  EmojiPickerState,
   MessageState,
   ModalState,
   NavigationState,
@@ -314,6 +315,16 @@ class StateManager {
     this.navigationSlice.set({ lastChangeType: "data" })
   }
 
+  updatePollVote(
+    chatId: string,
+    pollMessageId: string,
+    voterId: string,
+    selectedOptions: string[]
+  ): void {
+    this.messageSlice.updatePollVote(chatId, pollMessageId, voterId, selectedOptions)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
   updateMessageReaction(
     chatId: string,
     messageId: string,
@@ -326,6 +337,16 @@ class StateManager {
 
   markMessageRevoked(chatId: string, messageId: string): void {
     this.messageSlice.markMessageRevoked(chatId, messageId)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  updateMessageBody(chatId: string, messageId: string, newBody: string, isEdited?: boolean): void {
+    this.messageSlice.updateMessageBody(chatId, messageId, newBody, isEdited)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  replaceMessage(chatId: string, messageId: string, newMessage: WAMessage): void {
+    this.messageSlice.replaceMessage(chatId, messageId, newMessage)
     this.navigationSlice.set({ lastChangeType: "data" })
   }
 
@@ -348,9 +369,41 @@ class StateManager {
   setInputHeight(inputHeight: number): void {
     this.messageSlice.setInputHeight(inputHeight)
   }
-
   setReplyingToMessage(message: WAMessageExtended | WAMessage | null): void {
     this.messageSlice.setReplyingToMessage(message)
+  }
+
+  // Pagination
+  setHasMoreMessages(chatId: string, hasMore: boolean): void {
+    this.messageSlice.setHasMoreMessages(chatId, hasMore)
+  }
+
+  setIsLoadingMore(chatId: string, isLoading: boolean): void {
+    this.messageSlice.setIsLoadingMore(chatId, isLoading)
+  }
+
+  // In-chat message search
+  setMessageSearchActive(active: boolean): void {
+    this.messageSlice.setSearchActive(active)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  setMessageSearchQuery(query: string): void {
+    const chatId = this.getState().currentChatId
+    if (chatId) {
+      this.messageSlice.setSearchQuery(query, chatId)
+      this.navigationSlice.set({ lastChangeType: "data" })
+    }
+  }
+
+  navigateMessageSearchResult(direction: 1 | -1): void {
+    this.messageSlice.navigateSearchResult(direction)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  clearMessageSearch(): void {
+    this.messageSlice.clearSearch()
+    this.navigationSlice.set({ lastChangeType: "data" })
   }
 
   // Navigation
@@ -435,7 +488,7 @@ class StateManager {
   }
 
   // Emoji Picker
-  setEmojiPicker(emojiPicker: import("~/state/slices").EmojiPickerState | null): void {
+  setEmojiPicker(emojiPicker: EmojiPickerState | null): void {
     this.modalSlice.setEmojiPicker(emojiPicker)
   }
 

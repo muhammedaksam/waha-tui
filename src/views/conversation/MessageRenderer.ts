@@ -8,10 +8,13 @@ import type { WAMessage } from "@muhammedaksam/waha-node"
 import { BoxRenderable, CliRenderer, t, TextAttributes, TextRenderable } from "@opentui/core"
 
 import type { WAMessageExtended } from "~/types"
-import { WhatsAppTheme } from "~/config/theme"
+import { sendPollVote } from "~/client"
+import { showPollVotesModal } from "~/components/Modal"
+import { Icons, WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
 import { formatAckStatus, getInitials, isSelfChat } from "~/utils/formatters"
+import { getLinkPreviewData } from "~/utils/linkPreview"
 import { getMediaLabel } from "~/utils/mediaLabels"
 import { centerText, getSenderInfo } from "~/views/conversation/MessageHelpers"
 import { renderReplyContext } from "~/views/conversation/ReplyContext"
@@ -94,7 +97,17 @@ export function renderMessage(
     messageText = message.body || ""
   }
 
-  const timestampText = t`${timestamp}${isFromMe ? formatAckStatus(message.ack, {}) : ""}`
+  // Identify if this is a poll message early for UI decisions
+  const isPoll =
+    message.type === "poll" ||
+    message.type === "poll_creation" ||
+    message._data?.type === "poll" ||
+    message._data?.type === "poll_creation" ||
+    !!message._data?.poll
+
+  const isEdited = (message as WAMessageExtended).isEdited === true
+  const editedLabel = isEdited ? "edited " : ""
+  const timestampText = t`${editedLabel}${timestamp}${isFromMe ? formatAckStatus(message.ack, {}) : ""}`
 
   // Create outer row container
   const row = new BoxRenderable(renderer, {
@@ -105,33 +118,27 @@ export function renderMessage(
     marginTop: isSequenceStart ? 1 : 0, // Add spacing only between groups
   })
 
-  // Avatar Column - WhatsApp Web shows consistent left spacing for all messages
-  // In groups: received messages show avatar, sent messages get margin
-  // In 1:1: both sent and received get margin
-  if (isGroupChat && !isFromMe) {
-    // Group chat received messages: show avatar column with avatar or empty placeholder
+  // Use explicit spacers instead of margins for rock-solid alignment
+  if (!isFromMe) {
+    // Received side: Avatar column (6) + Gap (1)
     const avatarColumn = new BoxRenderable(renderer, {
-      width: 6, // Match avatarBox width
-      height: 3, // Approximate height of avatar
-      marginRight: 1, // Gap between avatar column and message bubble
+      width: 6,
+      height: 1,
       flexDirection: "column",
       justifyContent: "center",
       alignItems: "center",
     })
 
-    if (isSequenceStart) {
-      // Show Avatar
+    if (isGroupChat && isSequenceStart) {
       const avatarBox = new BoxRenderable(renderer, {
-        width: 6, // Wider avatar box
-        height: 3, // Match column height for vertical centering
+        width: 6,
+        height: 3,
         backgroundColor: senderColor,
         justifyContent: "center",
         alignItems: "center",
       })
       const initials = getInitials(senderName)
-      // Manually center text for TUI (width 6)
       const centeredInitials = centerText(initials, 6)
-
       avatarBox.add(
         new TextRenderable(renderer, {
           content: centeredInitials,
@@ -141,18 +148,13 @@ export function renderMessage(
       )
       avatarColumn.add(avatarBox)
     }
-    // else: Empty placeholder - width ensures alignment
-
     row.add(avatarColumn)
+    row.add(new BoxRenderable(renderer, { width: 1 })) // 1 char gap
   } else {
-    // All other cases: use marginLeft on row to create gap (like WhatsApp Web)
-    // This includes: sent messages in groups, and ALL messages in 1:1 chats
-    // Using marginLeft instead of spacer box because flex-end ignores spacers
-    if (isFromMe) {
-      row.marginRight = 7
-    } else {
-      row.marginLeft = 7
-    }
+    // Sent side: add a flexible spacer at the start to push everything to the right
+    // This replaces justifyContent: "flex-end" for more predictable behavior with spacers
+    row.add(new BoxRenderable(renderer, { flexGrow: 1 }))
+    row.justifyContent = "flex-start" // We use flexGrow spacer instead
   }
 
   // Create bubble container
@@ -319,7 +321,8 @@ export function renderMessage(
   }
 
   // Row 3: Regular text content + Timestamp (non-media messages)
-  if (!isMediaLabel) {
+  // Suppress Row 3 if it's a poll message or a media message with a label
+  if (!isMediaLabel && !isPoll) {
     const contentRow = new BoxRenderable(renderer, {
       id: `msg-${message.id || Date.now()}-content`,
       flexDirection: "row",
@@ -343,6 +346,293 @@ export function renderMessage(
     contentRow.add(timeText)
 
     bubble.add(contentRow)
+  }
+
+  // Row 4: Poll (if this is a poll message)
+  if (isPoll && message._data) {
+    interface PollOption {
+      name?: string
+      localId?: number | string
+    }
+    interface PollVoteInfo {
+      optionLocalId: number | string
+      count: number
+      voters?: string[]
+    }
+    interface PollData {
+      name?: string
+      pollName?: string
+      options?: PollOption[]
+      pollOptions?: PollOption[]
+      votes?: PollVoteInfo[]
+      pollVotesSnapshot?: {
+        pollVotes: PollVoteInfo[]
+      }
+      multipleAnswers?: boolean
+      allowMultipleAnswers?: boolean
+      pollSelectableOptionsCount?: number
+      selectableOptionsCount?: number
+    }
+
+    const pollData = (message._data?.poll || message._data) as PollData
+    debugLog("Poll", `Poll Data for ${message.id}: ${JSON.stringify(pollData)}`)
+    const question = pollData.name || pollData.pollName || "Poll"
+    const options = pollData.options || pollData.pollOptions || []
+    const votes = pollData.votes || pollData.pollVotesSnapshot?.pollVotes || []
+
+    // Detect multiple answers
+    let multipleAnswers = pollData.multipleAnswers || pollData.allowMultipleAnswers || false
+    if (pollData.pollSelectableOptionsCount !== undefined) {
+      multipleAnswers = pollData.pollSelectableOptionsCount !== 1
+    } else if (pollData.selectableOptionsCount !== undefined) {
+      multipleAnswers = pollData.selectableOptionsCount !== 1
+    }
+
+    // Total votes for percentage calculation
+    const totalVotes = votes.reduce((sum, v) => sum + (v.count || 0), 0)
+
+    const pollBox = new BoxRenderable(renderer, {
+      flexDirection: "column",
+      marginTop: 0,
+      padding: 0,
+      border: false,
+    })
+
+    // Header: Question
+    pollBox.add(
+      new TextRenderable(renderer, {
+        content: question,
+        fg: WhatsAppTheme.textPrimary,
+        attributes: TextAttributes.BOLD,
+      })
+    )
+
+    // Sub-header: Instruction
+    const instruction = multipleAnswers ? "Select one or more" : "Select one"
+
+    const instructionBox = new BoxRenderable(renderer, {
+      marginBottom: 1,
+    })
+    const pollIcon = multipleAnswers ? Icons.pollMultiple : Icons.poll
+    instructionBox.add(
+      new TextRenderable(renderer, {
+        content: `${pollIcon} ${instruction}`,
+        fg: WhatsAppTheme.textSecondary,
+      })
+    )
+    pollBox.add(instructionBox)
+
+    // Options
+    options.forEach((opt) => {
+      const optionName = opt.name || (opt as unknown as string)
+      const optionId = opt.localId !== undefined ? opt.localId : optionName
+      const voteInfo = votes.find((v) => v.optionLocalId === optionId)
+      const count = voteInfo ? voteInfo.count : 0
+      const percentage = totalVotes > 0 ? (count / totalVotes) * 100 : 0
+
+      const optionContainer = new BoxRenderable(renderer, {
+        flexDirection: "column",
+        marginBottom: 1,
+        onMouse: function (event) {
+          if (event.type === "down" && event.button === 0) {
+            const state = appState.getState()
+            const chatId = state.currentChatId
+            debugLog("Poll", `Option clicked: ${optionName} for message ${message.id}`)
+            if (chatId && message.id) {
+              sendPollVote(chatId, message.id, [optionName]).catch((err) => {
+                debugLog("Poll", `Failed to vote: ${err.message}`)
+                appState.showToast(err.message, "error")
+              })
+            }
+          }
+        },
+      })
+
+      const voters = voteInfo?.voters || []
+      const myId = appState.getState().myProfile?.id
+      const hasVoted = myId ? voters.includes(myId) : false
+
+      // Top row: Icon + Name + Count
+      const labelRow = new BoxRenderable(renderer, {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+      })
+
+      const leftPart = new BoxRenderable(renderer, {
+        flexDirection: "row",
+        gap: 1,
+      })
+
+      leftPart.add(
+        new TextRenderable(renderer, {
+          content: hasVoted ? "◉" : "○", // Show filled icon if voted
+          fg: hasVoted ? WhatsAppTheme.green : WhatsAppTheme.textSecondary,
+        })
+      )
+
+      leftPart.add(
+        new TextRenderable(renderer, {
+          content: optionName,
+          fg: WhatsAppTheme.textPrimary,
+        })
+      )
+
+      labelRow.add(leftPart)
+
+      labelRow.add(
+        new TextRenderable(renderer, {
+          content: `${count}`,
+          fg: WhatsAppTheme.textSecondary,
+        })
+      )
+
+      optionContainer.add(labelRow)
+
+      const barWidth = 30
+      const filledWidth = Math.round((percentage / 100) * barWidth)
+
+      // Progress bar container
+      const progressContainer = new BoxRenderable(renderer, {
+        flexDirection: "row",
+        paddingLeft: 3,
+        height: 1,
+      })
+
+      if (filledWidth > 0) {
+        progressContainer.add(
+          new TextRenderable(renderer, {
+            content: "━".repeat(filledWidth),
+            fg: WhatsAppTheme.green,
+          })
+        )
+      }
+
+      if (barWidth - filledWidth > 0) {
+        progressContainer.add(
+          new TextRenderable(renderer, {
+            content: "━".repeat(barWidth - filledWidth),
+            fg: WhatsAppTheme.divider,
+          })
+        )
+      }
+
+      optionContainer.add(progressContainer)
+      pollBox.add(optionContainer)
+    })
+
+    // Timestamp and Status Row (Bottom right of poll content)
+    const timeRow = new BoxRenderable(renderer, {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      marginTop: 0,
+      paddingRight: 1,
+    })
+    timeRow.add(
+      new TextRenderable(renderer, {
+        content: timestampText,
+        fg: isFromMe ? WhatsAppTheme.textSecondary : WhatsAppTheme.textTertiary,
+      })
+    )
+    pollBox.add(timeRow)
+
+    // Separator line before View Votes
+    const separator = new TextRenderable(renderer, {
+      content: "━".repeat(35),
+      fg: WhatsAppTheme.divider,
+    })
+    pollBox.add(separator)
+
+    const footer = new BoxRenderable(renderer, {
+      marginTop: 0,
+      flexDirection: "row",
+      justifyContent: "center",
+    })
+
+    const viewVotesBtn = new BoxRenderable(renderer, {
+      paddingLeft: 1,
+      paddingRight: 1,
+      onMouse: (e) => {
+        if (totalVotes > 0 && e.type === "down" && e.button === 0) {
+          debugLog("Poll", `Opening votes modal for ${message.id}`)
+          showPollVotesModal(message)
+          e.stopPropagation()
+        }
+      },
+    })
+
+    viewVotesBtn.add(
+      new TextRenderable(renderer, {
+        content: "View Votes",
+        fg: totalVotes > 0 ? WhatsAppTheme.green : WhatsAppTheme.textSecondary,
+        attributes: TextAttributes.BOLD,
+      })
+    )
+
+    footer.add(viewVotesBtn)
+    pollBox.add(footer)
+    bubble.add(pollBox)
+  }
+
+  // Row 3.5: Link preview box (if URL metadata is available from WAHA)
+  const linkPreview = getLinkPreviewData(message)
+  if (linkPreview) {
+    const previewWrapper = new BoxRenderable(renderer, {
+      flexDirection: "row",
+      marginTop: 1,
+    })
+
+    // Left accent bar
+    previewWrapper.add(
+      new TextRenderable(renderer, {
+        content: "▎",
+        fg: WhatsAppTheme.blue,
+      })
+    )
+
+    const previewContent = new BoxRenderable(renderer, {
+      flexDirection: "column",
+      backgroundColor: isFromMe ? WhatsAppTheme.quoteSentBg : WhatsAppTheme.quoteReceivedBg,
+      paddingLeft: 1,
+      paddingRight: 1,
+      flexGrow: 1,
+    })
+
+    if (linkPreview.title) {
+      previewContent.add(
+        new TextRenderable(renderer, {
+          content: linkPreview.title,
+          fg: WhatsAppTheme.textPrimary,
+          attributes: TextAttributes.BOLD,
+        })
+      )
+    }
+
+    if (linkPreview.description) {
+      // Truncate long descriptions
+      const desc =
+        linkPreview.description.length > 120
+          ? linkPreview.description.slice(0, 117) + "..."
+          : linkPreview.description
+      previewContent.add(
+        new TextRenderable(renderer, {
+          content: desc,
+          fg: WhatsAppTheme.textSecondary,
+        })
+      )
+    }
+
+    // Show the URL in blue
+    const displayUrl = linkPreview.canonicalUrl || linkPreview.url
+    previewContent.add(
+      new TextRenderable(renderer, {
+        content: displayUrl,
+        fg: WhatsAppTheme.blue,
+      })
+    )
+
+    previewWrapper.add(previewContent)
+    bubble.add(previewWrapper)
   }
 
   // Render reactions
@@ -374,14 +664,25 @@ export function renderMessage(
     row.add(bubble)
   }
 
-  // Add tail after bubble for sent messages
+  // Add tail/spacer after bubble for sent messages to maintain alignment
   if (isFromMe) {
-    const tailRight = new TextRenderable(renderer, {
-      content: isSequenceStart ? "◤" : " ",
-      fg: WhatsAppTheme.greenDark,
-      marginRight: 1, // Spacing from scrollbar
+    // Wrap tail in a solid Box to act as a physical barrier against bubble overlap
+    const tailContainer = new BoxRenderable(renderer, {
+      width: 1,
+      height: 1,
+      backgroundColor: WhatsAppTheme.deepDark, // Force separation with chat background
     })
-    row.add(tailRight)
+
+    tailContainer.add(
+      new TextRenderable(renderer, {
+        content: isSequenceStart ? "◤" : " ",
+        fg: isSequenceStart ? WhatsAppTheme.sentBubble : "transparent",
+      })
+    )
+
+    row.add(tailContainer)
+    row.add(new BoxRenderable(renderer, { width: 1 })) // 1 char gap
+    row.add(new BoxRenderable(renderer, { width: 6 })) // 6 char avatar placeholder
   }
 
   return row

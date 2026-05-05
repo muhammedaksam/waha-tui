@@ -14,7 +14,7 @@ import { QUICK_REACTIONS } from "~/data/emojis"
 import { appState } from "~/state/AppState"
 import { getRenderer } from "~/state/RendererContext"
 import { debugLog } from "~/utils/debug"
-import { isArchived } from "~/utils/filterChats"
+import { hasUnreadMessages, isArchived, isPinned } from "~/utils/filterChats"
 
 export interface ContextMenuItem {
   id: string
@@ -26,30 +26,61 @@ export interface ContextMenuItem {
   isQuickReactions?: boolean // Indicates this is the quick reactions row
 }
 
+// Check if a chat is muted
+function isMuted(chat: ChatSummary): boolean {
+  const ext = chat as ChatSummary & { isMuted?: boolean; _chat?: { isMuted?: boolean } }
+  return ext.isMuted === true || ext._chat?.isMuted === true
+}
+
 // Chat context menu items
 export function getChatMenuItems(chat: ChatSummary): ContextMenuItem[] {
-  // Check if chat is archived using the same logic as filterChats
   const isArchivedChat = isArchived(chat)
+  const chatIsPinned = isPinned(chat)
+  const chatIsMuted = isMuted(chat)
+  const chatHasUnread = hasUnreadMessages(chat)
 
-  return [
+  const items: ContextMenuItem[] = [
     {
       id: "archive",
       label: isArchivedChat ? "Unarchive chat" : "Archive chat",
       icon: Icons.archive,
     },
     {
+      id: "pin",
+      label: chatIsPinned ? "Unpin chat" : "Pin chat",
+      icon: Icons.pin,
+    },
+    {
+      id: "mute",
+      label: chatIsMuted ? "Unmute" : "Mute",
+      icon: Icons.muted,
+    },
+  ]
+
+  // Show "Mark as read" when unread, "Mark as unread" when read
+  if (chatHasUnread) {
+    items.push({
+      id: "read",
+      label: "Mark as read",
+      icon: Icons.unread,
+    })
+  } else {
+    items.push({
       id: "unread",
       label: "Mark as unread",
       icon: Icons.unread,
-    },
-    {
-      id: "delete",
-      label: "Delete chat",
-      icon: Icons.delete,
-      destructive: true,
-      separator: true,
-    },
-  ]
+    })
+  }
+
+  items.push({
+    id: "delete",
+    label: "Delete chat",
+    icon: Icons.delete,
+    destructive: true,
+    separator: true,
+  })
+
+  return items
 }
 
 // Message context menu items
@@ -122,15 +153,48 @@ export function getMessageMenuItems(message: WAMessage | WAMessageExtended): Con
       id: "star",
       label: isStarred ? "Unstar" : "Star",
       icon: isStarred ? Icons.starFilled : Icons.star,
-    },
-    {
-      id: "delete",
-      label: "Delete",
+    }
+  )
+  // Delete options: "Delete for everyone" only for own messages within 48h window
+  const DELETE_FOR_EVERYONE_WINDOW_S = 48 * 60 * 60 // 48 hours in seconds
+  const messageAge = Math.floor(Date.now() / 1000) - (message.timestamp || 0)
+  const canDeleteForEveryone = message.fromMe && messageAge < DELETE_FOR_EVERYONE_WINDOW_S
+
+  if (canDeleteForEveryone) {
+    items.push({
+      id: "delete-for-everyone",
+      label: "Delete for everyone",
       icon: Icons.delete,
       destructive: true,
       separator: true,
-    }
-  )
+    })
+  }
+
+  items.push({
+    id: "delete",
+    label: "Delete for me",
+    icon: Icons.delete,
+    destructive: true,
+    separator: !canDeleteForEveryone, // Only show separator if "delete for everyone" wasn't just added
+  })
+
+  // Edit option: only for own text messages
+  if (message.fromMe && message.body && !message.hasMedia) {
+    items.push({
+      id: "edit",
+      label: "Edit",
+      icon: Icons.edit || "✏️",
+      separator: true,
+    })
+  }
+
+  items.push({
+    id: "delete",
+    label: "Delete",
+    icon: Icons.delete,
+    destructive: true,
+    separator: !message.fromMe, // Only show separator if edit wasn't just added
+  })
 
   return items
 }

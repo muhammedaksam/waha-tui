@@ -3,6 +3,7 @@ import type { TextChunk } from "@opentui/core"
 import { fg } from "@opentui/core"
 
 import { Icons, WhatsAppTheme } from "~/config/theme"
+import { WAMessageExtended } from "~/types"
 import { debugLog } from "~/utils/debug"
 import { getMediaLabel } from "~/utils/mediaLabels"
 
@@ -104,7 +105,7 @@ export function extractMessagePreview(lastMessageObj: unknown): MessagePreview {
 
   // Use shared media label utility for consistent detection
   // We cast to WAMessageExtended-like shape since getMediaLabel reads the same fields
-  const mediaInfo = getMediaLabel(msg as import("~/types").WAMessageExtended)
+  const mediaInfo = getMediaLabel(msg as WAMessageExtended)
 
   // Extract message text
   let text = ""
