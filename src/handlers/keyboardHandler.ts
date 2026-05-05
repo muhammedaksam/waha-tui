@@ -458,6 +458,16 @@ async function handleChatsViewKeys(key: KeyEvent, state: AppState): Promise<bool
 async function handleConversationViewKeys(key: KeyEvent, state: AppState): Promise<boolean> {
   if (state.currentView !== "conversation") return false
 
+  // When search is active, handle navigation keys
+  if (state.isSearchActive) {
+    if (key.name === "return" || key.name === "enter") {
+      // Enter: next result, Shift+Enter: previous result
+      const direction = key.shift ? -1 : 1
+      appState.navigateMessageSearchResult(direction)
+      return true
+    }
+  }
+
   // 'm' key - open message context menu
   if (key.name === "m" && !state.inputMode) {
     const messages = state.messages.get(state.currentChatId || "")
@@ -572,9 +582,23 @@ async function handleConversationViewKeys(key: KeyEvent, state: AppState): Promi
     return true
   }
 
+  // '/' or Ctrl+F — open in-chat search
+  if (
+    (!state.inputMode && !state.isSearchActive && key.sequence === "/") ||
+    (key.ctrl && key.name === "f")
+  ) {
+    debugLog("Keyboard", "Conversation: Opening in-chat search")
+    appState.setMessageSearchActive(true)
+    appState.setInputMode(true)
+    return true
+  }
+
   // Escape key
   if (key.name === "escape") {
-    if (state.inputMode) {
+    if (state.isSearchActive) {
+      appState.clearMessageSearch()
+      appState.setInputMode(false)
+    } else if (state.inputMode) {
       blurMessageInput()
     } else {
       stopPresenceManagement()
