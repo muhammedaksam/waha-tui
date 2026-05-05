@@ -42,6 +42,19 @@ export type WAMessageExtended = Omit<WAMessage, "participant" | "_data" | "reply
     vcardFormattedName?: string
     vcardList?: unknown[]
     isForwarded?: boolean
+    poll?: {
+      name?: string
+      pollName?: string
+      options?: Array<{
+        name?: string
+        localId?: number | string
+      }>
+      votes?: Array<{
+        optionLocalId: number | string
+        count: number
+      }>
+      multipleAnswers?: boolean
+    }
   }
   replyTo?: {
     id: string

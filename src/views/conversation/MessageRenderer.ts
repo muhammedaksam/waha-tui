@@ -349,7 +349,7 @@ export function renderMessage(
   }
 
   // Row 4: Poll (if this is a poll message)
-  const isPoll = (message as any).type === "poll" || message._data?.type === "poll"
+  const isPoll = message.type === "poll" || message._data?.type === "poll"
   if (isPoll && message._data) {
     interface PollOption {
       name?: string
@@ -367,7 +367,7 @@ export function renderMessage(
       multipleAnswers?: boolean
     }
 
-    const pollData = ((message._data as any).poll || message._data) as PollData
+    const pollData = (message._data.poll || message._data) as PollData
     const question = pollData.name || pollData.pollName || "Poll"
     const options = pollData.options || []
     const votes = pollData.votes || []

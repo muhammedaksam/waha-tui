@@ -769,12 +769,21 @@ export function showPollModal(): Promise<{
   appState.setInputMode(true)
 
   return new Promise((resolve) => {
-    const safeResolve = (value: any) => {
+    // eslint-disable-next-line prefer-const
+    let dialogId: DialogId | undefined
+    let qInput: InputRenderable | undefined
+    let oInput: InputRenderable | undefined
+    let updateUI: () => void = () => {}
+
+    const safeResolve = (
+      value: { question: string; options: string[]; multipleAnswers: boolean } | null
+    ) => {
       if (resolved) return
       resolved = true
       appState.setInputMode(false)
       renderer.keyInput.off("keypress", handleKey)
       resolve(value)
+      if (dialogId !== undefined) dialogManager.close(dialogId)
     }
 
     const handleKey = (key: KeyEvent) => {
@@ -782,10 +791,9 @@ export function showPollModal(): Promise<{
         if (focusedField === "question") focusedField = "options"
         else if (focusedField === "options") focusedField = "multiple"
         else focusedField = "question"
-        dialogManager.refresh()
+        updateUI()
       } else if (key.name === "escape") {
         safeResolve(null)
-        dialogManager.closeAll()
       } else if (key.name === "return" || key.name === "enter") {
         if (question.trim() && optionsText.trim()) {
           const options = optionsText
@@ -794,7 +802,6 @@ export function showPollModal(): Promise<{
             .filter((o) => o !== "")
           if (options.length >= 2) {
             safeResolve({ question, options, multipleAnswers })
-            dialogManager.closeAll()
           }
         }
       }
@@ -802,98 +809,107 @@ export function showPollModal(): Promise<{
 
     renderer.keyInput.on("keypress", handleKey)
 
-    const dialogId = dialogManager.show({
+    dialogId = dialogManager.show({
       content: (ctx: RenderContext) => {
         const wrapper = new BoxRenderable(ctx, {
           flexDirection: "column",
           width: "100%",
         })
 
-        wrapper.add(
-          new TextRenderable(ctx, {
-            content: "Create Poll",
-            fg: WhatsAppTheme.textPrimary,
-            attributes: TextAttributes.BOLD,
+        updateUI = () => {
+          for (const child of wrapper.getChildren()) {
+            child.destroyRecursively()
+          }
+
+          wrapper.add(
+            new TextRenderable(ctx, {
+              content: "Create Poll",
+              fg: WhatsAppTheme.textPrimary,
+              attributes: TextAttributes.BOLD,
+            })
+          )
+
+          wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+
+          // Question field
+          wrapper.add(
+            new TextRenderable(ctx, { content: "Question:", fg: WhatsAppTheme.textSecondary })
+          )
+          qInput = new InputRenderable(ctx, {
+            value: question,
+            placeholder: "Enter question...",
+            width: "100%",
+            backgroundColor: WhatsAppTheme.inputBg,
+            textColor: WhatsAppTheme.textPrimary,
+            cursorColor: WhatsAppTheme.white,
           })
-        )
+          qInput.on(InputRenderableEvents.INPUT, (v) => (question = v))
+          wrapper.add(qInput)
 
-        wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+          wrapper.add(new BoxRenderable(ctx, { height: 1 }))
 
-        // Question field
-        wrapper.add(
-          new TextRenderable(ctx, { content: "Question:", fg: WhatsAppTheme.textSecondary })
-        )
-        const qInput = new InputRenderable(ctx, {
-          value: question,
-          placeholder: "Enter question...",
-          width: "100%",
-          backgroundColor: WhatsAppTheme.inputBg,
-          textColor: WhatsAppTheme.textPrimary,
-          cursorColor: WhatsAppTheme.white,
-        })
-        qInput.on(InputRenderableEvents.INPUT, (v) => (question = v))
-        wrapper.add(qInput)
-
-        wrapper.add(new BoxRenderable(ctx, { height: 1 }))
-
-        // Options field
-        wrapper.add(
-          new TextRenderable(ctx, {
-            content: "Options (comma separated):",
-            fg: WhatsAppTheme.textSecondary,
+          // Options field
+          wrapper.add(
+            new TextRenderable(ctx, {
+              content: "Options (comma separated):",
+              fg: WhatsAppTheme.textSecondary,
+            })
+          )
+          oInput = new InputRenderable(ctx, {
+            value: optionsText,
+            placeholder: "Option 1, Option 2, ...",
+            width: "100%",
+            backgroundColor: WhatsAppTheme.inputBg,
+            textColor: WhatsAppTheme.textPrimary,
+            cursorColor: WhatsAppTheme.white,
           })
-        )
-        const oInput = new InputRenderable(ctx, {
-          value: optionsText,
-          placeholder: "Option 1, Option 2, ...",
-          width: "100%",
-          backgroundColor: WhatsAppTheme.inputBg,
-          textColor: WhatsAppTheme.textPrimary,
-          cursorColor: WhatsAppTheme.white,
-        })
-        oInput.on(InputRenderableEvents.INPUT, (v) => (optionsText = v))
-        wrapper.add(oInput)
+          oInput.on(InputRenderableEvents.INPUT, (v) => (optionsText = v))
+          wrapper.add(oInput)
 
-        wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+          wrapper.add(new BoxRenderable(ctx, { height: 1 }))
 
-        // Multiple answers toggle
-        const multiRow = new BoxRenderable(ctx, { flexDirection: "row", alignItems: "center" })
-        multiRow.add(
-          new TextRenderable(ctx, {
-            content: multipleAnswers ? " [X] " : " [ ] ",
-            fg: multipleAnswers ? WhatsAppTheme.green : WhatsAppTheme.textSecondary,
-            onMouse: (e) => {
-              if (e.type === "down") {
-                multipleAnswers = !multipleAnswers
-                dialogManager.refresh()
-              }
-            },
-          })
-        )
-        multiRow.add(
-          new TextRenderable(ctx, {
-            content: "Allow multiple answers",
-            fg: WhatsAppTheme.textPrimary,
-          })
-        )
-        wrapper.add(multiRow)
+          // Multiple answers toggle
+          const multiRow = new BoxRenderable(ctx, { flexDirection: "row", alignItems: "center" })
+          multiRow.add(
+            new TextRenderable(ctx, {
+              content: multipleAnswers ? " [X] " : " [ ] ",
+              fg: multipleAnswers ? WhatsAppTheme.green : WhatsAppTheme.textSecondary,
+              onMouse: (e) => {
+                if (e.type === "down") {
+                  multipleAnswers = !multipleAnswers
+                  updateUI()
+                }
+              },
+            })
+          )
+          multiRow.add(
+            new TextRenderable(ctx, {
+              content: "Allow multiple answers",
+              fg: WhatsAppTheme.textPrimary,
+            })
+          )
+          wrapper.add(multiRow)
 
-        wrapper.add(new BoxRenderable(ctx, { height: 1 }))
+          wrapper.add(new BoxRenderable(ctx, { height: 1 }))
 
-        // Help text
-        wrapper.add(
-          new TextRenderable(ctx, {
-            content: "Tab: Cycle fields | Enter: Create | Esc: Cancel",
-            fg: WhatsAppTheme.textTertiary,
-          })
-        )
+          // Help text
+          wrapper.add(
+            new TextRenderable(ctx, {
+              content: "Tab: Cycle fields | Enter: Create | Esc: Cancel",
+              fg: WhatsAppTheme.textTertiary,
+            })
+          )
 
-        // Focus management
-        setTimeout(() => {
-          if (focusedField === "question") qInput.focus()
-          else if (focusedField === "options") oInput.focus()
-        }, 10)
+          // Focus management
+          setTimeout(() => {
+            if (focusedField === "question") qInput?.focus()
+            else if (focusedField === "options") oInput?.focus()
+          }, 10)
 
+          ctx.requestRender()
+        }
+
+        updateUI()
         return wrapper
       },
       size: "medium",
