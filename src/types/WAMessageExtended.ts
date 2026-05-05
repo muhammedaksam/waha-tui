@@ -4,6 +4,7 @@ export type WAMessageExtended = Omit<WAMessage, "participant" | "_data" | "reply
   participant?: string
   isForwarded?: boolean
   isEdited?: boolean
+  type?: string
   _data?: {
     notifyName?: string
     pushName?: string
