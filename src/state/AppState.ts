@@ -24,6 +24,7 @@ import type {
   ContactState,
   ContextMenuState,
   ContextMenuType,
+  EmojiPickerState,
   MessageState,
   ModalState,
   NavigationState,
@@ -487,7 +488,7 @@ class StateManager {
   }
 
   // Emoji Picker
-  setEmojiPicker(emojiPicker: import("~/state/slices").EmojiPickerState | null): void {
+  setEmojiPicker(emojiPicker: EmojiPickerState | null): void {
     this.modalSlice.setEmojiPicker(emojiPicker)
   }
 
