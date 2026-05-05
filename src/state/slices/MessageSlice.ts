@@ -52,6 +52,7 @@ export interface MessageActions extends SliceActions<MessageState> {
   ): void
   markMessageRevoked(chatId: string, messageId: string): void
   updateMessageBody(chatId: string, messageId: string, newBody: string, isEdited?: boolean): void
+  replaceMessage(chatId: string, messageId: string, newMessage: WAMessage): void
   setScrollPosition(scrollPosition: number): void
   setMessageInput(messageInput: string): void
   setInputMode(inputMode: boolean): void
@@ -293,6 +294,22 @@ export function createMessageSlice(): StateSlice<MessageState> & MessageActions 
 
       messages.set(chatId, newChatMessages)
       state = { ...state, messages }
+      notify()
+    },
+
+    replaceMessage(chatId: string, messageId: string, newMessage: WAMessage) {
+      const messagesMap = new Map(state.messages)
+      const existing = messagesMap.get(chatId) || []
+
+      const msgIndex = existing.findIndex((m) => m.id === messageId)
+      if (msgIndex === -1) return
+
+      const newMessages = [...existing]
+      // Preserve local extensions if they exist
+      newMessages[msgIndex] = { ...existing[msgIndex], ...newMessage }
+
+      messagesMap.set(chatId, newMessages)
+      state = { ...state, messages: messagesMap }
       notify()
     },
 

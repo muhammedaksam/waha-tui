@@ -328,6 +328,11 @@ class StateManager {
     this.navigationSlice.set({ lastChangeType: "data" })
   }
 
+  replaceMessage(chatId: string, messageId: string, newMessage: WAMessage): void {
+    this.messageSlice.replaceMessage(chatId, messageId, newMessage)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
   setScrollPosition(scrollPosition: number): void {
     this.messageSlice.setScrollPosition(scrollPosition)
   }

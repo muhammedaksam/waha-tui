@@ -11,6 +11,8 @@ import {
   WAHAWebhookMessageEdited,
   WAHAWebhookMessageReaction,
   WAHAWebhookMessageRevoked,
+  WAHAWebhookPollVote,
+  WAHAWebhookPollVoteFailed,
   WAHAWebhookSessionStatus,
 } from "@muhammedaksam/waha-node"
 
@@ -35,6 +37,8 @@ type WahaEvent =
   | WAHAWebhookMessageReaction
   | WAHAWebhookMessageRevoked
   | WAHAWebhookMessageAny
+  | WAHAWebhookPollVote
+  | WAHAWebhookPollVoteFailed
   | { event: "presence.update"; payload: WAHAChatPresences; session?: string }
 
 export class WebSocketService {
@@ -322,6 +326,12 @@ export class WebSocketService {
       case "engine.event":
         // Ignore internal engine events to reduce log noise
         break
+      case "poll.vote":
+        this.handlePollVote(data as WAHAWebhookPollVote)
+        break
+      case "poll.vote.failed":
+        this.handlePollVoteFailed(data as WAHAWebhookPollVoteFailed)
+        break
       default:
         debugLog("WebSocket", `Unhandled event: ${data.event}`)
         break
@@ -567,6 +577,27 @@ export class WebSocketService {
         appState.updateChatPresence(payload.id, payload)
       }
     }
+  }
+
+  private handlePollVote(data: WAHAWebhookPollVote) {
+    const payload = data.payload
+    if (!payload || !payload.poll || !payload.vote) return
+
+    // Identify which chat this message belongs to
+    const chatId = payload.poll.fromMe ? payload.poll.to : payload.poll.from
+    const pollMessageId = payload.vote.id
+
+    debugLog("WebSocket", `Received poll vote for message ${pollMessageId} in chat ${chatId}`)
+
+    const state = appState.getState()
+    // If we are currently viewing this chat, refresh messages to show updated counts
+    if (state.currentChatId === chatId) {
+      this.scheduleLoadMessages(chatId)
+    }
+  }
+
+  private handlePollVoteFailed(data: WAHAWebhookPollVoteFailed) {
+    debugLog("WebSocket", `Poll vote failed: ${data.payload?.vote?.id}`)
   }
 }
 
