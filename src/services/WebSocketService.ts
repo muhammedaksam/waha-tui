@@ -599,14 +599,25 @@ export class WebSocketService {
 
     // Identify which chat this message belongs to
     const chatId = payload.poll.fromMe ? payload.poll.to : payload.poll.from
-    const pollMessageId = payload.vote.id
+    const pollMessageId = payload.poll.id
+    const voterId = payload.vote.from
+    const selectedOptions = payload.vote.selectedOptions || []
 
-    debugLog("WebSocket", `Received poll vote for message ${pollMessageId} in chat ${chatId}`)
+    debugLog(
+      "WebSocket",
+      `Received poll vote for message ${pollMessageId} in chat ${chatId} from ${voterId}`
+    )
+
+    // Manually update the vote in state since WEBJS doesn't update the poll creation message summary
+    appState.updatePollVote(chatId, pollMessageId, voterId, selectedOptions)
 
     const state = appState.getState()
-    // If we are currently viewing this chat, refresh messages to show updated counts
+    // If we are currently viewing this chat, refresh messages to show updated counts from server eventually
     if (state.currentChatId === chatId) {
-      this.scheduleLoadMessages(chatId)
+      // Small delay to allow potential other events to arrive
+      setTimeout(() => {
+        this.scheduleLoadMessages(chatId)
+      }, 500)
     }
   }
 

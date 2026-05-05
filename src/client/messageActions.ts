@@ -725,19 +725,40 @@ export async function sendPollVote(
 
   try {
     const wahaClient = await getClient()
+    debugLog("Client", `Sending vote for ${pollMessageId}: ${selectedOptions.join(", ")}`)
     await wahaClient.chatting.chattingControllerSendPollVote({
       session,
       chatId,
       pollMessageId,
-      votes: [selectedOptions],
+      votes: selectedOptions as unknown as string[][],
     })
 
     debugLog("Client", `Poll vote sent successfully to ${chatId}`)
     // Message list will be updated via WebSocket poll.vote event
-  } catch (error) {
-    errorService.handle(error, { context: { action: "sendPollVote", chatId } })
+  } catch (error: unknown) {
+    const isAxiosError = (err: unknown): err is { response: { status: number } } => {
+      if (!err || typeof err !== "object") return false
+      const e = err as Record<string, unknown>
+      if (!("response" in e) || !e.response || typeof e.response !== "object") return false
+      const r = e.response as Record<string, unknown>
+      return "status" in r && typeof r.status === "number"
+    }
+
+    if (isAxiosError(error) && error.response.status === 501) {
+      debugLog(
+        "Client",
+        "SERVER ERROR 501: This engine (likely WEBJS) does not support voting via API."
+      )
+    }
+    errorService.handle(error as Error, { context: { action: "sendPollVote", chatId } })
     throw error instanceof Error
-      ? new NetworkError("Failed to vote on poll", { chatId }, error)
-      : new NetworkError("Failed to vote on poll", { chatId })
+      ? new NetworkError(
+          "Failed to vote on poll. This engine may not support voting via API.",
+          { chatId },
+          error
+        )
+      : new NetworkError("Failed to vote on poll. This engine may not support voting via API.", {
+          chatId,
+        })
   }
 }

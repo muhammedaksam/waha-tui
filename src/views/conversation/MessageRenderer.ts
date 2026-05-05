@@ -9,7 +9,8 @@ import { BoxRenderable, CliRenderer, t, TextAttributes, TextRenderable } from "@
 
 import type { WAMessageExtended } from "~/types"
 import { sendPollVote } from "~/client"
-import { WhatsAppTheme } from "~/config/theme"
+import { showPollVotesModal } from "~/components/Modal"
+import { Icons, WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
 import { formatAckStatus, getInitials, isSelfChat } from "~/utils/formatters"
@@ -367,41 +368,70 @@ export function renderMessage(
     interface PollVoteInfo {
       optionLocalId: number | string
       count: number
+      voters?: string[]
     }
     interface PollData {
       name?: string
       pollName?: string
       options?: PollOption[]
+      pollOptions?: PollOption[]
       votes?: PollVoteInfo[]
+      pollVotesSnapshot?: {
+        pollVotes: PollVoteInfo[]
+      }
       multipleAnswers?: boolean
+      allowMultipleAnswers?: boolean
+      pollSelectableOptionsCount?: number
+      selectableOptionsCount?: number
     }
 
-    const pollData = (message._data.poll || message._data) as PollData
+    const pollData = (message._data?.poll || message._data) as PollData
+    debugLog("Poll", `Poll Data for ${message.id}: ${JSON.stringify(pollData)}`)
     const question = pollData.name || pollData.pollName || "Poll"
-    const options = pollData.options || []
-    const votes = pollData.votes || []
-    const multipleAnswers = pollData.multipleAnswers || false
+    const options = pollData.options || pollData.pollOptions || []
+    const votes = pollData.votes || pollData.pollVotesSnapshot?.pollVotes || []
+
+    // Detect multiple answers
+    let multipleAnswers = pollData.multipleAnswers || pollData.allowMultipleAnswers || false
+    if (pollData.pollSelectableOptionsCount !== undefined) {
+      multipleAnswers = pollData.pollSelectableOptionsCount !== 1
+    } else if (pollData.selectableOptionsCount !== undefined) {
+      multipleAnswers = pollData.selectableOptionsCount !== 1
+    }
 
     // Total votes for percentage calculation
     const totalVotes = votes.reduce((sum, v) => sum + (v.count || 0), 0)
 
     const pollBox = new BoxRenderable(renderer, {
       flexDirection: "column",
-      marginTop: 1,
-      padding: 1,
-      backgroundColor: WhatsAppTheme.panelLight,
+      marginTop: 0,
+      padding: 0,
       border: false,
     })
 
-    // Question
+    // Header: Question
     pollBox.add(
       new TextRenderable(renderer, {
-        content: `📊 ${question}`,
+        content: question,
         fg: WhatsAppTheme.textPrimary,
         attributes: TextAttributes.BOLD,
-        marginBottom: 1,
       })
     )
+
+    // Sub-header: Instruction
+    const instruction = multipleAnswers ? "Select one or more" : "Select one"
+
+    const instructionBox = new BoxRenderable(renderer, {
+      marginBottom: 1,
+    })
+    const pollIcon = multipleAnswers ? Icons.pollMultiple : Icons.poll
+    instructionBox.add(
+      new TextRenderable(renderer, {
+        content: `${pollIcon} ${instruction}`,
+        fg: WhatsAppTheme.textSecondary,
+      })
+    )
+    pollBox.add(instructionBox)
 
     // Options
     options.forEach((opt) => {
@@ -411,35 +441,55 @@ export function renderMessage(
       const count = voteInfo ? voteInfo.count : 0
       const percentage = totalVotes > 0 ? (count / totalVotes) * 100 : 0
 
-      const optionRow = new BoxRenderable(renderer, {
+      const optionContainer = new BoxRenderable(renderer, {
         flexDirection: "column",
         marginBottom: 1,
-        // Interactive voting
         onMouse: function (event) {
           if (event.type === "down" && event.button === 0) {
             const state = appState.getState()
             const chatId = state.currentChatId
+            debugLog("Poll", `Option clicked: ${optionName} for message ${message.id}`)
             if (chatId && message.id) {
               sendPollVote(chatId, message.id, [optionName]).catch((err) => {
                 debugLog("Poll", `Failed to vote: ${err.message}`)
+                appState.showToast(err.message, "error")
               })
             }
           }
         },
       })
 
-      // Option name and count
+      const voters = voteInfo?.voters || []
+      const myId = appState.getState().myProfile?.id
+      const hasVoted = myId ? voters.includes(myId) : false
+
+      // Top row: Icon + Name + Count
       const labelRow = new BoxRenderable(renderer, {
         flexDirection: "row",
         justifyContent: "space-between",
+        alignItems: "center",
       })
 
-      labelRow.add(
+      const leftPart = new BoxRenderable(renderer, {
+        flexDirection: "row",
+        gap: 1,
+      })
+
+      leftPart.add(
+        new TextRenderable(renderer, {
+          content: hasVoted ? "◉" : "○", // Show filled icon if voted
+          fg: hasVoted ? WhatsAppTheme.green : WhatsAppTheme.textSecondary,
+        })
+      )
+
+      leftPart.add(
         new TextRenderable(renderer, {
           content: optionName,
           fg: WhatsAppTheme.textPrimary,
         })
       )
+
+      labelRow.add(leftPart)
 
       labelRow.add(
         new TextRenderable(renderer, {
@@ -448,33 +498,90 @@ export function renderMessage(
         })
       )
 
-      optionRow.add(labelRow)
+      optionContainer.add(labelRow)
 
-      // Progress bar
-      const barWidth = 20
+      const barWidth = 30
       const filledWidth = Math.round((percentage / 100) * barWidth)
-      const bar = "█".repeat(filledWidth) + "░".repeat(barWidth - filledWidth)
 
-      optionRow.add(
-        new TextRenderable(renderer, {
-          content: bar,
-          fg: percentage > 0 ? WhatsAppTheme.green : WhatsAppTheme.textTertiary,
-        })
-      )
+      // Progress bar container
+      const progressContainer = new BoxRenderable(renderer, {
+        flexDirection: "row",
+        paddingLeft: 3,
+        height: 1,
+      })
 
-      pollBox.add(optionRow)
+      if (filledWidth > 0) {
+        progressContainer.add(
+          new TextRenderable(renderer, {
+            content: "━".repeat(filledWidth),
+            fg: WhatsAppTheme.green,
+          })
+        )
+      }
+
+      if (barWidth - filledWidth > 0) {
+        progressContainer.add(
+          new TextRenderable(renderer, {
+            content: "━".repeat(barWidth - filledWidth),
+            fg: WhatsAppTheme.divider,
+          })
+        )
+      }
+
+      optionContainer.add(progressContainer)
+      pollBox.add(optionContainer)
     })
 
-    if (multipleAnswers) {
-      pollBox.add(
-        new TextRenderable(renderer, {
-          content: "Select one or more",
-          fg: WhatsAppTheme.textTertiary,
-          attributes: TextAttributes.ITALIC,
-        })
-      )
-    }
+    // Timestamp and Status Row (Bottom right of poll content)
+    const timeRow = new BoxRenderable(renderer, {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      marginTop: 0,
+      paddingRight: 1,
+    })
+    timeRow.add(
+      new TextRenderable(renderer, {
+        content: timestampText,
+        fg: isFromMe ? WhatsAppTheme.textSecondary : WhatsAppTheme.textTertiary,
+      })
+    )
+    pollBox.add(timeRow)
 
+    // Separator line before View Votes
+    const separator = new TextRenderable(renderer, {
+      content: "━".repeat(35),
+      fg: WhatsAppTheme.divider,
+    })
+    pollBox.add(separator)
+
+    const footer = new BoxRenderable(renderer, {
+      marginTop: 0,
+      flexDirection: "row",
+      justifyContent: "center",
+    })
+
+    const viewVotesBtn = new BoxRenderable(renderer, {
+      paddingLeft: 1,
+      paddingRight: 1,
+      onMouse: (e) => {
+        if (totalVotes > 0 && e.type === "down" && e.button === 0) {
+          debugLog("Poll", `Opening votes modal for ${message.id}`)
+          showPollVotesModal(message)
+          e.stopPropagation()
+        }
+      },
+    })
+
+    viewVotesBtn.add(
+      new TextRenderable(renderer, {
+        content: "View Votes",
+        fg: totalVotes > 0 ? WhatsAppTheme.green : WhatsAppTheme.textSecondary,
+        attributes: TextAttributes.BOLD,
+      })
+    )
+
+    footer.add(viewVotesBtn)
+    pollBox.add(footer)
     bubble.add(pollBox)
   }
 

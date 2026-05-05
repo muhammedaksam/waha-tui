@@ -53,6 +53,7 @@ export type WAMessageExtended = Omit<WAMessage, "participant" | "_data" | "reply
       votes?: Array<{
         optionLocalId: number | string
         count: number
+        voters?: string[]
       }>
       multipleAnswers?: boolean
     }

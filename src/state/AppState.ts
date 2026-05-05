@@ -314,6 +314,16 @@ class StateManager {
     this.navigationSlice.set({ lastChangeType: "data" })
   }
 
+  updatePollVote(
+    chatId: string,
+    pollMessageId: string,
+    voterId: string,
+    selectedOptions: string[]
+  ): void {
+    this.messageSlice.updatePollVote(chatId, pollMessageId, voterId, selectedOptions)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
   updateMessageReaction(
     chatId: string,
     messageId: string,

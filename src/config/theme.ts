@@ -210,6 +210,7 @@ export const WhatsAppTheme = {
   textPrimary: "#e9edef",
   textSecondary: "#8696a0",
   textTertiary: "#667781",
+  divider: "#262d31", // WDS Divider for polls
 
   // UI states
   hoverBg: "#2a3942",
@@ -259,6 +260,8 @@ export const Icons = {
   archive: "📦",
   unread: "●",
   info: "ⓘ",
+  poll: "☑",
+  pollMultiple: "☑☑",
 
   // Status
   checkSingle: "✓",

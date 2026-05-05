@@ -4,6 +4,33 @@ import type { WAMessageExtended } from "~/types"
 import { SliceActions, StateSlice } from "~/state/slices/types"
 import { debugLog } from "~/utils/debug"
 
+interface PollOption {
+  name?: string
+  localId: number | string
+}
+
+interface PollVote {
+  optionLocalId: number | string
+  count: number
+  voters?: string[]
+}
+
+interface PollData {
+  name?: string
+  pollName?: string
+  options?: PollOption[]
+  pollOptions?: PollOption[]
+  votes?: PollVote[]
+  pollVotesSnapshot?: {
+    pollVotes: PollVote[]
+  }
+  questionResponsesCount?: number
+  multipleAnswers?: boolean
+  allowMultipleAnswers?: boolean
+  pollSelectableOptionsCount?: number
+  selectableOptionsCount?: number
+}
+
 export interface MessageState {
   messages: Map<string, WAMessageExtended[]>
   scrollPosition: number
@@ -22,6 +49,7 @@ export interface MessageState {
   searchResultIndices: number[] // Indices into the current chat's messages array
   searchActiveIndex: number // Which result is currently focused
   isSearchActive: boolean
+  pollVotesCache: Map<string, PollVote[]> // messageId -> votes array
 }
 
 export const initialMessageState: MessageState = {
@@ -38,6 +66,7 @@ export const initialMessageState: MessageState = {
   searchResultIndices: [],
   searchActiveIndex: -1,
   isSearchActive: false,
+  pollVotesCache: new Map(),
 }
 
 export interface MessageActions extends SliceActions<MessageState> {
@@ -69,6 +98,12 @@ export interface MessageActions extends SliceActions<MessageState> {
   setSearchQuery(query: string, chatId: string): void
   navigateSearchResult(direction: 1 | -1): void
   clearSearch(): void
+  updatePollVote(
+    chatId: string,
+    pollMessageId: string,
+    voterId: string,
+    selectedOptions: string[]
+  ): void
 }
 
 export function createMessageSlice(): StateSlice<MessageState> & MessageActions {
@@ -117,11 +152,24 @@ export function createMessageSlice(): StateSlice<MessageState> & MessageActions 
 
       // Merge existing reactions into the new messages if they don't have their own
       const mergedMessages = messagesToSet.map((m) => {
+        let updated = m
         const existingReactions = existingReactionsMap.get(m.id)
         if (existingReactions && (!m.reactions || m.reactions.length === 0)) {
-          return { ...m, reactions: existingReactions }
+          updated = { ...updated, reactions: existingReactions }
         }
-        return m
+
+        // Merge cached poll votes
+        const cachedVotes = state.pollVotesCache.get(m.id)
+        if (cachedVotes) {
+          updated = JSON.parse(JSON.stringify(updated))
+          const target = (updated._data?.poll || updated._data) as PollData | undefined
+          if (target) {
+            target.votes = cachedVotes
+            if (!target.pollVotesSnapshot) target.pollVotesSnapshot = { pollVotes: [] }
+            target.pollVotesSnapshot.pollVotes = cachedVotes
+          }
+        }
+        return updated
       })
 
       messagesMap.set(chatId, mergedMessages)
@@ -139,7 +187,19 @@ export function createMessageSlice(): StateSlice<MessageState> & MessageActions 
         return
       }
 
-      const newMessages = [...existing, message]
+      let newMessage = { ...message } as WAMessageExtended
+      const cachedVotes = state.pollVotesCache.get(message.id)
+      if (cachedVotes) {
+        newMessage = JSON.parse(JSON.stringify(newMessage))
+        const target = (newMessage._data?.poll || newMessage._data) as PollData | undefined
+        if (target) {
+          target.votes = cachedVotes
+          if (!target.pollVotesSnapshot) target.pollVotesSnapshot = { pollVotes: [] }
+          target.pollVotesSnapshot.pollVotes = cachedVotes
+        }
+      }
+
+      const newMessages = [...existing, newMessage]
       newMessages.sort((a, b) => b.timestamp - a.timestamp)
 
       messagesMap.set(chatId, newMessages)
@@ -305,8 +365,20 @@ export function createMessageSlice(): StateSlice<MessageState> & MessageActions 
       if (msgIndex === -1) return
 
       const newMessages = [...existing]
-      // Preserve local extensions if they exist
-      newMessages[msgIndex] = { ...existing[msgIndex], ...newMessage }
+      let updatedMsg = { ...existing[msgIndex], ...newMessage } as WAMessageExtended
+
+      const cachedVotes = state.pollVotesCache.get(newMessage.id)
+      if (cachedVotes) {
+        updatedMsg = JSON.parse(JSON.stringify(updatedMsg))
+        const target = (updatedMsg._data?.poll || updatedMsg._data) as PollData | undefined
+        if (target) {
+          target.votes = cachedVotes
+          if (!target.pollVotesSnapshot) target.pollVotesSnapshot = { pollVotes: [] }
+          target.pollVotesSnapshot.pollVotes = cachedVotes
+        }
+      }
+
+      newMessages[msgIndex] = updatedMsg
 
       messagesMap.set(chatId, newMessages)
       state = { ...state, messages: messagesMap }
@@ -386,6 +458,107 @@ export function createMessageSlice(): StateSlice<MessageState> & MessageActions 
         searchActiveIndex: -1,
       }
       notify()
+    },
+
+    updatePollVote(chatId, pollMessageId, voterId, selectedOptions) {
+      const messagesMap = new Map(state.messages)
+      const chatMessages = messagesMap.get(chatId)
+      if (!chatMessages) return
+
+      // Extract core UID (handle parts like true_..._UID or UID_out@c.us)
+      const pollIdParts = pollMessageId.split("_")
+      // The UID is usually the part that's not true/false/out/JID.
+      const pollUid =
+        pollIdParts.find(
+          (p) =>
+            !["true", "false"].includes(p) &&
+            !p.split("@")[0].startsWith("out") &&
+            !p.includes("@") &&
+            p.length > 5
+        ) || pollMessageId
+
+      const msgIndex = chatMessages.findIndex(
+        (m) => m.id === pollMessageId || m.id.includes(pollUid)
+      )
+
+      if (msgIndex === -1) {
+        debugLog("Poll", `Could not find message for pollUid ${pollUid} in chat ${chatId}`)
+        return
+      }
+
+      const msg = chatMessages[msgIndex]
+      debugLog("Poll", `Found message ${msg.id} for poll vote`)
+
+      const pollData = (msg._data?.poll || msg._data) as PollData | undefined
+      if (!pollData || (!pollData.options && !pollData.pollOptions)) {
+        debugLog("Poll", `Message ${msg.id} has no poll data`)
+        return
+      }
+
+      const options = (pollData.options || pollData.pollOptions || []) as PollOption[]
+      let votes = (pollData.votes || pollData.pollVotesSnapshot?.pollVotes || []) as PollVote[]
+
+      // Deep copy votes to avoid mutation
+      votes = JSON.parse(JSON.stringify(votes))
+
+      // 1. Remove this voter from all current options
+      votes.forEach((v: PollVote) => {
+        if (v.voters) {
+          v.voters = v.voters.filter((vid: string) => vid !== voterId)
+          v.count = v.voters.length
+        }
+      })
+
+      // 2. Add voter to selected options
+      selectedOptions.forEach((optName) => {
+        const option = options.find((o: PollOption) => o.name === optName)
+        if (option) {
+          const optId = option.localId
+          let voteInfo = votes.find((v: PollVote) => v.optionLocalId === optId)
+          if (!voteInfo) {
+            voteInfo = { optionLocalId: optId, count: 0, voters: [] }
+            votes.push(voteInfo)
+          }
+          if (!voteInfo.voters) voteInfo.voters = []
+          if (!voteInfo.voters.includes(voterId)) {
+            voteInfo.voters.push(voterId)
+            voteInfo.count = voteInfo.voters.length
+          }
+        }
+      })
+
+      // 3. Update the message object with a deep copy to ensure reactivity
+      const updatedMsg = JSON.parse(JSON.stringify(msg))
+      if (!updatedMsg._data) updatedMsg._data = {}
+
+      const target = updatedMsg._data.poll || updatedMsg._data
+      target.votes = votes
+
+      // Also update pollVotesSnapshot for WEBJS engines
+      if (!target.pollVotesSnapshot) target.pollVotesSnapshot = { pollVotes: [] }
+      target.pollVotesSnapshot.pollVotes = votes
+
+      // Update count if present
+      if (typeof target.questionResponsesCount === "number") {
+        target.questionResponsesCount = votes.reduce(
+          (sum: number, v: PollVote) => sum + (v.count || 0),
+          0
+        )
+      }
+
+      const newChatMessages = [...chatMessages]
+      newChatMessages[msgIndex] = updatedMsg
+
+      // 4. Update the cache for persistence
+      const newCache = new Map(state.pollVotesCache)
+      newCache.set(msg.id, votes)
+
+      const newMessagesMap = new Map(messagesMap)
+      newMessagesMap.set(chatId, newChatMessages)
+      state = { ...state, messages: newMessagesMap, pollVotesCache: newCache }
+      notify()
+
+      debugLog("Poll", `Updated message ${msg.id} with ${votes.length} vote info objects (cached)`)
     },
   }
 }
