@@ -9,6 +9,7 @@ import {
   fg,
   InputRenderable,
   InputRenderableEvents,
+  MouseEvent,
   RenderableEvents,
   ScrollBarRenderable,
   ScrollBoxRenderable,
@@ -17,6 +18,7 @@ import {
   TextareaRenderable,
   TextAttributes,
   TextRenderable,
+  VChild,
 } from "@opentui/core"
 
 import { loadChatDetails, loadOlderMessages, sendMessage, sendTypingState } from "~/client"
@@ -50,6 +52,8 @@ let inputScrollBar: ScrollBarRenderable | null = null
 let searchInputComponent: InputRenderable | null = null
 let typingTimeout: ReturnType<typeof setTimeout> | null = null
 let lastEnterIsSend: boolean | null = null // Track enterIsSend setting to recreate input when changed
+let lastTopMessageId: string | null = null // Track message ID at the top to preserve scroll position
+let lastTopMessageOffset: number = 0 // Track offset from top for fine-grained scroll preservation
 
 // Expose input focus control
 export function focusMessageInput(): void {
@@ -198,22 +202,16 @@ export function ConversationView() {
   )?._chat?.disappearingMode?.duration
   const disappearingIcon = disappearingDuration && disappearingDuration > 0 ? " ⏱️" : ""
 
-  const header = Box(
+  const headerContent = Box(
     {
-      height: 5,
       flexDirection: "row",
-      justifyContent: "space-between",
       alignItems: "center",
-      paddingLeft: 1,
-      paddingRight: 1,
-      backgroundColor: WhatsAppTheme.panelLight,
-      border: true,
-      borderColor: WhatsAppTheme.borderLight,
+      flexGrow: 1,
     },
     // Avatar
     Box(
       {
-        width: 7,
+        width: 6,
         height: 3,
         justifyContent: "center",
         alignItems: "center",
@@ -233,37 +231,50 @@ export function ConversationView() {
         justifyContent: "center",
         flexGrow: 1,
       },
-      ...(headerSubtitle
-        ? [
-            Text({
-              content: chatName + disappearingIcon,
-              fg: WhatsAppTheme.white,
-              attributes: TextAttributes.BOLD,
-            }),
-            Text({ content: headerSubtitle, fg: headerSubtitleColor }),
-          ]
-        : [
-            Text({}),
-            Text({
-              content: chatName + disappearingIcon,
-              fg: WhatsAppTheme.white,
-              attributes: TextAttributes.BOLD,
-            }),
-          ]),
-      Text({})
-    ),
+      Text({
+        content: chatName + disappearingIcon,
+        fg: WhatsAppTheme.white,
+        attributes: TextAttributes.BOLD,
+      }),
+      headerSubtitle
+        ? Text({ content: headerSubtitle, fg: headerSubtitleColor })
+        : Text({ content: "" })
+    )
+  )
+
+  const header = Box(
+    {
+      height: 5,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingLeft: 1,
+      paddingRight: 1,
+      backgroundColor: WhatsAppTheme.panelLight,
+      border: true,
+      borderColor: WhatsAppTheme.borderLight,
+      onMouse: (e: MouseEvent) => {
+        if (e.type === "down") {
+          appState.setRightSidebar(isGroup ? "group-info" : "contact-info")
+        }
+      },
+    },
+
+    headerContent,
+
     // Search/Menu icons (like WhatsApp Web)
+
     Box(
       {
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        gap: 2,
         paddingRight: 2,
       },
       Text({
         content: Icons.search,
         fg: WhatsAppTheme.textSecondary,
+        marginRight: 2,
       }),
       Text({
         content: Icons.menu,
@@ -300,10 +311,28 @@ export function ConversationView() {
     })
   }
 
+  // Before clearing children, try to find which message is at the top of the viewport
+  // to preserve scroll position after re-rendering (especially when loading older messages)
+  if (conversationScrollBox && conversationScrollBox.scrollTop > 0) {
+    const children = conversationScrollBox.getChildren()
+    const st = conversationScrollBox.scrollTop
+    for (const child of children) {
+      // Find the first child that is at or below the scrollTop
+      if (child.y + child.height > st) {
+        lastTopMessageId = child.id
+        lastTopMessageOffset = st - child.y
+        break
+      }
+    }
+  } else {
+    lastTopMessageId = null
+    lastTopMessageOffset = 0
+  }
+
   // Clear existing children and add messages
-  const existingChildren = conversationScrollBox.getChildren()
+  const existingChildren = conversationScrollBox ? conversationScrollBox.getChildren() : []
   for (const child of existingChildren) {
-    conversationScrollBox.remove(child.id)
+    conversationScrollBox!.remove(child.id)
   }
 
   // Add loading indicator at top (shown when loading older messages)
@@ -397,13 +426,20 @@ export function ConversationView() {
       const isSearchMatch = searchResultSet.has(originalIndex)
       const isActiveMatch = originalIndex === activeOriginalIndex
 
+      const chatId = state.currentChatId || ""
+      const isSelectionMode = state.isSelectionMode.get(chatId) ?? false
+      const selectedIds = state.selectedMessageIds.get(chatId)
+      const isSelected = selectedIds ? selectedIds.has(message.id) : false
+
       const msgRenderable = renderMessage(
         renderer,
         message,
         isGroup,
         isSequenceStart,
         participantIds,
-        state.currentChatId
+        state.currentChatId,
+        isSelectionMode,
+        isSelected
       )
 
       if (isSearchMatch && state.isSearchActive) {
@@ -442,6 +478,24 @@ export function ConversationView() {
       backgroundColor: WhatsAppTheme.deepDark,
     })
     conversationScrollBox.add(spacer)
+
+    // Restore scroll position if we have a saved message ID (e.g. after loading older messages)
+    if (lastTopMessageId) {
+      const children = conversationScrollBox.getChildren()
+      const targetChild = children.find((c) => c.id === lastTopMessageId)
+      if (targetChild) {
+        // Find the new y position and add the original offset
+        const newScrollTop = targetChild.y + lastTopMessageOffset
+        conversationScrollBox.scrollTop = newScrollTop
+        debugLog(
+          "ConversationView",
+          `Restored scroll to message ${lastTopMessageId} at ${newScrollTop}`
+        )
+      }
+      // Reset after one use
+      lastTopMessageId = null
+      lastTopMessageOffset = 0
+    }
   }
 
   // Message input field (bottom)
@@ -847,6 +901,61 @@ export function ConversationView() {
     searchInputComponent = null
   }
 
+  // Bulk actions toolbar
+  let selectionToolbar: VChild = null
+  const isSelectionMode = state.isSelectionMode.get(state.currentChatId || "") ?? false
+  if (isSelectionMode) {
+    const selectedCount = state.selectedMessageIds.get(state.currentChatId || "")?.size ?? 0
+    selectionToolbar = Box(
+      {
+        height: 3,
+        flexDirection: "row",
+        alignItems: "center",
+        paddingLeft: 2,
+        paddingRight: 2,
+        backgroundColor: WhatsAppTheme.panelDark,
+        border: true,
+        borderColor: WhatsAppTheme.green,
+      },
+      Text({
+        content: `${selectedCount} selected`,
+        fg: WhatsAppTheme.green,
+        attributes: TextAttributes.BOLD,
+        flexGrow: 1,
+      }),
+      Text({
+        content: "Delete [d]",
+        fg: WhatsAppTheme.textSecondary,
+        marginRight: 2,
+      }),
+      Text({
+        content: "Forward [f]",
+        fg: WhatsAppTheme.textSecondary,
+        marginRight: 2,
+      }),
+      Text({
+        content: "Star [s]",
+        fg: WhatsAppTheme.textSecondary,
+        marginRight: 2,
+      }),
+      Text({
+        content: "Clear [ESC]",
+        fg: WhatsAppTheme.textTertiary,
+      })
+    )
+  }
+
+  // Scroll detection for auto-load (2.4)
+  if (conversationScrollBox && conversationScrollBox.scrollTop <= 2) {
+    // Only trigger if not already loading and has more messages
+    const chatId = state.currentChatId || ""
+    const hasMore = state.hasMoreMessages.get(chatId) ?? true
+    const isLoading = state.isLoadingMore.get(chatId) ?? false
+    if (hasMore && !isLoading) {
+      loadOlderMessages()
+    }
+  }
+
   return Box(
     {
       flexDirection: "column",
@@ -856,6 +965,7 @@ export function ConversationView() {
     header,
     ...(searchBar ? [searchBar] : []),
     conversationScrollBox,
+    ...(selectionToolbar ? [selectionToolbar] : []),
     ...(replyPreviewBar ? [replyPreviewBar] : []),
     inputContainer
   )

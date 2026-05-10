@@ -13,7 +13,13 @@ export {
 } from "~/client/core"
 
 // Chat actions
-export { archiveChat, unarchiveChat, markChatUnread, deleteChat } from "~/client/chatActions"
+export {
+  archiveChat,
+  unarchiveChat,
+  markChatUnread,
+  deleteChat,
+  setChatEphemeral,
+} from "~/client/chatActions"
 
 // Message actions
 export {
@@ -57,3 +63,18 @@ export {
   startPresenceManagement,
   stopPresenceManagement,
 } from "~/client/presenceActions"
+
+// Group actions
+export {
+  loadGroupMetadata,
+  updateGroupSubject,
+  updateGroupDescription,
+  leaveGroup,
+  getGroupInviteLink,
+  revokeGroupInviteLink,
+  addParticipants,
+  removeParticipants,
+  promoteParticipants,
+  demoteParticipants,
+  updateGroupSecurity,
+} from "~/client/groupActions"

@@ -26,8 +26,14 @@ export function initializeClient(config: WahaTuiConfig): WahaClient {
   client = new WahaClient(config.wahaUrl, config.wahaApiKey)
 
   const httpClient = client.httpClient
-
   if (httpClient) {
+    // Add API key to defaults to support manual API calls (like setChatEphemeral)
+    if (config.wahaApiKey) {
+      if (httpClient.defaults?.headers?.common) {
+        httpClient.defaults.headers.common["X-Api-Key"] = config.wahaApiKey
+      }
+    }
+
     // Request interceptor for logging
     if (DEBUG_ENABLED) {
       debugLog("Client", "Configuring axios interceptors for automatic API logging")
