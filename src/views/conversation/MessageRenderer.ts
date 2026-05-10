@@ -74,7 +74,9 @@ export function renderMessage(
   isGroupChat: boolean = false,
   isSequenceStart: boolean = true,
   participants?: string[],
-  chatId?: string
+  chatId?: string,
+  isSelectionMode: boolean = false,
+  isSelected: boolean = false
 ): BoxRenderable {
   const isFromMe = message.fromMe
   const timestamp = new Date(message.timestamp * 1000).toLocaleTimeString([], {
@@ -117,6 +119,30 @@ export function renderMessage(
     marginBottom: 0, // Tight spacing for grouped messages
     marginTop: isSequenceStart ? 1 : 0, // Add spacing only between groups
   })
+
+  // Multi-selection checkbox
+  if (isSelectionMode) {
+    const checkboxBox = new BoxRenderable(renderer, {
+      width: 4,
+      height: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      onMouse: function (event) {
+        if (event.type === "down" && event.button === 0 && chatId) {
+          appState.toggleMessageSelection(chatId, message.id)
+          event.stopPropagation()
+        }
+      },
+    })
+    checkboxBox.add(
+      new TextRenderable(renderer, {
+        content: isSelected ? "☑ " : "☐ ",
+        fg: isSelected ? WhatsAppTheme.green : WhatsAppTheme.textSecondary,
+        attributes: TextAttributes.BOLD,
+      })
+    )
+    row.add(checkboxBox)
+  }
 
   // Use explicit spacers instead of margins for rock-solid alignment
   if (!isFromMe) {
@@ -183,6 +209,12 @@ export function renderMessage(
     // Handle right-click for context menu
     // Use function (not arrow) to get access to 'this' which is the bubble renderable
     onMouse: function (event) {
+      if (isSelectionMode && event.type === "down" && event.button === 0 && chatId) {
+        appState.toggleMessageSelection(chatId, message.id)
+        event.stopPropagation()
+        return
+      }
+
       if (event.type === "down" && event.button === 2) {
         // Get bubble's exact screen position and dimensions
         const bubbleX = this.x
@@ -375,8 +407,8 @@ export function renderMessage(
     }
 
     const pollData = (message._data?.poll || message._data) as PollData
-    debugLog("Poll", `Poll Data for ${message.id}: ${JSON.stringify(pollData)}`)
     const question = pollData.name || pollData.pollName || "Poll"
+
     const options = pollData.options || pollData.pollOptions || []
     const votes = pollData.votes || pollData.pollVotesSnapshot?.pollVotes || []
 

@@ -27,6 +27,7 @@ import { SessionsView } from "~/views/SessionsView"
 import { SettingsView } from "~/views/SettingsView"
 
 // Singleton DialogManager - initialized in createRenderApp
+
 let dialogManager: DialogManager | null = null
 
 export function getDialogManager(): DialogManager {

@@ -33,6 +33,8 @@ import type {
   SessionState,
   SettingsPage,
   SettingsState,
+  SidebarSubView,
+  SidebarView,
   UIState,
   ViewType,
 } from "~/state/slices"
@@ -50,6 +52,7 @@ import {
   createSettingsSlice,
   createUISlice,
 } from "~/state/slices"
+import { GroupMetadata } from "~/state/slices/ChatSlice"
 import { getChatIdString } from "~/utils/formatters"
 import { dismissUpdate } from "~/utils/update-checker"
 
@@ -65,6 +68,8 @@ export type {
   NotificationSettings,
   PairingStatus,
   SettingsPage,
+  SidebarSubView,
+  SidebarView,
   ViewType,
 }
 
@@ -233,6 +238,14 @@ class StateManager {
     this.uiSlice.setCurrentView(currentChatId ? "conversation" : "chats")
   }
 
+  setRightSidebar(view: SidebarView): void {
+    this.uiSlice.setRightSidebar(view)
+  }
+
+  setRightSidebarSubView(subView: SidebarSubView): void {
+    this.uiSlice.setRightSidebarSubView(subView)
+  }
+
   setChats(chats: ChatSummary[]): void {
     this.chatSlice.setChats(chats)
     this.navigationSlice.set({ lastChangeType: "data" })
@@ -372,6 +385,26 @@ class StateManager {
   setReplyingToMessage(message: WAMessageExtended | WAMessage | null): void {
     this.messageSlice.setReplyingToMessage(message)
   }
+  // Multi-select
+  toggleSelectionMode(chatId: string): void {
+    this.messageSlice.toggleSelectionMode(chatId)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  toggleMessageSelection(chatId: string, messageId: string): void {
+    this.messageSlice.toggleMessageSelection(chatId, messageId)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  clearMessageSelection(chatId: string): void {
+    this.messageSlice.clearMessageSelection(chatId)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  selectAllMessages(chatId: string): void {
+    this.messageSlice.selectAllMessages(chatId)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
 
   // Pagination
   setHasMoreMessages(chatId: string, hasMore: boolean): void {
@@ -380,6 +413,21 @@ class StateManager {
 
   setIsLoadingMore(chatId: string, isLoading: boolean): void {
     this.messageSlice.setIsLoadingMore(chatId, isLoading)
+  }
+
+  setCurrentGroupMetadata(metadata: GroupMetadata | null): void {
+    this.chatSlice.setCurrentGroupMetadata(metadata)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  updateGroupMetadata(chatId: string, updates: Partial<GroupMetadata>): void {
+    this.chatSlice.updateGroupMetadata(chatId, updates)
+    this.navigationSlice.set({ lastChangeType: "data" })
+  }
+
+  updateChatEphemeralDuration(chatId: string, duration: number): void {
+    this.chatSlice.updateChatEphemeralDuration(chatId, duration)
+    this.navigationSlice.set({ lastChangeType: "data" })
   }
 
   // In-chat message search

@@ -21,6 +21,9 @@ import {
 } from "~/client"
 import { markChatRead } from "~/client/chatActions"
 import {
+  bulkDeleteMessages,
+  bulkForwardMessages,
+  bulkStarMessages,
   downloadAndOpenMedia,
   reactToMessage,
   sendMediaMessage,
@@ -575,6 +578,43 @@ async function handleConversationViewKeys(key: KeyEvent, state: AppState): Promi
     return true
   }
 
+  // 'x' key - toggle selection mode
+  if (key.name === "x" && !state.inputMode && !state.isSearchActive) {
+    if (state.currentChatId) {
+      appState.toggleSelectionMode(state.currentChatId)
+    }
+    return true
+  }
+
+  // Handle bulk actions when in selection mode
+  const isSelectionMode = state.isSelectionMode.get(state.currentChatId || "") ?? false
+  if (isSelectionMode && !state.inputMode) {
+    const selectedIds = state.selectedMessageIds.get(state.currentChatId || "")
+    if (key.name === "d" && selectedIds && selectedIds.size > 0) {
+      const chatId = state.currentChatId!
+      const messageIds = Array.from(selectedIds)
+      bulkDeleteMessages(chatId, messageIds)
+      return true
+    }
+    if (key.name === "f" && selectedIds && selectedIds.size > 0) {
+      const chatId = state.currentChatId!
+      const messageIds = Array.from(selectedIds)
+      showContactPickerModal().then((toChatId) => {
+        if (toChatId) {
+          bulkForwardMessages(chatId, messageIds, toChatId)
+        }
+      })
+      return true
+    }
+    if (key.name === "s" && selectedIds && selectedIds.size > 0) {
+      const chatId = state.currentChatId!
+      const messageIds = Array.from(selectedIds)
+      // We assume starring for now. Star state toggling is complex for bulk.
+      bulkStarMessages(chatId, messageIds, true)
+      return true
+    }
+  }
+
   // Arrow navigation (when not in input mode)
   if (key.name === "up" && !state.inputMode) {
     debugLog("Keyboard", "Conversation: UP - scrolling up")
@@ -624,6 +664,10 @@ async function handleConversationViewKeys(key: KeyEvent, state: AppState): Promi
     if (state.isSearchActive) {
       appState.clearMessageSearch()
       appState.setInputMode(false)
+    } else if (isSelectionMode) {
+      if (state.currentChatId) {
+        appState.toggleSelectionMode(state.currentChatId) // Turn off selection mode
+      }
     } else if (state.inputMode) {
       blurMessageInput()
     } else {

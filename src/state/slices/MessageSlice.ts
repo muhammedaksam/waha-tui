@@ -40,6 +40,10 @@ export interface MessageState {
   inputMode: boolean
   replyingToMessage: WAMessageExtended | WAMessage | null
 
+  // Multi-select state
+  isSelectionMode: Map<string, boolean> // chatId -> boolean
+  selectedMessageIds: Map<string, Set<string>> // chatId -> Set of message IDs
+
   // Pagination state
   hasMoreMessages: Map<string, boolean>
   isLoadingMore: Map<string, boolean>
@@ -60,6 +64,8 @@ export const initialMessageState: MessageState = {
   inputHeight: 3,
   inputMode: false,
   replyingToMessage: null,
+  isSelectionMode: new Map(),
+  selectedMessageIds: new Map(),
   hasMoreMessages: new Map(),
   isLoadingMore: new Map(),
   searchQuery: "",
@@ -88,6 +94,12 @@ export interface MessageActions extends SliceActions<MessageState> {
   setIsSending(isSending: boolean): void
   setInputHeight(inputHeight: number): void
   setReplyingToMessage(message: WAMessageExtended | WAMessage | null): void
+
+  // Multi-select actions
+  toggleSelectionMode(chatId: string): void
+  toggleMessageSelection(chatId: string, messageId: string): void
+  clearMessageSelection(chatId: string): void
+  selectAllMessages(chatId: string): void
 
   // Pagination actions
   setHasMoreMessages(chatId: string, hasMore: boolean): void
@@ -322,6 +334,52 @@ export function createMessageSlice(): StateSlice<MessageState> & MessageActions 
       notify()
     },
 
+    toggleSelectionMode(chatId: string) {
+      const isSelectionMode = new Map(state.isSelectionMode)
+      const current = isSelectionMode.get(chatId) ?? false
+      isSelectionMode.set(chatId, !current)
+
+      // Clear selection when disabling mode
+      const selectedMessageIds = new Map(state.selectedMessageIds)
+      if (current) {
+        selectedMessageIds.delete(chatId)
+      }
+
+      state = { ...state, isSelectionMode, selectedMessageIds }
+      notify()
+    },
+
+    toggleMessageSelection(chatId: string, messageId: string) {
+      const selectedMessageIds = new Map(state.selectedMessageIds)
+      const currentSet = new Set(selectedMessageIds.get(chatId) || [])
+
+      if (currentSet.has(messageId)) {
+        currentSet.delete(messageId)
+      } else {
+        currentSet.add(messageId)
+      }
+
+      selectedMessageIds.set(chatId, currentSet)
+      state = { ...state, selectedMessageIds }
+      notify()
+    },
+
+    clearMessageSelection(chatId: string) {
+      const selectedMessageIds = new Map(state.selectedMessageIds)
+      selectedMessageIds.delete(chatId)
+      state = { ...state, selectedMessageIds }
+      notify()
+    },
+
+    selectAllMessages(chatId: string) {
+      const messages = state.messages.get(chatId) || []
+      const selectedMessageIds = new Map(state.selectedMessageIds)
+      const newSet = new Set(messages.map((m) => m.id))
+      selectedMessageIds.set(chatId, newSet)
+      state = { ...state, selectedMessageIds }
+      notify()
+    },
+
     setHasMoreMessages(chatId: string, hasMore: boolean) {
       const hasMoreMessages = new Map(state.hasMoreMessages)
       hasMoreMessages.set(chatId, hasMore)
@@ -482,16 +540,14 @@ export function createMessageSlice(): StateSlice<MessageState> & MessageActions 
       )
 
       if (msgIndex === -1) {
-        debugLog("Poll", `Could not find message for pollUid ${pollUid} in chat ${chatId}`)
+        // Quietly fail for poll votes on messages we don't have cached yet
         return
       }
 
       const msg = chatMessages[msgIndex]
-      debugLog("Poll", `Found message ${msg.id} for poll vote`)
 
       const pollData = (msg._data?.poll || msg._data) as PollData | undefined
       if (!pollData || (!pollData.options && !pollData.pollOptions)) {
-        debugLog("Poll", `Message ${msg.id} has no poll data`)
         return
       }
 
@@ -557,8 +613,6 @@ export function createMessageSlice(): StateSlice<MessageState> & MessageActions 
       newMessagesMap.set(chatId, newChatMessages)
       state = { ...state, messages: newMessagesMap, pollVotesCache: newCache }
       notify()
-
-      debugLog("Poll", `Updated message ${msg.id} with ${votes.length} vote info objects (cached)`)
     },
   }
 }

@@ -69,100 +69,17 @@ function getButtonStyle(variant?: "primary" | "secondary" | "danger") {
  * Show logout confirmation dialog
  * Returns a promise that resolves to true if user confirms, false if cancelled
  */
-export function showLogoutConfirm(): Promise<boolean> {
-  const dialogManager = getDialogManager()
-
-  return new Promise((resolve) => {
-    const dialogId = dialogManager.show({
-      content: (ctx: RenderContext) => {
-        const box = new BoxRenderable(ctx, {
-          flexDirection: "column",
-        })
-
-        // Title
-        box.add(
-          new TextRenderable(ctx, {
-            content: "Log out?",
-            fg: WhatsAppTheme.textPrimary,
-            attributes: TextAttributes.BOLD,
-          })
-        )
-
-        // Spacer
-        box.add(new BoxRenderable(ctx, { height: 1 }))
-
-        // Message
-        box.add(
-          new TextRenderable(ctx, {
-            content: "You will be logged out of this WhatsApp session.",
-            fg: WhatsAppTheme.textSecondary,
-          })
-        )
-
-        // Spacer
-        box.add(new BoxRenderable(ctx, { height: 1 }))
-
-        // Button row
-        const buttonRow = new BoxRenderable(ctx, {
-          flexDirection: "row",
-          justifyContent: "flex-end",
-        })
-
-        // Cancel button
-        const cancelStyle = getButtonStyle("secondary")
-        const cancelBtn = new BoxRenderable(ctx, {
-          paddingLeft: 2,
-          paddingRight: 2,
-          height: 1,
-          backgroundColor: cancelStyle.bg,
-          justifyContent: "center",
-          alignItems: "center",
-          onMouse(event) {
-            if (event.type === "down" && event.button === 0) {
-              dialogManager.close(dialogId)
-              resolve(false)
-              event.stopPropagation()
-            }
-          },
-        })
-        cancelBtn.add(new TextRenderable(ctx, { content: "Cancel", fg: cancelStyle.fg }))
-        buttonRow.add(cancelBtn)
-
-        // Logout button
-        const logoutStyle = getButtonStyle("danger")
-        const logoutBtn = new BoxRenderable(ctx, {
-          paddingLeft: 2,
-          paddingRight: 2,
-          height: 1,
-          marginLeft: 2,
-          backgroundColor: logoutStyle.bg,
-          justifyContent: "center",
-          alignItems: "center",
-          onMouse(event) {
-            if (event.type === "down" && event.button === 0) {
-              dialogManager.close(dialogId)
-              resolve(true)
-              event.stopPropagation()
-            }
-          },
-        })
-        logoutBtn.add(new TextRenderable(ctx, { content: "Log out", fg: logoutStyle.fg }))
-        buttonRow.add(logoutBtn)
-
-        box.add(buttonRow)
-        return box
-      },
-      size: "small",
-      onClose: () => resolve(false),
-    })
-  })
-}
 
 /**
  * Handle logout confirmation result
  */
 export async function handleLogoutConfirm(): Promise<void> {
-  const confirmed = await showLogoutConfirm()
+  const confirmed = await showConfirmModal(
+    "Log out?",
+    "You will be logged out of this WhatsApp session.",
+    "Log out",
+    "danger"
+  )
   if (confirmed) {
     await logoutSession()
     appState.setCurrentView("sessions")
@@ -1081,5 +998,101 @@ export function showPollVotesModal(message: WAMessageExtended): void {
       }
     },
     size: "medium",
+  })
+}
+/**
+ * Show a generic confirmation dialog
+ */
+export function showConfirmModal(
+  title: string,
+  message: string,
+  confirmLabel = "Confirm",
+  variant: "primary" | "danger" = "primary"
+): Promise<boolean> {
+  const dialogManager = getDialogManager()
+
+  return new Promise((resolve) => {
+    const dialogId = dialogManager.show({
+      content: (ctx: RenderContext) => {
+        const box = new BoxRenderable(ctx, {
+          flexDirection: "column",
+        })
+
+        // Title
+        box.add(
+          new TextRenderable(ctx, {
+            content: title,
+            fg: WhatsAppTheme.textPrimary,
+            attributes: TextAttributes.BOLD,
+          })
+        )
+
+        // Spacer
+        box.add(new BoxRenderable(ctx, { height: 1 }))
+
+        // Message
+        box.add(
+          new TextRenderable(ctx, {
+            content: message,
+            fg: WhatsAppTheme.textSecondary,
+          })
+        )
+
+        // Spacer
+        box.add(new BoxRenderable(ctx, { height: 1 }))
+
+        // Button row
+        const buttonRow = new BoxRenderable(ctx, {
+          flexDirection: "row",
+          justifyContent: "flex-end",
+        })
+
+        // Cancel button
+        const cancelStyle = getButtonStyle("secondary")
+        const cancelBtn = new BoxRenderable(ctx, {
+          paddingLeft: 2,
+          paddingRight: 2,
+          height: 1,
+          backgroundColor: cancelStyle.bg,
+          justifyContent: "center",
+          alignItems: "center",
+          onMouse(event) {
+            if (event.type === "down" && event.button === 0) {
+              dialogManager.close(dialogId)
+              resolve(false)
+              event.stopPropagation()
+            }
+          },
+        })
+        cancelBtn.add(new TextRenderable(ctx, { content: "Cancel", fg: cancelStyle.fg }))
+        buttonRow.add(cancelBtn)
+
+        // Confirm button
+        const confirmStyle = getButtonStyle(variant)
+        const confirmBtn = new BoxRenderable(ctx, {
+          paddingLeft: 2,
+          paddingRight: 2,
+          height: 1,
+          marginLeft: 2,
+          backgroundColor: confirmStyle.bg,
+          justifyContent: "center",
+          alignItems: "center",
+          onMouse(event) {
+            if (event.type === "down" && event.button === 0) {
+              dialogManager.close(dialogId)
+              resolve(true)
+              event.stopPropagation()
+            }
+          },
+        })
+        confirmBtn.add(new TextRenderable(ctx, { content: confirmLabel, fg: confirmStyle.fg }))
+        buttonRow.add(confirmBtn)
+
+        box.add(buttonRow)
+        return box
+      },
+      size: "small",
+      onClose: () => resolve(false),
+    })
   })
 }

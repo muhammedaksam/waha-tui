@@ -287,7 +287,7 @@ class ChatListManager {
     // Avatar
     const avatar = new BoxRenderable(renderer, {
       id: `avatar-${index}`,
-      width: 7,
+      width: 6,
       height: 3,
       justifyContent: "center",
       alignItems: "center",

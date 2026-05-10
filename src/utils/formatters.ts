@@ -4,7 +4,6 @@ import { fg } from "@opentui/core"
 
 import { Icons, WhatsAppTheme } from "~/config/theme"
 import { WAMessageExtended } from "~/types"
-import { debugLog } from "~/utils/debug"
 import { getMediaLabel } from "~/utils/mediaLabels"
 
 /**
@@ -292,7 +291,6 @@ export function isStatusBroadcast(chatId: string): boolean {
  *   - @lid: Linked Identity suffix (used in self-chats and some internal references)
  */
 export function isSelfChat(chatId: string, myProfileId: string | null): boolean {
-  debugLog("isSelfChat", `chatId ${chatId}, myProfileId ${myProfileId}`)
   if (!myProfileId) return false
   return normalizeId(chatId) === normalizeId(myProfileId)
 }
@@ -330,7 +328,7 @@ export function normalizeId(
  * @example getPhoneNumber("1234567890@lid") → "1234567890"
  */
 export function getPhoneNumber(id: string | undefined | null): string {
-  if (!id) return ""
+  if (!id || typeof id !== "string") return ""
   return id.split("@")[0]
 }
 

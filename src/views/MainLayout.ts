@@ -14,6 +14,7 @@ import { WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
 import { ChatsView } from "~/views/ChatsView"
 import { ConversationView } from "~/views/ConversationView"
+import { GroupInfoView } from "~/views/GroupInfoView"
 import { IconSidebar } from "~/views/IconSidebar"
 import { WelcomeView } from "~/views/WelcomeView"
 
@@ -27,13 +28,14 @@ type LayoutChild =
 interface ThreePanelLayoutProps {
   leftPanel: LayoutChild
   rightPanel: LayoutChild
+  asidePanel?: LayoutChild
 }
 
 /**
  * Reusable three-panel layout with consistent widths
  * Used by both MainLayout (chats) and settings
  */
-export function ThreePanelLayout({ leftPanel, rightPanel }: ThreePanelLayoutProps) {
+export function ThreePanelLayout({ leftPanel, rightPanel, asidePanel }: ThreePanelLayoutProps) {
   return Box(
     {
       width: "auto",
@@ -59,14 +61,30 @@ export function ThreePanelLayout({ leftPanel, rightPanel }: ThreePanelLayoutProp
       leftPanel
     ),
 
-    // Right Panel (70% of remaining space)
+    // Right Panel
     Box(
       {
         flexGrow: 1,
         flexShrink: 1,
+        flexDirection: "column",
       },
       rightPanel
-    )
+    ),
+
+    // Aside Panel (Right Sidebar)
+    asidePanel
+      ? Box(
+          {
+            width: "30%",
+            flexShrink: 0,
+            flexDirection: "column",
+            backgroundColor: WhatsAppTheme.panelDark,
+            borderColor: WhatsAppTheme.borderColor,
+            border: ["left"],
+          },
+          asidePanel
+        )
+      : null
   )
 }
 
@@ -80,8 +98,15 @@ export function MainLayout() {
   // Determine what to show in the right panel
   const showConversation = state.currentView === "conversation" || state.currentChatId !== null
 
+  // Determine aside panel content
+  let asidePanel: LayoutChild = null
+  if (state.rightSidebar === "group-info" || state.rightSidebar === "contact-info") {
+    asidePanel = GroupInfoView()
+  }
+
   return ThreePanelLayout({
     leftPanel: ChatsView(),
     rightPanel: showConversation ? ConversationView() : WelcomeView(),
+    asidePanel,
   })
 }

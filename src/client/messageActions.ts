@@ -11,6 +11,7 @@ import type { WAMessage } from "@muhammedaksam/waha-node"
 import type { ChatId, MessageId, WAMessageExtended } from "~/types"
 import { getClient, getSession } from "~/client/core"
 import { loadChats } from "~/client/sessionActions"
+import { showToast } from "~/components/Toast"
 import { loadConfig } from "~/config/manager"
 import { TIME_MS, TIME_S } from "~/constants"
 import { CacheKeys, cacheService } from "~/services/CacheService"
@@ -219,9 +220,10 @@ export async function loadMessages(chatId: string): Promise<void> {
         wahaClient.chats.chatsControllerGetChatMessages(session, chatId, {
           limit: 50,
           downloadMedia: false,
-          sortBy: "messageTimestamp",
+          sortBy: "timestamp",
           sortOrder: "desc",
         }),
+
       {
         ...RetryPresets.quick,
         onRetry: (attempt, delay) => {
@@ -328,35 +330,40 @@ export async function loadOlderMessages(): Promise<void> {
     if (messages.length === 0) return
 
     appState.setIsLoadingMore(chatId, true)
-    const offset = messages.length
-    debugLog("Messages", `Loading older messages with offset ${offset}`)
+
+    // Use the timestamp of the oldest message we have to fetch older ones
+    const oldestMessage = messages[messages.length - 1]
+    const lte = oldestMessage ? oldestMessage.timestamp : undefined
+
+    debugLog("Messages", `Loading older messages before timestamp ${lte}`)
 
     try {
       const wahaClient = getClient()
       const response = await wahaClient.chats.chatsControllerGetChatMessages(session, chatId, {
-        limit: 50,
-        offset: offset,
+        limit: 100, // Fetch more to reduce requests
+        "filter.timestamp.lte": lte,
         downloadMedia: false,
-        sortBy: "messageTimestamp",
+        sortBy: "timestamp",
         sortOrder: "desc",
       })
 
-      const newMessages = (response.data as unknown as WAMessage[]) || []
+      const newMessagesRaw = (response.data as unknown as WAMessage[]) || []
+      debugLog("Messages", `Fetched ${newMessagesRaw.length} raw messages from API (lte=${lte})`)
+
+      // Filter out messages we already have (especially the one at the lte boundary)
+      const existingIds = new Set(messages.map((m) => m.id))
+      const newMessages = newMessagesRaw.filter((msg) => !existingIds.has(msg.id))
+      debugLog("Messages", `Found ${newMessages.length} unique older messages after filtering`)
 
       if (newMessages.length > 0) {
         debugLog("Messages", `Loaded ${newMessages.length} older messages`)
         // Re-fetch current messages in case they changed during the request
         const latestMessages = appState.getState().messages.get(chatId) || []
+        // Append older messages to the end (since we are sorted desc)
         const combinedMessages = [...latestMessages, ...newMessages]
-        appState.setMessages(chatId, combinedMessages)
-
-        // If we got fewer than requested, there are no more
-        if (newMessages.length < 50) {
-          appState.setHasMoreMessages(chatId, false)
-          debugLog("Messages", "Reached end of message history")
-        }
+        appState.setMessages(chatId, combinedMessages as WAMessageExtended[])
       } else {
-        debugLog("Messages", "No more older messages available")
+        debugLog("Messages", "No more older messages available from API")
         appState.setHasMoreMessages(chatId, false)
       }
     } catch (error) {
@@ -472,7 +479,7 @@ export async function prefetchMessagesForTopChats(count: number = 5): Promise<vo
       const response = await wahaClient.chats.chatsControllerGetChatMessages(session, chatId, {
         limit: 50,
         downloadMedia: false,
-        sortBy: "messageTimestamp",
+        sortBy: "timestamp",
         sortOrder: "desc",
       })
       const messages = (response.data as unknown as WAMessage[]) || []
@@ -761,4 +768,91 @@ export async function sendPollVote(
           chatId,
         })
   }
+}
+/**
+ * Delete multiple messages at once.
+ */
+export async function bulkDeleteMessages(chatId: string, messageIds: string[]): Promise<void> {
+  const session = getSession()
+  if (!session) return
+
+  debugLog("Messages", `Bulk deleting ${messageIds.length} messages in ${chatId}`)
+
+  // Process sequentially to be safe and avoid rate limits
+  for (const id of messageIds) {
+    try {
+      await deleteMessage(chatId, id)
+      // Small delay between deletions to help the engine process
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    } catch (e) {
+      debugLog("Messages", `Failed to delete individual message ${id}: ${e}`)
+    }
+  }
+
+  // Clear selection and reload
+  appState.clearMessageSelection(chatId)
+  appState.toggleSelectionMode(chatId)
+  await loadMessages(chatId)
+}
+
+/**
+ * Star or unstar multiple messages at once.
+ */
+export async function bulkStarMessages(
+  chatId: string,
+  messageIds: string[],
+  star: boolean
+): Promise<void> {
+  const session = getSession()
+  if (!session) return
+
+  debugLog(
+    "Messages",
+    `Bulk ${star ? "starring" : "unstarring"} ${messageIds.length} messages in ${chatId}`
+  )
+
+  for (const id of messageIds) {
+    try {
+      await starMessage(id, chatId, star)
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    } catch (e) {
+      debugLog("Messages", `Failed to star/unstar individual message ${id}: ${e}`)
+    }
+  }
+
+  appState.clearMessageSelection(chatId)
+  appState.toggleSelectionMode(chatId)
+  await loadMessages(chatId)
+}
+
+/**
+ * Forward multiple messages to another chat.
+ */
+export async function bulkForwardMessages(
+  chatId: string,
+  messageIds: string[],
+  toChatId: string
+): Promise<void> {
+  const session = getSession()
+  if (!session) return
+
+  debugLog(
+    "Messages",
+    `Bulk forwarding ${messageIds.length} messages from ${chatId} to ${toChatId}`
+  )
+
+  for (const id of messageIds) {
+    try {
+      await forwardMessage(chatId, id, toChatId)
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    } catch (e) {
+      debugLog("Messages", `Failed to forward individual message ${id}: ${e}`)
+    }
+  }
+
+  appState.clearMessageSelection(chatId)
+  appState.toggleSelectionMode(chatId)
+  // Switch to the target chat? Or just stay?
+  // WhatsApp stays, so we stay.
+  showToast(`Successfully forwarded ${messageIds.length} messages.`, "success")
 }

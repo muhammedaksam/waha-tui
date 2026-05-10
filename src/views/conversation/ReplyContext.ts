@@ -8,7 +8,6 @@ import { BoxRenderable, CliRenderer, TextAttributes, TextRenderable } from "@ope
 import type { WAMessageExtended } from "~/types"
 import { WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
-import { debugLog } from "~/utils/debug"
 import { isSelfChat, truncate } from "~/utils/formatters"
 import { getMediaLabelFromReply } from "~/utils/mediaLabels"
 import { getSenderColor } from "~/views/conversation/MessageHelpers"
@@ -40,12 +39,8 @@ export function renderReplyContext(
   const replyToFromMe =
     (replyTo as { fromMe?: boolean }).fromMe === true || replyData?.fromMe === true
 
-  debugLog(
-    "renderReplyContext",
-    `replyTo keys: ${Object.keys(replyTo).join(", ")}, replyData?.fromMe=${replyData?.fromMe}, replyToFromMe=${replyToFromMe}`
-  )
-
   // Extract sender ID - priority:
+
   // 1. Explicit participant field in replyTo
   // 2. Fallback ID passed from parent message (message._data.quotedParticipant._serialized)
   // 3. Nested fields in replyTo._data
