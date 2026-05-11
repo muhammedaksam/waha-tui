@@ -63,7 +63,7 @@
     "eslint-plugin-import": "^2.32.0",
     "husky": "^9.1.7",
     "jiti": "^2.7.0",
-    "lint-staged": "^16.4.0",
+    "lint-staged": "^17.0.4",
     "prettier": "^3.8.3",
     "typescript-eslint": "^8.59.2"
   },
