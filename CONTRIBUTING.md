@@ -39,6 +39,15 @@ bun run migration:create my_migration_name
 
 This creates `src/utils/migrations/{timestamp}_my_migration_name.ts` and registers it automatically.
 
+## Branching Model
+
+This project follows a branching model where development happens in the `develop` branch:
+
+- **`main`**: Contains the latest stable release.
+- **`develop`**: The primary development branch. All feature branches should be created from and merged back into this branch.
+- **`feature/*`**: For new features and enhancements.
+- **`fix/*`**: For bug fixes.
+
 ## Pull Request Process
 
 1. **Fork** the repository

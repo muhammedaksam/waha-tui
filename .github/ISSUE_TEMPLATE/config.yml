@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Ask a question
+    url: https://github.com/muhammedaksam/waha-tui/discussions
+    about: Ask a question or get help with WAHA-TUI
+  - name: 📖 Documentation
+    url: https://github.com/muhammedaksam/waha-tui#readme
+    about: Read the official WAHA-TUI documentation
