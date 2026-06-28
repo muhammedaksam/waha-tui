@@ -424,8 +424,7 @@ export class WebSocketService {
 
           // Cast _data to access internal WhatsApp properties
           const messageData = payload._data as
-            | { notifyName?: string; chat?: { name?: string } }
-            | undefined
+            { notifyName?: string; chat?: { name?: string } } | undefined
 
           // Check if we have a name for this chat in our cached chat list
           // Use normalizeId to ensure we match even if suffixes differ

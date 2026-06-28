@@ -100,8 +100,7 @@ class ChatListManager {
       (chats as unknown as ExtendedChatSummary[])
         .map((c) => {
           const lastMsg = c.lastMessage as
-            | { timestamp?: number; id?: string; ack?: number }
-            | undefined
+            { timestamp?: number; id?: string; ack?: number } | undefined
           return `${c.id}:${lastMsg?.timestamp || 0}:${lastMsg?.id || ""}:${lastMsg?.ack ?? ""}`
         })
         .join(",") + `:${myId}`

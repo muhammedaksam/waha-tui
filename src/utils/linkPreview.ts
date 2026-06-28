@@ -51,8 +51,7 @@ export function getLinkPreviewData(message: WAMessageExtended): LinkPreviewInfo 
 
   // Also check for a links array (some WAHA versions)
   const links = data.links as
-    | Array<{ link?: string; title?: string; description?: string }>
-    | undefined
+    Array<{ link?: string; title?: string; description?: string }> | undefined
   if (links && links.length > 0) {
     const first = links[0]
     if (first.link && (first.title || first.description)) {
