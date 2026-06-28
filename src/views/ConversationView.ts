@@ -21,7 +21,7 @@ import {
   VChild,
 } from "@opentui/core"
 
-import { loadChatDetails, loadOlderMessages, sendMessage, sendTypingState } from "~/client"
+import { loadOlderMessages, sendMessage, sendTypingState } from "~/client"
 import { Icons, WhatsAppTheme } from "~/config/theme"
 import { TIME_MS } from "~/constants"
 import { appState } from "~/state/AppState"
@@ -154,8 +154,6 @@ export function ConversationView() {
           typingStatus = `${typingNames.length} people are typing...`
         }
       }
-    } else {
-      loadChatDetails(state.currentChatId)
     }
 
     // Priority: Typing status > Participant list
@@ -189,9 +187,7 @@ export function ConversationView() {
           }
         }
       } else {
-        // Trigger load if not present
         headerSubtitle = ""
-        loadChatDetails(state.currentChatId!)
       }
     }
   }

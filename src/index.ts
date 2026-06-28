@@ -11,6 +11,7 @@ import {
   fetchMyProfile,
   getClient,
   initializeClient,
+  loadChatDetails,
   loadChats,
   loadLidMappings,
   loadSessions,
@@ -329,8 +330,19 @@ async function main() {
   // Set up reactive rendering using the router module
   const renderApp = createRenderApp(renderer)
 
+  let lastChatId: string | null = null
+
   // Subscribe to state changes
   appState.subscribe(() => {
+    const state = appState.getState()
+    if (state.currentChatId !== lastChatId) {
+      lastChatId = state.currentChatId
+      if (lastChatId) {
+        loadChatDetails(lastChatId).catch((error) => {
+          debugLog("App", `Failed to load chat details for ${lastChatId}: ${error}`)
+        })
+      }
+    }
     renderApp()
   })
 
