@@ -322,11 +322,22 @@ export async function loadChatDetails(chatId: string): Promise<void> {
     if (isGroup) {
       debugLog("Conversation", `Loading participants for group: ${chatId}`)
       const response = await wahaClient.groups.groupsControllerGetGroupParticipants(session, chatId)
+      if (appState.getState().currentChatId !== chatId) {
+        debugLog(
+          "Conversation",
+          `loadChatDetails: Chat changed, discarding participants for ${chatId}`
+        )
+        return
+      }
       const participants = response.data as unknown as GroupParticipant[]
       appState.setCurrentChatParticipants(participants)
     }
 
     const response = await wahaClient.presence.presenceControllerGetPresence(session, chatId)
+    if (appState.getState().currentChatId !== chatId) {
+      debugLog("Conversation", `loadChatDetails: Chat changed, discarding presence for ${chatId}`)
+      return
+    }
     const presence = response.data as unknown as WAHAChatPresences
     appState.setCurrentChatPresence(presence)
 
@@ -336,7 +347,14 @@ export async function loadChatDetails(chatId: string): Promise<void> {
       // Subscription might fail if already subscribed or not supported
     }
   } catch (error) {
-    errorService.handle(error, { context: { action: "loadChatDetails", chatId } })
+    if (appState.getState().currentChatId === chatId) {
+      errorService.handle(error, { context: { action: "loadChatDetails", chatId } })
+    } else {
+      debugLog(
+        "Conversation",
+        `loadChatDetails error ignored for inactive chat ${chatId}: ${error}`
+      )
+    }
   }
 }
 
