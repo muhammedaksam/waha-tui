@@ -19,11 +19,7 @@ import { IconSidebar } from "~/views/IconSidebar"
 import { WelcomeView } from "~/views/WelcomeView"
 
 type LayoutChild =
-  | ProxiedVNode<typeof BoxRenderable>
-  | BoxRenderable
-  | TextRenderable
-  | Renderable
-  | null
+  ProxiedVNode<typeof BoxRenderable> | BoxRenderable | TextRenderable | Renderable | null
 
 interface ThreePanelLayoutProps {
   leftPanel: LayoutChild

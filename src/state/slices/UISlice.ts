@@ -1,13 +1,7 @@
 import { SliceActions, StateSlice } from "~/state/slices/types"
 
 export type ViewType =
-  | "config"
-  | "sessions"
-  | "chats"
-  | "conversation"
-  | "settings"
-  | "qr"
-  | "loading"
+  "config" | "sessions" | "chats" | "conversation" | "settings" | "qr" | "loading"
 
 export type SidebarView = "none" | "group-info" | "contact-info"
 export type SidebarSubView =
