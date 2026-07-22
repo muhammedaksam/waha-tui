@@ -86,7 +86,7 @@ export function showChatPicker(_message: WAMessageExtended): Promise<ChatSummary
       // Clear existing list
       const children = listContainer.getChildren()
       for (const child of children) {
-        listContainer.remove(child.id)
+        listContainer.remove(child)
       }
       rowRenderables.length = 0
 
