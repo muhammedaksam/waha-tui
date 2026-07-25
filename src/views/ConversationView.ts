@@ -702,7 +702,7 @@ export function ConversationView() {
   } else {
     // Remove scrollbar if present and not needed
     if (hasScrollbar && inputScrollBar) {
-      inputContainer.remove("input-scrollbar")
+      inputContainer.remove(inputScrollBar)
     }
   }
 
