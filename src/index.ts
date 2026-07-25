@@ -51,7 +51,7 @@ async function runConfigWizard(renderer: CliRenderer): Promise<void> {
     const renderConfigView = () => {
       const children = renderer.root.getChildren()
       for (const child of children) {
-        renderer.root.remove(child.id)
+        renderer.root.remove(child)
       }
       renderer.root.add(ConfigView())
     }

@@ -162,12 +162,12 @@ export function EmojiPicker(): BoxRenderable | null {
     // Clear grid
     const children = gridContainer.getChildren()
     for (const child of children) {
-      gridContainer.remove(child.id)
+      gridContainer.remove(child)
     }
 
     const tabChildren = categoriesRow.getChildren()
     for (const child of tabChildren) {
-      categoriesRow.remove(child.id)
+      categoriesRow.remove(child)
     }
 
     categoryOffsets.clear()

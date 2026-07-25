@@ -328,7 +328,7 @@ export function ConversationView() {
   // Clear existing children and add messages
   const existingChildren = conversationScrollBox ? conversationScrollBox.getChildren() : []
   for (const child of existingChildren) {
-    conversationScrollBox!.remove(child.id)
+    conversationScrollBox!.remove(child)
   }
 
   // Add loading indicator at top (shown when loading older messages)
@@ -702,7 +702,7 @@ export function ConversationView() {
   } else {
     // Remove scrollbar if present and not needed
     if (hasScrollbar && inputScrollBar) {
-      inputContainer.remove("input-scrollbar")
+      inputContainer.remove(inputScrollBar)
     }
   }
 
