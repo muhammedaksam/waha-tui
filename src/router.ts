@@ -129,7 +129,7 @@ export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean)
     for (const child of children) {
       if (child instanceof ToasterRenderable) continue
       if (child instanceof DialogContainerRenderable) continue
-      renderer.root.remove(child.id)
+      renderer.root.remove(child)
     }
 
     // Destroy chat list manager when leaving chats view

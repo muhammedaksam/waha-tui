@@ -328,7 +328,7 @@ export function ConversationView() {
   // Clear existing children and add messages
   const existingChildren = conversationScrollBox ? conversationScrollBox.getChildren() : []
   for (const child of existingChildren) {
-    conversationScrollBox!.remove(child.id)
+    conversationScrollBox!.remove(child)
   }
 
   // Add loading indicator at top (shown when loading older messages)
