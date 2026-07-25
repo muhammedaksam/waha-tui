@@ -73,7 +73,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@muhammedaksam/waha-node": "^2026.6.2",
+    "@muhammedaksam/waha-node": "^2026.7.1",
     "@opentui-ui/dialog": "^0.1.2",
     "@opentui-ui/toast": "^0.0.5",
     "@opentui/core": "^0.4.5",
