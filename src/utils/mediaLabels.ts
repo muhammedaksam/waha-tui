@@ -22,7 +22,7 @@ export interface MediaLabel {
 
 /**
  * Internal representation of the loosely-typed _data payload.
- * Covers fields observed in both WAHA CORE and PLUS tiers.
+ * Covers fields observed across WAHA tiers (Core, Plus, Community).
  */
 interface MessageData {
   type?: string

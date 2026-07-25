@@ -302,7 +302,7 @@ async function main() {
   // Load initial sessions
   await loadSessions()
 
-  // Default session name for free WAHA users
+  // Default session name for WAHA users
   const DEFAULT_SESSION = DEFAULTS.SESSION_NAME
 
   // Check if we have a working session
