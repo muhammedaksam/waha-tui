@@ -280,6 +280,10 @@ export function ConversationView() {
   )
 
   // Create or update the scroll box for messages
+  // Reset if the cached instance was destroyed externally (e.g. during concurrent re-renders)
+  if (conversationScrollBox && conversationScrollBox.isDestroyed) {
+    conversationScrollBox = null
+  }
   if (!conversationScrollBox) {
     conversationScrollBox = new ScrollBoxRenderable(renderer, {
       id: "conversation-scroll-box",
@@ -328,7 +332,18 @@ export function ConversationView() {
   // Clear existing children and add messages
   const existingChildren = conversationScrollBox ? conversationScrollBox.getChildren() : []
   for (const child of existingChildren) {
-    conversationScrollBox!.remove(child)
+    try {
+      if (!child.isDestroyed) {
+        conversationScrollBox!.remove(child)
+      }
+    } catch {
+      // Child may have been destroyed or detached during concurrent re-renders (e.g. background sync).
+      // Swallow the error to prevent app crash (#98).
+      debugLog(
+        "ConversationView",
+        `Skipped removing child ${child?.id ?? "unknown"}: not a valid renderable`
+      )
+    }
   }
 
   // Add loading indicator at top (shown when loading older messages)
@@ -500,6 +515,9 @@ export function ConversationView() {
   const MAX_INPUT_LINES = 8
 
   // Initialize input container (Box that holds the textarea)
+  if (inputContainer && inputContainer.isDestroyed) {
+    inputContainer = null
+  }
   if (!inputContainer) {
     inputContainer = new BoxRenderable(renderer, {
       id: "input-container",
@@ -543,6 +561,9 @@ export function ConversationView() {
   }
 
   // Initialize input component
+  if (messageInputComponent && messageInputComponent.isDestroyed) {
+    messageInputComponent = null
+  }
   if (!messageInputComponent) {
     // Get enterIsSend setting from state
     const { enterIsSend } = state
