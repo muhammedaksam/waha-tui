@@ -210,13 +210,24 @@ async function main() {
     process.exit(0)
   })
   process.on("uncaughtException", (error) => {
+    const isRenderError =
+      error instanceof Error &&
+      (error.message.includes("remove expects a renderable child object") ||
+        error.message.includes("renderable") ||
+        error.message.includes("layout") ||
+        error.message.includes("yoga"))
+
     errorService.handle(error, {
       log: true,
       notify: true,
       context: { type: "uncaughtException" },
     })
-    cleanup()
-    process.exit(1)
+
+    if (!isRenderError) {
+      cleanup()
+      process.exit(1)
+    }
+    // Rendering errors are non-fatal — the app can recover on the next render cycle
   })
   process.on("unhandledRejection", (reason) => {
     errorService.handle(reason, {
@@ -224,8 +235,8 @@ async function main() {
       notify: true,
       context: { type: "unhandledRejection" },
     })
-    cleanup()
-    process.exit(1)
+    // Don't exit on unhandled rejections — they are usually from API failures
+    // that are already shown as toasts
   })
 
   let config: WahaTuiConfig | null = null
@@ -302,7 +313,7 @@ async function main() {
   // Load initial sessions
   await loadSessions()
 
-  // Default session name for free WAHA users
+  // Default session name for WAHA users
   const DEFAULT_SESSION = DEFAULTS.SESSION_NAME
 
   // Check if we have a working session

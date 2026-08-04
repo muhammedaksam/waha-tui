@@ -50,8 +50,19 @@ export async function createNewSession(sessionName: string = "default"): Promise
       name,
       start: true,
       config: {
+        client: {
+          deviceName: "WAHA-TUI",
+          browserName: "Safari",
+        },
         webjs: {
           tagsEventsOn: true,
+        },
+        noweb: {
+          markOnline: true,
+          store: {
+            enabled: true,
+            fullSync: true,
+          },
         },
       },
     }
