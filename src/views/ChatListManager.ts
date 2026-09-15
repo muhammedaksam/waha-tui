@@ -90,7 +90,9 @@ class ChatListManager {
    */
   // Hash for structure (chat IDs in order)
   private getChatsStructureHash(chats: ChatSummary[]): string {
-    return chats.map((c) => c.id).join(",")
+    // Object IDs otherwise all become "[object Object]", hiding reorders and
+    // leaving click handlers bound to the chats previously occupying each row.
+    return chats.map((c) => getChatIdString(c.id)).join(",")
   }
 
   // Hash for content (ids + message timestamps + active/selected state + last message content + ack status)
@@ -101,7 +103,7 @@ class ChatListManager {
         .map((c) => {
           const lastMsg = c.lastMessage as
             { timestamp?: number; id?: string; ack?: number } | undefined
-          return `${c.id}:${lastMsg?.timestamp || 0}:${lastMsg?.id || ""}:${lastMsg?.ack ?? ""}`
+          return `${getChatIdString(c.id)}:${lastMsg?.timestamp || 0}:${lastMsg?.id || ""}:${lastMsg?.ack ?? ""}`
         })
         .join(",") + `:${myId}`
     )
@@ -116,7 +118,11 @@ class ChatListManager {
     const newContentHash = this.getChatsContentHash(chats, state)
 
     // CASE 1: exact same content (no changes)
-    if (this.scrollBox && newContentHash === this.currentChatsHash) {
+    if (
+      this.scrollBox &&
+      newStructureHash === this.currentStructureHash &&
+      newContentHash === this.currentChatsHash
+    ) {
       // debugLog("ChatListManager", "Using cached chat list (exact match)")
       // Still need to update selection/active styling as those may have changed
       this.updateSelectionAndActive(state.selectedChatIndex, state.currentChatId, chats)
@@ -145,7 +151,9 @@ class ChatListManager {
     this.destroy()
 
     this.renderer = renderer
+    this.currentChatsHash = newContentHash
     this.currentStructureHash = newStructureHash
+    this.currentSelectedIndex = state.selectedChatIndex
 
     // Create ScrollBox
     this.scrollBox = new ScrollBoxRenderable(renderer, {
@@ -169,7 +177,13 @@ class ChatListManager {
 
     for (let index = 0; index < chats.length; index++) {
       const chat = chats[index]
-      this.createChatRow(renderer, chat, index, state.currentChatId === chat.id, state)
+      this.createChatRow(
+        renderer,
+        chat,
+        index,
+        state.currentChatId === getChatIdString(chat.id),
+        state
+      )
     }
 
     // Apply initial scroll position
@@ -473,7 +487,7 @@ class ChatListManager {
       if (!rowData) continue
 
       const isSelected = index === this.currentSelectedIndex
-      const isCurrentChat = state.currentChatId === chat.id
+      const isCurrentChat = state.currentChatId === getChatIdString(chat.id)
 
       // Update Box Styles
       rowData.box.backgroundColor = isSelected
