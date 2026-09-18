@@ -62,7 +62,7 @@ export const DEFAULT_SETTINGS: WahaTuiSettings = {
   showPreviews: true,
   backgroundSync: true,
   recentEmojis: [],
-  useSystemTheme: false,
+  useSystemTheme: true,
   themeMode: "system",
 }
 
