@@ -602,6 +602,14 @@ class StateManager {
     this.settingsSlice.setRecentEmojis(recentEmojis)
   }
 
+  setUseSystemTheme(useSystemTheme: boolean): void {
+    this.settingsSlice.setUseSystemTheme(useSystemTheme)
+  }
+
+  setThemeMode(themeMode: "system" | "dark" | "light"): void {
+    this.settingsSlice.setThemeMode(themeMode)
+  }
+
   // Auth
   setAuthMode(authMode: AuthMode): void {
     this.authSlice.setAuthMode(authMode)
@@ -621,6 +629,10 @@ class StateManager {
 
   setPairingError(pairingError: string | null): void {
     this.authSlice.setPairingError(pairingError)
+  }
+
+  setQrCode(qrCode: AuthState["qrCode"]): void {
+    this.authSlice.setQrCode(qrCode)
   }
 
   setQrCodeMatrix(qrCodeMatrix: AuthState["qrCodeMatrix"]): void {

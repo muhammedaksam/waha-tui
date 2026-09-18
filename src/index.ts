@@ -22,6 +22,7 @@ import { showUpdateModal } from "~/components/Modal"
 import { errorToToast } from "~/components/Toast"
 import { configExists, createDefaultConfig, loadConfig, saveConfig } from "~/config/manager"
 import { DEFAULT_ENV, validateConfig } from "~/config/schema"
+import { syncPalette, theme } from "~/config/theme"
 import { DEFAULTS, TIME_MS } from "~/constants"
 import { executeContextMenuAction, handleKeyPress } from "~/handlers"
 import { loadSavedSettings } from "~/handlers/settingsHandler"
@@ -166,6 +167,22 @@ async function main() {
   // Set renderer context for imperative API usage
   setRenderer(renderer)
 
+  // Follow terminal theme mode (dark/light auto-detection)
+  const stopFollowingTheme = theme.follow(renderer)
+
+  // Detect the terminal's actual ANSI palette so tint() resolves correctly.
+  // RGBA.fromIndex(N) stores static VGA fallback bytes; getPalette() queries
+  // the real colors via OSC escape sequences.
+  renderer
+    .getPalette({ size: 16 })
+    .then((colors) => syncPalette(colors))
+    .catch(() => {
+      /* Palette detection unsupported; VGA fallbacks remain */
+    })
+
+  // Re-sync palette when the terminal reports a change (e.g. Omarchy theme switch)
+  renderer.on("palette", (colors) => syncPalette(colors))
+
   // Cleanup function to properly restore terminal state
   let isCleanedUp = false
   const cleanup = () => {
@@ -174,6 +191,9 @@ async function main() {
 
     try {
       debugLog("Shutdown", "Starting cleanup...")
+
+      // Stop following theme
+      stopFollowingTheme()
 
       // Stop presence management
       stopPresenceManagement()
@@ -355,6 +375,11 @@ async function main() {
       }
     }
     renderApp()
+  })
+
+  // Re-render when theme or color mode changes
+  theme.subscribe(() => {
+    renderApp(true)
   })
 
   // Initial render (force rebuild)

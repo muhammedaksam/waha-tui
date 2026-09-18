@@ -4,8 +4,11 @@
  */
 
 import type { ChatSummary, WAMessage } from "@muhammedaksam/waha-node"
+import type { RenderContext } from "@opentui/core"
+import type { ButtonState } from "@tuiparts/core/button"
 
 import { Box, BoxRenderable, ProxiedVNode, TextRenderable } from "@opentui/core"
+import { ButtonRenderable } from "@tuiparts/core/button"
 
 import type { ContextMenuType } from "~/state/AppState"
 import type { WAMessageExtended } from "~/types"
@@ -30,6 +33,99 @@ export interface ContextMenuItem {
 function isMuted(chat: ChatSummary): boolean {
   const ext = chat as ChatSummary & { isMuted?: boolean; _chat?: { isMuted?: boolean } }
   return ext.isMuted === true || ext._chat?.isMuted === true
+}
+
+/**
+ * Context Menu Action Item Renderable
+ * Implements interactive item using ButtonRenderable
+ */
+class ContextMenuItemRenderable extends ButtonRenderable {
+  constructor(
+    ctx: RenderContext,
+    options: {
+      item: ContextMenuItem
+      index: number
+      isSelected: boolean
+      width: number
+      onPress: () => void
+    }
+  ) {
+    const { item, isSelected, width, onPress } = options
+    super(ctx, {
+      width,
+      height: 1,
+      flexDirection: "row",
+      paddingLeft: 1,
+      paddingRight: 1,
+      disabled: item.disabled,
+      onPress,
+    })
+
+    const textColor = item.destructive
+      ? "#EA0038"
+      : item.disabled
+        ? WhatsAppTheme.textTertiary
+        : WhatsAppTheme.textPrimary
+
+    const iconText = new TextRenderable(ctx, {
+      content: item.icon || " ",
+      fg: textColor,
+    })
+    const spaceText = new TextRenderable(ctx, { content: " " })
+    const labelText = new TextRenderable(ctx, {
+      content: item.label,
+      fg: textColor,
+    })
+
+    this.add(iconText)
+    this.add(spaceText)
+    this.add(labelText)
+
+    const apply = (state: ButtonState) => {
+      this.backgroundColor =
+        isSelected || state.focused || state.pressed
+          ? WhatsAppTheme.hoverBg
+          : WhatsAppTheme.panelDark
+    }
+    apply(this.getState())
+    this.subscribe(apply)
+  }
+}
+
+/**
+ * Reaction Button Renderable
+ * Implements interactive emoji reaction button using ButtonRenderable
+ */
+class ReactionButtonRenderable extends ButtonRenderable {
+  constructor(
+    ctx: RenderContext,
+    options: {
+      reaction: string
+      isSubSelected: boolean
+      onPress: () => void
+    }
+  ) {
+    const { reaction, isSubSelected, onPress } = options
+    super(ctx, {
+      width: 3,
+      height: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      onPress,
+    })
+
+    const text = new TextRenderable(ctx, { content: reaction })
+    this.add(text)
+
+    const apply = (state: ButtonState) => {
+      this.backgroundColor =
+        isSubSelected || state.focused || state.pressed
+          ? WhatsAppTheme.panelLight
+          : WhatsAppTheme.panelDark
+    }
+    apply(this.getState())
+    this.subscribe(apply)
+  }
 }
 
 // Chat context menu items
@@ -238,13 +334,6 @@ export function ContextMenu(): ProxiedVNode<typeof BoxRenderable> | null {
   // Build menu items using imperative API for mouse handlers
   const menuItems = items.map((item, index) => {
     const isSelected = index === contextMenu.selectedIndex
-    const textColor = item.destructive
-      ? "#EA0038" // Red for destructive actions
-      : item.disabled
-        ? WhatsAppTheme.textTertiary
-        : WhatsAppTheme.textPrimary
-
-    const bgColor = isSelected ? WhatsAppTheme.hoverBg : WhatsAppTheme.panelDark
 
     // Container for separator + item
     const container = Box(
@@ -265,43 +354,19 @@ export function ContextMenu(): ProxiedVNode<typeof BoxRenderable> | null {
         : [])
     )
 
-    // Create menu item row imperatively for mouse support
-    const menuItemRow = new BoxRenderable(renderer, {
-      height: 1,
+    // Create menu item row using tuiparts ButtonRenderable
+    const menuItemRow = new ContextMenuItemRenderable(renderer, {
+      item,
+      index,
+      isSelected,
       width: menuWidth,
-      flexDirection: "row",
-      backgroundColor: bgColor,
-      paddingLeft: 1,
-      paddingRight: 1,
-      onMouse(event) {
-        if (event.type === "down" && event.button === 0) {
-          if (!item.disabled) {
-            appState.setContextMenuSelectedIndex(index)
-            appState.triggerContextMenuAction(item.id)
-            event.stopPropagation()
-          }
+      onPress: () => {
+        if (!item.disabled) {
+          appState.setContextMenuSelectedIndex(index)
+          appState.triggerContextMenuAction(item.id)
         }
       },
     })
-
-    // Add text content to normal menu row
-    menuItemRow.add(
-      new TextRenderable(renderer, {
-        content: item.icon || " ",
-        fg: textColor,
-      })
-    )
-    menuItemRow.add(
-      new TextRenderable(renderer, {
-        content: " ",
-      })
-    )
-    menuItemRow.add(
-      new TextRenderable(renderer, {
-        content: item.label,
-        fg: textColor,
-      })
-    )
 
     // Add the row to container
     container.add(menuItemRow)
@@ -449,37 +514,20 @@ export function ContextMenu(): ProxiedVNode<typeof BoxRenderable> | null {
     const subIndex = contextMenu.selectedSubIndex || 0
 
     reactions.forEach((reactionStr: string, rIndex: number) => {
-      // For quick reactions, we can highlight the one being hovered
-      // For keyboard navigation, we can use the selectedSubIndex
       const isSubSelected = contextMenu.selectedIndex === -1 && subIndex === rIndex
-      const reactBg = isSubSelected ? WhatsAppTheme.panelLight : WhatsAppTheme.panelDark
-
-      const reactBox = new BoxRenderable(renderer, {
-        height: 1,
-        width: 3,
-        backgroundColor: reactBg,
-        justifyContent: "center",
-        alignItems: "center",
-        onMouse(event) {
-          if (event.type === "down" && event.button === 0) {
-            debugLog("ContextMenu", `Clicked reaction pill for: ${reactionStr}`)
-            if (reactionStr === "➕") {
-              appState.triggerContextMenuAction("open_emoji_picker")
-            } else {
-              appState.triggerContextMenuAction(`react:${reactionStr}`)
-            }
-            event.stopPropagation()
+      const reactBtn = new ReactionButtonRenderable(renderer, {
+        reaction: reactionStr,
+        isSubSelected,
+        onPress: () => {
+          debugLog("ContextMenu", `Clicked reaction pill for: ${reactionStr}`)
+          if (reactionStr === "➕") {
+            appState.triggerContextMenuAction("open_emoji_picker")
+          } else {
+            appState.triggerContextMenuAction(`react:${reactionStr}`)
           }
         },
       })
-
-      reactBox.add(
-        new TextRenderable(renderer, {
-          content: reactionStr,
-        })
-      )
-
-      pillBox.add(reactBox)
+      pillBox.add(reactBtn)
     })
 
     anchor.add(pillBox)

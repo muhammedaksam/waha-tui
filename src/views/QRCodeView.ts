@@ -3,10 +3,8 @@
  * WhatsApp Web-style login page with QR code and phone number pairing option
  */
 
-import type { QRCode as QRCodeType } from "qrcode"
-
-import { Box, Text, TextAttributes } from "@opentui/core"
-import QRCode from "qrcode"
+import { Box, h, Text, TextAttributes } from "@opentui/core"
+import { ErrorCorrectionLevel, QRCodeRenderable } from "@opentui/qrcode"
 
 import { getClient, loadChats } from "~/client"
 import { Logo } from "~/components/Logo"
@@ -106,56 +104,6 @@ export async function submitPhoneNumber(): Promise<void> {
     appState.setPairingStatus("error")
     appState.setPairingError(result.error || "Failed to get pairing code")
   }
-}
-
-/**
- * Build QR code lines from matrix
- */
-function buildQRLines(qrMatrix: QRCodeType): string[] {
-  const qrLines: string[] = []
-  const BLOCK_FULL = "█"
-  const BLOCK_UPPER = "▀"
-  const BLOCK_LOWER = "▄"
-  const BLOCK_EMPTY = " "
-
-  const padding = 4
-  const modules = qrMatrix.modules
-
-  // Top padding
-  for (let i = 0; i < padding / 2; i++) {
-    qrLines.push(BLOCK_FULL.repeat(modules.size + padding * 2))
-  }
-
-  // Render QR using half-blocks (2 rows per line)
-  for (let y = 0; y < modules.size; y += 2) {
-    let line = BLOCK_FULL.repeat(padding)
-
-    for (let x = 0; x < modules.size; x++) {
-      const upperPixel = modules.data[y * modules.size + x] === 1
-      const lowerPixel =
-        y + 1 < modules.size ? modules.data[(y + 1) * modules.size + x] === 1 : false
-
-      if (upperPixel && lowerPixel) {
-        line += BLOCK_FULL
-      } else if (upperPixel && !lowerPixel) {
-        line += BLOCK_UPPER
-      } else if (!upperPixel && lowerPixel) {
-        line += BLOCK_LOWER
-      } else {
-        line += BLOCK_EMPTY
-      }
-    }
-
-    line += BLOCK_FULL.repeat(padding)
-    qrLines.push(line)
-  }
-
-  // Bottom padding
-  for (let i = 0; i < padding / 2; i++) {
-    qrLines.push(BLOCK_FULL.repeat(modules.size + padding * 2))
-  }
-
-  return qrLines
 }
 
 /**
@@ -290,9 +238,9 @@ function PhoneModeInstructions() {
  */
 function QRCodeDisplay() {
   const state = appState.getState()
-  const qrMatrix = state.qrCodeMatrix
+  const qrCode = state.qrCode ?? state.qrCodeMatrix
 
-  if (!qrMatrix) {
+  if (!qrCode) {
     return Box(
       {
         flexDirection: "column",
@@ -306,8 +254,6 @@ function QRCodeDisplay() {
     )
   }
 
-  const qrLines = buildQRLines(qrMatrix)
-
   return Box(
     {
       flexDirection: "column",
@@ -315,12 +261,17 @@ function QRCodeDisplay() {
       justifyContent: "center",
     },
     // QR Code
-    ...qrLines.map((line) =>
-      Text({
-        content: line,
-        fg: WhatsAppTheme.green,
-      })
-    ),
+    h(QRCodeRenderable, {
+      content: qrCode,
+      errorCorrectionLevel: ErrorCorrectionLevel.M,
+      quietZone: 4,
+      scale: 1,
+      fit: "contain",
+      foregroundColor: "#000000",
+      backgroundColor: "#ffffff",
+      fallbackContent: "Terminal too small for QR",
+      fallbackColor: WhatsAppTheme.textSecondary,
+    }),
     // Spacing
     Box({ height: 1 }),
     // "Log in with phone number" link - like WhatsApp Web
@@ -590,6 +541,7 @@ export async function showQRCode(name: string): Promise<void> {
   appState.setPairingCode(null)
   appState.setPairingStatus("idle")
   appState.setPairingError(null)
+  appState.setQrCode(null)
 
   const client = getClient()
 
@@ -771,11 +723,8 @@ export async function showQRCode(name: string): Promise<void> {
         return
       }
 
-      // Generate QR matrix
-      const matrix: QRCodeType = QRCode.create(qrValue, { errorCorrectionLevel: "M" })
-
       // Store in app state
-      appState.setQrCodeMatrix(matrix)
+      appState.setQrCode(qrValue)
       appState.setCurrentView("qr")
     } catch (error) {
       debugLog("QR", `Failed to load QR code: ${error}`)

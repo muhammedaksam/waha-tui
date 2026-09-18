@@ -40,6 +40,7 @@ import {
 } from "~/components/Modal"
 import { showToast } from "~/components/Toast"
 import { saveSettings } from "~/config/manager"
+import { applyThemeSettings } from "~/config/theme"
 import { executeContextMenuAction } from "~/handlers"
 import { webSocketService } from "~/services/WebSocketService"
 import { appState } from "~/state/AppState"
@@ -724,6 +725,8 @@ async function handleSettingsViewKeys(key: KeyEvent, state: AppState): Promise<b
       switch (state.settingsPage) {
         case "chats":
           return 1
+        case "theme":
+          return 2
         case "notifications":
           return 5
         case "notifications-messages":
@@ -789,6 +792,25 @@ async function handleSettingsToggle(state: AppState): Promise<void> {
       appState.setEnterIsSend(newValue)
       debugLog("Settings", `Enter is send: ${newValue}`)
       await saveSettings({ enterIsSend: newValue })
+    }
+  } else if (state.settingsPage === "theme") {
+    if (state.settingsSubIndex === 0) {
+      const newValue = !state.useSystemTheme
+      appState.setUseSystemTheme(newValue)
+      applyThemeSettings({ useSystemTheme: newValue })
+      debugLog("Settings", `Use system theme: ${newValue}`)
+      await saveSettings({ useSystemTheme: newValue })
+    } else if (state.settingsSubIndex === 1) {
+      const nextModes: Record<string, "system" | "dark" | "light"> = {
+        system: "dark",
+        dark: "light",
+        light: "system",
+      }
+      const nextMode = nextModes[state.themeMode] || "system"
+      appState.setThemeMode(nextMode)
+      applyThemeSettings({ themeMode: nextMode })
+      debugLog("Settings", `Theme mode: ${nextMode}`)
+      await saveSettings({ themeMode: nextMode })
     }
   } else if (state.settingsPage === "notifications") {
     if (state.settingsSubIndex === 0) {

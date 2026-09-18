@@ -3,9 +3,12 @@
  * First-run configuration wizard with WhatsApp-style design
  */
 
-import { Box, BoxRenderable, fg, t, Text, TextareaRenderable, TextAttributes } from "@opentui/core"
+import type { TextareaRenderable } from "@opentui/core"
+
+import { Box, BoxRenderable, fg, t, Text, TextAttributes } from "@opentui/core"
 
 import { Logo } from "~/components/Logo"
+import { createTextarea } from "~/components/Textarea"
 import { Icons, WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
 import { getRenderer } from "~/state/RendererContext"
@@ -188,16 +191,11 @@ export function ConfigView() {
       }
 
       if (!urlInputComponent) {
-        urlInputComponent = new TextareaRenderable(renderer, {
+        urlInputComponent = createTextarea(renderer, {
           id: "url-input",
           flexGrow: 1,
           height: 1,
-          backgroundColor: WhatsAppTheme.inputBg,
-          textColor: WhatsAppTheme.textPrimary,
-          focusedBackgroundColor: WhatsAppTheme.inputBg,
-          focusedTextColor: WhatsAppTheme.textPrimary,
           placeholder: t`${fg(WhatsAppTheme.textSecondary)("http://localhost:3000")}`,
-          cursorColor: WhatsAppTheme.green,
           initialValue: configStep.wahaUrl,
           wrapMode: "none",
           keyBindings: [
@@ -268,16 +266,11 @@ export function ConfigView() {
       }
 
       if (!apiKeyInputComponent) {
-        apiKeyInputComponent = new TextareaRenderable(renderer, {
+        apiKeyInputComponent = createTextarea(renderer, {
           id: "apikey-input",
           flexGrow: 1,
           height: 1,
-          backgroundColor: WhatsAppTheme.inputBg,
-          textColor: WhatsAppTheme.textPrimary,
-          focusedBackgroundColor: WhatsAppTheme.inputBg,
-          focusedTextColor: WhatsAppTheme.textPrimary,
           placeholder: t`${fg(WhatsAppTheme.textSecondary)("Leave blank if not required")}`,
-          cursorColor: WhatsAppTheme.green,
           initialValue: configStep.wahaApiKey,
           wrapMode: "none",
           keyBindings: [

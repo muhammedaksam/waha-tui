@@ -249,4 +249,22 @@ describe("AppState", () => {
       expect(appState.getState().isSending).toBe(false)
     })
   })
+
+  describe("setQrCode", () => {
+    it("should update qrCode in state", () => {
+      appState.setQrCode("2@testqrcodevalue")
+      expect(appState.getState().qrCode).toBe("2@testqrcodevalue")
+      expect(appState.getState().qrCodeMatrix).toBe("2@testqrcodevalue")
+
+      appState.setQrCode(null)
+      expect(appState.getState().qrCode).toBeNull()
+      expect(appState.getState().qrCodeMatrix).toBeNull()
+    })
+
+    it("should maintain backward-compatible setQrCodeMatrix", () => {
+      appState.setQrCodeMatrix("2@legacyqrvalue")
+      expect(appState.getState().qrCode).toBe("2@legacyqrvalue")
+      expect(appState.getState().qrCodeMatrix).toBe("2@legacyqrvalue")
+    })
+  })
 })

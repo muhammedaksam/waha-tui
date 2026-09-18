@@ -1,3 +1,5 @@
+import type { ColorInput } from "@opentui/core"
+
 import { GroupParticipant } from "@muhammedaksam/waha-node"
 import { Box, Text, TextAttributes, VChild } from "@opentui/core"
 
@@ -159,7 +161,7 @@ function SettingRow({
   label: string
   value?: string
   onClick?: () => void
-  color?: string
+  color?: ColorInput
   showChevron?: boolean
 }) {
   return Box(

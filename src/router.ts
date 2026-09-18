@@ -5,9 +5,6 @@
 
 import type { CliRenderer, VChild } from "@opentui/core"
 
-import { DialogContainerRenderable, DialogManager } from "@opentui-ui/dialog"
-import { themes as dialogThemes } from "@opentui-ui/dialog/themes"
-import { ToasterRenderable } from "@opentui-ui/toast"
 import { Box, BoxRenderable, Text } from "@opentui/core"
 
 import type { AppState, ViewType } from "~/state/AppState"
@@ -16,6 +13,12 @@ import { EmojiPicker } from "~/components/EmojiPicker"
 import { Footer } from "~/components/Footer"
 import { WHATSAPP_DIALOG_CONFIG } from "~/components/Modal"
 import { WHATSAPP_TOASTER_CONFIG } from "~/components/Toast"
+import {
+  DialogContainerRenderable,
+  DialogManager,
+  themes as dialogThemes,
+} from "~/components/ui/dialog"
+import { ToasterRenderable } from "~/components/ui/toast"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
 import { chatListManager } from "~/views/ChatListManager"

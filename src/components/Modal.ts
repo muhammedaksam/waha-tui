@@ -1,9 +1,8 @@
 /**
  * Modal Component
- * WhatsApp-themed dialogs using @opentui-ui/dialog
+ * WhatsApp-themed dialogs using tuiparts dialog (@opentui-ui/dialog)
  */
 
-import type { DialogContainerOptions, DialogId, DialogStyle } from "@opentui-ui/dialog"
 import type { RenderContext } from "@opentui/core"
 
 import {
@@ -19,9 +18,13 @@ import {
   underline,
 } from "@opentui/core"
 
+import type { DialogContainerOptions, DialogId, DialogStyle } from "~/components/ui/dialog"
 import type { WAMessageExtended } from "~/types"
 import type { UpdateInfo } from "~/utils/update-checker"
 import { logoutSession } from "~/client"
+import { createButton } from "~/components/Button"
+import { createCheckbox } from "~/components/Checkbox"
+import { createInput } from "~/components/Input"
 import { WDSColors, WhatsAppTheme } from "~/config/theme"
 import { getDialogManager } from "~/router"
 import { appState } from "~/state/AppState"
@@ -261,25 +264,17 @@ export function showUpdateModal(updateInfo: UpdateInfo): void {
       buttonRow.add(githubBtn)
 
       // OK button
-      const okStyle = getButtonStyle("primary")
-      const okBtn = new BoxRenderable(ctx, {
-        paddingLeft: 2,
-        paddingRight: 2,
-        height: 1,
-        marginLeft: 2,
-        backgroundColor: okStyle.bg,
-        justifyContent: "center",
-        alignItems: "center",
-        onMouse(event) {
-          if (event.type === "down" && event.button === 0) {
+      buttonRow.add(
+        createButton(ctx, {
+          label: "OK",
+          variant: "primary",
+          marginLeft: 2,
+          onPress: () => {
             dialogManager.closeAll()
             appState.dismissUpdateModal()
-            event.stopPropagation()
-          }
-        },
-      })
-      okBtn.add(new TextRenderable(ctx, { content: "OK", fg: okStyle.fg }))
-      buttonRow.add(okBtn)
+          },
+        })
+      )
 
       wrapper.add(buttonRow)
 
@@ -335,16 +330,10 @@ export function showInputModal(
         wrapper.add(new BoxRenderable(ctx, { height: 1 }))
 
         // Input
-        const input = new InputRenderable(ctx, {
+        const input = createInput(ctx, {
           value: initialValue,
           placeholder: placeholder,
           width: "100%",
-          backgroundColor: WhatsAppTheme.inputBg,
-          focusedBackgroundColor: WhatsAppTheme.inputBg,
-          textColor: WhatsAppTheme.textPrimary,
-          focusedTextColor: WhatsAppTheme.white,
-          placeholderColor: WhatsAppTheme.textTertiary,
-          cursorColor: WhatsAppTheme.white,
         })
 
         input.on(InputRenderableEvents.INPUT, (val: string) => {
@@ -367,45 +356,29 @@ export function showInputModal(
         })
 
         // Cancel button
-        const cancelStyle = getButtonStyle("secondary")
-        const cancelBtn = new BoxRenderable(ctx, {
-          paddingLeft: 2,
-          paddingRight: 2,
-          height: 1,
-          backgroundColor: cancelStyle.bg,
-          justifyContent: "center",
-          alignItems: "center",
-          onMouse(event) {
-            if (event.type === "down" && event.button === 0) {
+        buttonRow.add(
+          createButton(ctx, {
+            label: "Cancel",
+            variant: "secondary",
+            onPress: () => {
               safeResolve(null)
               dialogManager.close(dialogId)
-              event.stopPropagation()
-            }
-          },
-        })
-        cancelBtn.add(new TextRenderable(ctx, { content: "Cancel", fg: cancelStyle.fg }))
-        buttonRow.add(cancelBtn)
+            },
+          })
+        )
 
         // OK button
-        const okStyle = getButtonStyle("primary")
-        const okBtn = new BoxRenderable(ctx, {
-          paddingLeft: 2,
-          paddingRight: 2,
-          height: 1,
-          marginLeft: 2,
-          backgroundColor: okStyle.bg,
-          justifyContent: "center",
-          alignItems: "center",
-          onMouse(event) {
-            if (event.type === "down" && event.button === 0) {
+        buttonRow.add(
+          createButton(ctx, {
+            label: "OK",
+            variant: "primary",
+            marginLeft: 2,
+            onPress: () => {
               safeResolve(inputValue)
               dialogManager.close(dialogId)
-              event.stopPropagation()
-            }
-          },
-        })
-        okBtn.add(new TextRenderable(ctx, { content: "OK", fg: okStyle.fg }))
-        buttonRow.add(okBtn)
+            },
+          })
+        )
 
         wrapper.add(buttonRow)
 
@@ -502,16 +475,10 @@ export function showContactPickerModal(): Promise<string | null> {
         wrapper.add(new BoxRenderable(ctx, { height: 1 }))
 
         // Input
-        const input = new InputRenderable(ctx, {
+        const input = createInput(ctx, {
           value: searchQuery,
           placeholder: "Search contacts...",
           width: "100%",
-          backgroundColor: WhatsAppTheme.inputBg,
-          focusedBackgroundColor: WhatsAppTheme.inputBg,
-          textColor: WhatsAppTheme.textPrimary,
-          focusedTextColor: WhatsAppTheme.white,
-          placeholderColor: WhatsAppTheme.textTertiary,
-          cursorColor: WhatsAppTheme.white,
         })
 
         wrapper.add(input)
@@ -753,13 +720,10 @@ export function showPollModal(): Promise<{
           wrapper.add(
             new TextRenderable(ctx, { content: "Question:", fg: WhatsAppTheme.textSecondary })
           )
-          qInput = new InputRenderable(ctx, {
+          qInput = createInput(ctx, {
             value: question,
             placeholder: "Enter question...",
             width: "100%",
-            backgroundColor: WhatsAppTheme.inputBg,
-            textColor: WhatsAppTheme.textPrimary,
-            cursorColor: WhatsAppTheme.white,
           })
           qInput.on(InputRenderableEvents.INPUT, (v) => (question = v))
           wrapper.add(qInput)
@@ -773,13 +737,10 @@ export function showPollModal(): Promise<{
               fg: WhatsAppTheme.textSecondary,
             })
           )
-          oInput = new InputRenderable(ctx, {
+          oInput = createInput(ctx, {
             value: optionsText,
             placeholder: "Option 1, Option 2, ...",
             width: "100%",
-            backgroundColor: WhatsAppTheme.inputBg,
-            textColor: WhatsAppTheme.textPrimary,
-            cursorColor: WhatsAppTheme.white,
           })
           oInput.on(InputRenderableEvents.INPUT, (v) => (optionsText = v))
           wrapper.add(oInput)
@@ -787,26 +748,14 @@ export function showPollModal(): Promise<{
           wrapper.add(new BoxRenderable(ctx, { height: 1 }))
 
           // Multiple answers toggle
-          const multiRow = new BoxRenderable(ctx, { flexDirection: "row", alignItems: "center" })
-          multiRow.add(
-            new TextRenderable(ctx, {
-              content: multipleAnswers ? " [X] " : " [ ] ",
-              fg: multipleAnswers ? WhatsAppTheme.green : WhatsAppTheme.textSecondary,
-              onMouse: (e) => {
-                if (e.type === "down") {
-                  multipleAnswers = !multipleAnswers
-                  updateUI()
-                }
-              },
-            })
-          )
-          multiRow.add(
-            new TextRenderable(ctx, {
-              content: "Allow multiple answers",
-              fg: WhatsAppTheme.textPrimary,
-            })
-          )
-          wrapper.add(multiRow)
+          const multiCheckbox = createCheckbox(ctx, {
+            label: "Allow multiple answers",
+            checked: multipleAnswers,
+            onCheckedChange: (checked) => {
+              multipleAnswers = checked
+            },
+          })
+          wrapper.add(multiCheckbox)
 
           wrapper.add(new BoxRenderable(ctx, { height: 1 }))
 
@@ -966,22 +915,15 @@ export function showPollVotesModal(message: WAMessageExtended): void {
           justifyContent: "flex-end",
           marginTop: 1,
         })
-        const closeBtn = new BoxRenderable(ctx, {
-          paddingLeft: 2,
-          paddingRight: 2,
-          height: 1,
-          backgroundColor: WhatsAppTheme.green,
-          justifyContent: "center",
-          alignItems: "center",
-          onMouse: (e) => {
-            if (e.type === "down" && e.button === 0) {
+        buttonRow.add(
+          createButton(ctx, {
+            label: "Close",
+            variant: "primary",
+            onPress: () => {
               dialogManager.closeAll()
-              e.stopPropagation()
-            }
-          },
-        })
-        closeBtn.add(new TextRenderable(ctx, { content: "Close", fg: WhatsAppTheme.white }))
-        buttonRow.add(closeBtn)
+            },
+          })
+        )
         wrapper.add(buttonRow)
 
         return wrapper
@@ -1048,45 +990,29 @@ export function showConfirmModal(
         })
 
         // Cancel button
-        const cancelStyle = getButtonStyle("secondary")
-        const cancelBtn = new BoxRenderable(ctx, {
-          paddingLeft: 2,
-          paddingRight: 2,
-          height: 1,
-          backgroundColor: cancelStyle.bg,
-          justifyContent: "center",
-          alignItems: "center",
-          onMouse(event) {
-            if (event.type === "down" && event.button === 0) {
+        buttonRow.add(
+          createButton(ctx, {
+            label: "Cancel",
+            variant: "secondary",
+            onPress: () => {
               dialogManager.close(dialogId)
               resolve(false)
-              event.stopPropagation()
-            }
-          },
-        })
-        cancelBtn.add(new TextRenderable(ctx, { content: "Cancel", fg: cancelStyle.fg }))
-        buttonRow.add(cancelBtn)
+            },
+          })
+        )
 
         // Confirm button
-        const confirmStyle = getButtonStyle(variant)
-        const confirmBtn = new BoxRenderable(ctx, {
-          paddingLeft: 2,
-          paddingRight: 2,
-          height: 1,
-          marginLeft: 2,
-          backgroundColor: confirmStyle.bg,
-          justifyContent: "center",
-          alignItems: "center",
-          onMouse(event) {
-            if (event.type === "down" && event.button === 0) {
+        buttonRow.add(
+          createButton(ctx, {
+            label: confirmLabel,
+            variant: variant === "danger" ? "danger" : "primary",
+            marginLeft: 2,
+            onPress: () => {
               dialogManager.close(dialogId)
               resolve(true)
-              event.stopPropagation()
-            }
-          },
-        })
-        confirmBtn.add(new TextRenderable(ctx, { content: confirmLabel, fg: confirmStyle.fg }))
-        buttonRow.add(confirmBtn)
+            },
+          })
+        )
 
         box.add(buttonRow)
         return box
