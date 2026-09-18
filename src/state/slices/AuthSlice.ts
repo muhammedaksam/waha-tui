@@ -1,5 +1,3 @@
-import type { QRCode } from "qrcode"
-
 import { SliceActions, StateSlice } from "~/state/slices/types"
 
 export type AuthMode = "qr" | "phone"
@@ -11,7 +9,8 @@ export interface AuthState {
   pairingCode: string | null
   pairingStatus: PairingStatus
   pairingError: string | null
-  qrCodeMatrix: QRCode | null
+  qrCode: string | null
+  qrCodeMatrix: string | null
 }
 
 export const initialAuthState: AuthState = {
@@ -20,6 +19,7 @@ export const initialAuthState: AuthState = {
   pairingCode: null,
   pairingStatus: "idle",
   pairingError: null,
+  qrCode: null,
   qrCodeMatrix: null,
 }
 
@@ -29,7 +29,8 @@ export interface AuthActions extends SliceActions<AuthState> {
   setPairingCode(pairingCode: string | null): void
   setPairingStatus(pairingStatus: PairingStatus): void
   setPairingError(pairingError: string | null): void
-  setQrCodeMatrix(qrCodeMatrix: QRCode | null): void
+  setQrCode(qrCode: string | null): void
+  setQrCodeMatrix(qrCodeMatrix: string | null): void
 }
 
 export function createAuthSlice(): StateSlice<AuthState> & AuthActions {
@@ -89,8 +90,13 @@ export function createAuthSlice(): StateSlice<AuthState> & AuthActions {
       notify()
     },
 
-    setQrCodeMatrix(qrCodeMatrix: QRCode | null) {
-      state = { ...state, qrCodeMatrix }
+    setQrCode(qrCode: string | null) {
+      state = { ...state, qrCode, qrCodeMatrix: qrCode }
+      notify()
+    },
+
+    setQrCodeMatrix(qrCodeMatrix: string | null) {
+      state = { ...state, qrCode: qrCodeMatrix, qrCodeMatrix }
       notify()
     },
   }

@@ -4,16 +4,19 @@
  */
 
 import type { RenderContext } from "@opentui/core"
+import type { ButtonState } from "@tuiparts/core/button"
 
 import {
   BoxRenderable,
-  InputRenderable,
   InputRenderableEvents,
   ScrollBoxRenderable,
   TextAttributes,
   TextRenderable,
 } from "@opentui/core"
+import { ButtonRenderable } from "@tuiparts/core/button"
 
+import { createInput } from "~/components/Input"
+import { createTabs, createTabsList, createTabsTab } from "~/components/Tabs"
 import { WhatsAppTheme } from "~/config/theme"
 import { EMOJI_CATEGORIES, getEmojiVariants, searchEmojis } from "~/data/emojis"
 import { getDialogManager } from "~/router"
@@ -124,27 +127,32 @@ export function EmojiPicker(): BoxRenderable | null {
   let searchQuery = ""
   let displayEmojis: string[] = getAllDisplayEmojis()
 
-  const searchInput = new InputRenderable(renderer, {
+  const searchInput = createInput(renderer, {
     value: "",
     placeholder: "Search emoji...",
     width: "100%",
-    backgroundColor: WhatsAppTheme.inputBg,
-    focusedBackgroundColor: WhatsAppTheme.inputBg,
-    textColor: WhatsAppTheme.textPrimary,
-    focusedTextColor: WhatsAppTheme.white,
-    placeholderColor: WhatsAppTheme.textTertiary,
-    cursorColor: WhatsAppTheme.white,
   })
 
   pickerBox.add(searchInput)
   pickerBox.add(new BoxRenderable(renderer, { height: 1 }))
 
-  const categoriesRow = new BoxRenderable(renderer, {
-    flexDirection: "row",
+  const tabsRoot = createTabs(renderer, {
+    value: activeCategoryState ?? "Recent",
+    onValueChange: (value) => {
+      activeCategoryState = value
+      const offset = categoryOffsets.get(value)
+      if (offset !== undefined) {
+        gridContainer.scrollTop = offset
+      }
+      renderer.root.requestRender()
+    },
+  })
+  const categoriesRow = createTabsList(renderer, tabsRoot, {
     width: "100%",
     height: 1,
   })
-  pickerBox.add(categoriesRow)
+  tabsRoot.add(categoriesRow)
+  pickerBox.add(tabsRoot)
   pickerBox.add(new BoxRenderable(renderer, { height: 1 }))
 
   const gridContainer = new ScrollBoxRenderable(renderer, {
@@ -168,6 +176,7 @@ export function EmojiPicker(): BoxRenderable | null {
     const tabChildren = categoriesRow.getChildren()
     for (const child of tabChildren) {
       categoriesRow.remove(child)
+      child.destroy()
     }
 
     categoryOffsets.clear()
@@ -241,30 +250,14 @@ export function EmojiPicker(): BoxRenderable | null {
         }
       }
 
-      // Build tabs
+      // Build tabs using tuiparts Tabs recipe
       for (const cat of categoriesToRender) {
-        const isActive = activeCategoryState === cat.name
-        const tabBox = new BoxRenderable(renderer, {
-          height: 1,
-          width: 3,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: isActive ? WhatsAppTheme.panelLight : "transparent",
-          onMouse(event) {
-            if (event.type === "down" && event.button === 0) {
-              activeCategoryState = cat.name
-              const offset = categoryOffsets.get(cat.name)
-              if (offset !== undefined) {
-                gridContainer.scrollTop = offset
-              }
-              // Force rebuild grid to update active highlight
-              rebuildGrid()
-              event.stopPropagation()
-            }
-          },
+        const tab = createTabsTab(renderer, tabsRoot, {
+          label: cat.icon,
+          value: cat.name,
+          paddingX: 1,
         })
-        tabBox.add(new TextRenderable(renderer, { content: cat.icon }))
-        categoriesRow.add(tabBox)
+        categoriesRow.add(tab)
       }
     }
   }
@@ -297,23 +290,35 @@ export function EmojiPicker(): BoxRenderable | null {
 }
 
 /**
+ * Emoji Cell Renderable using tuiparts ButtonRenderable
+ */
+class EmojiCellRenderable extends ButtonRenderable {
+  constructor(ctx: RenderContext, emoji: string, onSelect: () => void) {
+    super(ctx, {
+      width: 3,
+      height: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      onPress: () => onSelect(),
+    })
+    this.add(new TextRenderable(ctx, { content: emoji }))
+    const apply = (state: ButtonState) => {
+      this.backgroundColor = state.pressed || state.focused ? WhatsAppTheme.hoverBg : "transparent"
+    }
+    apply(this.getState())
+    this.subscribe(apply)
+  }
+}
+
+/**
  * Create an emoji cell for the grid (clickable)
  */
-function createEmojiCell(ctx: RenderContext, emoji: string, onSelect: () => void): BoxRenderable {
-  const cell = new BoxRenderable(ctx, {
-    width: 3,
-    height: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    onMouse(event) {
-      if (event.type === "down" && event.button === 0) {
-        onSelect()
-        event.stopPropagation()
-      }
-    },
-  })
-  cell.add(new TextRenderable(ctx, { content: emoji }))
-  return cell
+function createEmojiCell(
+  ctx: RenderContext,
+  emoji: string,
+  onSelect: () => void
+): EmojiCellRenderable {
+  return new EmojiCellRenderable(ctx, emoji, onSelect)
 }
 
 /**
@@ -371,20 +376,10 @@ function showVariantsModal(
       })
 
       for (const emoji of options) {
-        const cell = new BoxRenderable(ctx, {
-          width: 3,
-          height: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          onMouse(event) {
-            if (event.type === "down" && event.button === 0) {
-              onSelect(emoji)
-              dialogManager.close(dialogId)
-              event.stopPropagation()
-            }
-          },
+        const cell = new EmojiCellRenderable(ctx, emoji, () => {
+          onSelect(emoji)
+          dialogManager.close(dialogId)
         })
-        cell.add(new TextRenderable(ctx, { content: emoji }))
         rowBox.add(cell)
       }
 

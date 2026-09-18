@@ -18,6 +18,7 @@ import type { AppState } from "~/state/AppState"
 import type { MessagePreview } from "~/utils/formatters"
 import { loadContacts, loadMessages, startPresenceManagement } from "~/client"
 import { markChatRead } from "~/client/chatActions"
+import { createBadge } from "~/components/Badge"
 import { Icons, WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
 import { ROW_HEIGHT } from "~/utils/chatListScroll"
@@ -33,6 +34,7 @@ import {
   isSelfChat,
   truncate,
 } from "~/utils/formatters"
+import { getSenderColor } from "~/views/conversation/MessageHelpers"
 import { destroyConversationScrollBox } from "~/views/ConversationView"
 
 interface ChatRowData {
@@ -43,7 +45,7 @@ interface ChatRowData {
   timeText: TextRenderable
   timeUnreadContainer: BoxRenderable
   labelsContainer: BoxRenderable
-  unreadBadge: TextRenderable | null
+  unreadBadge: BoxRenderable | TextRenderable | null
   chatInfo: BoxRenderable
   messageRow: BoxRenderable
   messageLeftGroup: BoxRenderable
@@ -90,7 +92,9 @@ class ChatListManager {
    */
   // Hash for structure (chat IDs in order)
   private getChatsStructureHash(chats: ChatSummary[]): string {
-    return chats.map((c) => c.id).join(",")
+    // Object IDs otherwise all become "[object Object]", hiding reorders and
+    // leaving click handlers bound to the chats previously occupying each row.
+    return chats.map((c) => getChatIdString(c.id)).join(",")
   }
 
   // Hash for content (ids + message timestamps + active/selected state + last message content + ack status)
@@ -101,7 +105,7 @@ class ChatListManager {
         .map((c) => {
           const lastMsg = c.lastMessage as
             { timestamp?: number; id?: string; ack?: number } | undefined
-          return `${c.id}:${lastMsg?.timestamp || 0}:${lastMsg?.id || ""}:${lastMsg?.ack ?? ""}`
+          return `${getChatIdString(c.id)}:${lastMsg?.timestamp || 0}:${lastMsg?.id || ""}:${lastMsg?.ack ?? ""}`
         })
         .join(",") + `:${myId}`
     )
@@ -116,7 +120,11 @@ class ChatListManager {
     const newContentHash = this.getChatsContentHash(chats, state)
 
     // CASE 1: exact same content (no changes)
-    if (this.scrollBox && newContentHash === this.currentChatsHash) {
+    if (
+      this.scrollBox &&
+      newStructureHash === this.currentStructureHash &&
+      newContentHash === this.currentChatsHash
+    ) {
       // debugLog("ChatListManager", "Using cached chat list (exact match)")
       // Still need to update selection/active styling as those may have changed
       this.updateSelectionAndActive(state.selectedChatIndex, state.currentChatId, chats)
@@ -145,7 +153,9 @@ class ChatListManager {
     this.destroy()
 
     this.renderer = renderer
+    this.currentChatsHash = newContentHash
     this.currentStructureHash = newStructureHash
+    this.currentSelectedIndex = state.selectedChatIndex
 
     // Create ScrollBox
     this.scrollBox = new ScrollBoxRenderable(renderer, {
@@ -169,7 +179,13 @@ class ChatListManager {
 
     for (let index = 0; index < chats.length; index++) {
       const chat = chats[index]
-      this.createChatRow(renderer, chat, index, state.currentChatId === chat.id, state)
+      this.createChatRow(
+        renderer,
+        chat,
+        index,
+        state.currentChatId === getChatIdString(chat.id),
+        state
+      )
     }
 
     // Apply initial scroll position
@@ -290,7 +306,7 @@ class ChatListManager {
       height: 3,
       justifyContent: "center",
       alignItems: "center",
-      backgroundColor: WhatsAppTheme.green,
+      backgroundColor: getSenderColor(chatIdStr),
       marginRight: 2,
       // Center vertically in 5-line row (1 line padding top/bottom effectively)
       // Actually with paddingTop:1 on parent, we are already starting at line 2
@@ -352,15 +368,13 @@ class ChatListManager {
     timeUnreadContainer.add(labelsContainer)
     this.renderLabels(labelsContainer, chat as unknown as ExtendedChatSummary)
 
-    let unreadBadge: TextRenderable | null = null
+    let unreadBadge: BoxRenderable | TextRenderable | null = null
     const extChat = chat as unknown as ExtendedChatSummary
     if (extChat.unreadCount && extChat.unreadCount > 0) {
       const count = extChat.unreadCount > 20 ? "20+" : `${extChat.unreadCount}`
-      unreadBadge = new TextRenderable(renderer, {
-        content: ` ${count} `,
-        fg: WhatsAppTheme.white,
-        bg: WhatsAppTheme.green,
-        attributes: TextAttributes.BOLD,
+      unreadBadge = createBadge(renderer, {
+        label: count,
+        intent: "success",
       })
       timeUnreadContainer.add(unreadBadge)
     }
@@ -473,7 +487,7 @@ class ChatListManager {
       if (!rowData) continue
 
       const isSelected = index === this.currentSelectedIndex
-      const isCurrentChat = state.currentChatId === chat.id
+      const isCurrentChat = state.currentChatId === getChatIdString(chat.id)
 
       // Update Box Styles
       rowData.box.backgroundColor = isSelected
@@ -498,6 +512,7 @@ class ChatListManager {
 
       rowData.avatarText.content = getInitials(contactName)
       rowData.avatarText.attributes = isSelected ? TextAttributes.BOLD : TextAttributes.NONE
+      rowData.avatar.backgroundColor = getSenderColor(chatIdStr)
 
       // 2. Name
       rowData.nameText.content = truncate(displayName, 50)
@@ -535,11 +550,9 @@ class ChatListManager {
       if (extChat.unreadCount && extChat.unreadCount > 0) {
         const count = extChat.unreadCount > 20 ? "20+" : `${extChat.unreadCount}`
 
-        const badge = new TextRenderable(this.renderer!, {
-          content: ` ${count} `,
-          fg: WhatsAppTheme.white,
-          bg: WhatsAppTheme.green,
-          attributes: TextAttributes.BOLD,
+        const badge = createBadge(this.renderer!, {
+          label: count,
+          intent: "success",
         })
         rowData.timeUnreadContainer.add(badge)
         rowData.unreadBadge = badge
@@ -747,9 +760,10 @@ class ChatListManager {
       const labelDef = state.labels.find((l) => l.id === labelId)
       if (labelDef && labelDef.name) {
         container.add(
-          new TextRenderable(this.renderer!, {
-            content: `[${labelDef.name}]`,
-            fg: labelDef.colorHex || WhatsAppTheme.textSecondary,
+          createBadge(this.renderer!, {
+            label: labelDef.name,
+            intent: "neutral",
+            labelOptions: labelDef.colorHex ? { fg: labelDef.colorHex } : undefined,
           })
         )
       }

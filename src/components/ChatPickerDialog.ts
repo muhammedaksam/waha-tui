@@ -4,19 +4,21 @@
  */
 
 import type { ChatSummary } from "@muhammedaksam/waha-node"
-import type { DialogId } from "@opentui-ui/dialog"
 import type { RenderContext } from "@opentui/core"
 
 import {
   BoxRenderable,
-  InputRenderable,
   InputRenderableEvents,
   KeyEvent,
   TextAttributes,
   TextRenderable,
 } from "@opentui/core"
 
+import type { DialogId } from "~/components/ui/dialog"
 import type { WAMessageExtended } from "~/types"
+import { createButton } from "~/components/Button"
+import { createCheckbox } from "~/components/Checkbox"
+import { createInput } from "~/components/Input"
 import { Icons, WhatsAppTheme } from "~/config/theme"
 import { getDialogManager } from "~/router"
 import { appState } from "~/state/AppState"
@@ -49,6 +51,7 @@ export function showChatPicker(_message: WAMessageExtended): Promise<ChatSummary
     // UI References we need to update imperatively
     let listContainer: BoxRenderable
     let footerText: TextRenderable
+    let sendBtn: ReturnType<typeof createButton> | undefined
     const rowRenderables: BoxRenderable[] = []
 
     // Constants
@@ -141,12 +144,11 @@ export function showChatPicker(_message: WAMessageExtended): Promise<ChatSummary
             },
           })
 
-          // Checkbox
+          // Checkbox using tuiparts recipe
           row.add(
-            new TextRenderable(renderer, {
-              content: isChecked ? `${Icons.checkDouble} ` : "  ",
-              fg: isChecked ? WhatsAppTheme.green : WhatsAppTheme.textTertiary,
-              width: 3,
+            createCheckbox(renderer, {
+              checked: isChecked,
+              mark: Icons.checkDouble,
             })
           )
 
@@ -194,13 +196,17 @@ export function showChatPicker(_message: WAMessageExtended): Promise<ChatSummary
         }
       }
 
-      // Update footer
+      // Update footer and send button
       if (selectedChats.size > 0) {
         footerText.content = `${selectedChats.size} chat(s) selected`
         footerText.fg = WhatsAppTheme.green
       } else {
         footerText.content = "No chats selected"
         footerText.fg = WhatsAppTheme.textSecondary
+      }
+
+      if (sendBtn) {
+        sendBtn.disabled = selectedChats.size === 0
       }
 
       renderer.root.requestRender()
@@ -258,15 +264,9 @@ export function showChatPicker(_message: WAMessageExtended): Promise<ChatSummary
         wrapper.add(new BoxRenderable(ctx, { height: 1 }))
 
         // Search Input
-        const searchInput = new InputRenderable(ctx, {
+        const searchInput = createInput(ctx, {
           id: "chat-picker-search",
           placeholder: "Search name or number",
-          backgroundColor: WhatsAppTheme.inputBg,
-          focusedBackgroundColor: WhatsAppTheme.inputBg,
-          textColor: WhatsAppTheme.textPrimary,
-          focusedTextColor: WhatsAppTheme.white,
-          placeholderColor: WhatsAppTheme.textTertiary,
-          cursorColor: WhatsAppTheme.white,
           width: 48,
         })
 
@@ -307,36 +307,20 @@ export function showChatPicker(_message: WAMessageExtended): Promise<ChatSummary
         })
         footerContainer.add(footerText)
 
-        // Send Button
-        const sendBtn = new BoxRenderable(ctx, {
-          backgroundColor: WhatsAppTheme.green,
-          paddingLeft: 2,
-          paddingRight: 2,
-          height: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          onMouse(event) {
-            if (event.type === "down" && event.button === 0) {
-              debugLog(
-                "ChatPickerDialog",
-                `Send button clicked with ${selectedChats.size} selected chats`
-              )
-              const finalSelection = allChats.filter((c) =>
-                selectedChats.has(getChatIdString(c.id))
-              )
-              // If nothing is selected but enter is clicked, we just close
-              finish(finalSelection)
-              event.stopPropagation()
-            }
+        // Send Button using tuiparts button recipe
+        sendBtn = createButton(ctx, {
+          label: "Send",
+          variant: "primary",
+          disabled: selectedChats.size === 0,
+          onPress: () => {
+            debugLog(
+              "ChatPickerDialog",
+              `Send button clicked with ${selectedChats.size} selected chats`
+            )
+            const finalSelection = allChats.filter((c) => selectedChats.has(getChatIdString(c.id)))
+            finish(finalSelection)
           },
         })
-        sendBtn.add(
-          new TextRenderable(ctx, {
-            content: "Send",
-            fg: WhatsAppTheme.white,
-            attributes: TextAttributes.BOLD,
-          })
-        )
         footerContainer.add(sendBtn)
         wrapper.add(footerContainer)
 

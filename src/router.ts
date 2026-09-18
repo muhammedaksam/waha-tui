@@ -5,9 +5,6 @@
 
 import type { CliRenderer, VChild } from "@opentui/core"
 
-import { DialogContainerRenderable, DialogManager } from "@opentui-ui/dialog"
-import { themes as dialogThemes } from "@opentui-ui/dialog/themes"
-import { ToasterRenderable } from "@opentui-ui/toast"
 import { Box, BoxRenderable, Text } from "@opentui/core"
 
 import type { AppState, ViewType } from "~/state/AppState"
@@ -16,6 +13,12 @@ import { EmojiPicker } from "~/components/EmojiPicker"
 import { Footer } from "~/components/Footer"
 import { WHATSAPP_DIALOG_CONFIG } from "~/components/Modal"
 import { WHATSAPP_TOASTER_CONFIG } from "~/components/Toast"
+import {
+  DialogContainerRenderable,
+  DialogManager,
+  themes as dialogThemes,
+} from "~/components/ui/dialog"
+import { ToasterRenderable } from "~/components/ui/toast"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
 import { chatListManager } from "~/views/ChatListManager"
@@ -29,12 +32,17 @@ import { SettingsView } from "~/views/SettingsView"
 // Singleton DialogManager - initialized in createRenderApp
 
 let dialogManager: DialogManager | null = null
+let dialogContainerInstance: DialogContainerRenderable | null = null
 
 export function getDialogManager(): DialogManager {
   if (!dialogManager) {
     throw new Error("DialogManager not initialized. Call createRenderApp first.")
   }
   return dialogManager
+}
+
+export function getDialogContainer(): DialogContainerRenderable | null {
+  return dialogContainerInstance
 }
 
 /**
@@ -179,13 +187,12 @@ export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean)
     // Add dialog container once - it persists and manages its own dialog lifecycle
     // Must be added AFTER rootWrapper so it renders on top (higher z-index)
     if (!dialogContainerInitialized && dialogManager) {
-      renderer.root.add(
-        new DialogContainerRenderable(renderer, {
-          manager: dialogManager,
-          ...dialogThemes.minimal,
-          ...WHATSAPP_DIALOG_CONFIG,
-        })
-      )
+      dialogContainerInstance = new DialogContainerRenderable(renderer, {
+        manager: dialogManager,
+        ...dialogThemes.minimal,
+        ...WHATSAPP_DIALOG_CONFIG,
+      })
+      renderer.root.add(dialogContainerInstance)
       dialogContainerInitialized = true
     }
 

@@ -3,6 +3,8 @@
  * Display messages for a selected chat
  */
 
+import type { ColorInput } from "@opentui/core"
+
 import {
   Box,
   BoxRenderable,
@@ -22,6 +24,8 @@ import {
 } from "@opentui/core"
 
 import { loadOlderMessages, sendMessage, sendTypingState } from "~/client"
+import { createInput } from "~/components/Input"
+import { createTextarea } from "~/components/Textarea"
 import { Icons, WhatsAppTheme } from "~/config/theme"
 import { TIME_MS } from "~/constants"
 import { appState } from "~/state/AppState"
@@ -122,7 +126,7 @@ export function ConversationView() {
   let headerSubtitle = isSelf
     ? "Message yourself"
     : `click here for ${isGroup ? "group" : "contact"} info`
-  let headerSubtitleColor: string = WhatsAppTheme.textSecondary
+  let headerSubtitleColor: ColorInput = WhatsAppTheme.textSecondary
 
   if (isGroup) {
     // Group chat: show participants and presence
@@ -590,16 +594,13 @@ export function ConversationView() {
           { name: "linefeed" as const, action: "newline" as const },
         ]
 
-    messageInputComponent = new TextareaRenderable(renderer, {
+    messageInputComponent = createTextarea(renderer, {
       id: "message-input",
       flexGrow: 1,
       height: "100%", // Fill the container
       backgroundColor: WhatsAppTheme.panelLight,
-      textColor: WhatsAppTheme.textPrimary,
       focusedBackgroundColor: WhatsAppTheme.panelLight,
-      focusedTextColor: WhatsAppTheme.textPrimary,
       placeholder: t`${fg(WhatsAppTheme.textSecondary)("Type a message...")}`,
-      cursorColor: WhatsAppTheme.green,
       initialValue: state.messageInput,
       wrapMode: "word",
       keyBindings,
@@ -850,16 +851,10 @@ export function ConversationView() {
   if (state.isSearchActive) {
     // Create or reuse the search input
     if (!searchInputComponent) {
-      searchInputComponent = new InputRenderable(renderer, {
+      searchInputComponent = createInput(renderer, {
         value: state.searchQuery,
         placeholder: "Search messages...",
         width: "100%",
-        backgroundColor: WhatsAppTheme.inputBg,
-        focusedBackgroundColor: WhatsAppTheme.inputBg,
-        textColor: WhatsAppTheme.textPrimary,
-        focusedTextColor: WhatsAppTheme.white,
-        placeholderColor: WhatsAppTheme.textTertiary,
-        cursorColor: WhatsAppTheme.white,
       })
 
       searchInputComponent.on(InputRenderableEvents.INPUT, (val: string) => {

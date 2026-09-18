@@ -1,13 +1,11 @@
 /**
  * Toast Notification Component
- * Using @opentui-ui/toast for beautiful sonner-inspired toast notifications
+ * Using tuiparts toast (@opentui-ui/toast) for beautiful sonner-inspired toast notifications
  */
 
-import type { ToasterOptions } from "@opentui-ui/toast"
-
-import { toast, TOAST_DURATION } from "@opentui-ui/toast"
-
+import type { ToasterOptions } from "~/components/ui/toast"
 import type { AppError } from "~/services/ErrorService"
+import { toast, TOAST_DURATION } from "~/components/ui/toast"
 import { WDSColors, WhatsAppTheme } from "~/config/theme"
 import { TIME_MS } from "~/constants"
 
