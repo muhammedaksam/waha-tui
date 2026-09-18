@@ -13,6 +13,10 @@
 A beautiful Terminal User Interface for WhatsApp using [WAHA (WhatsApp HTTP API)](https://github.com/devlikeapro/waha). Manage your WhatsApp sessions, chats, and messages directly from your terminal with an intuitive TUI powered by [OpenTUI](https://github.com/anomalyco/opentui).
 
 <p align="center">
+<img src=".github/media/images/00-open-graph.png" width="100%" alt="WAHA-TUI" />
+</p>
+
+<p align="center">
   <video src="https://github.com/user-attachments/assets/151a3ce4-fbf2-477a-83e7-3bc77e59a980" width="90%" autoplay loop muted></video>
 </p>
 
