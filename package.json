@@ -1,6 +1,6 @@
 {
   "name": "@muhammedaksam/waha-tui",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "TUI client for WhatsApp using WAHA (WhatsApp HTTP API) - manage chats, send messages, and more from your terminal",
   "type": "module",
   "bin": {
@@ -32,7 +32,7 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "dev:debug": "bun dev --debug",
-    "build": "bun build src/index.ts --outdir dist --target bun --external '@opentui/*' --external '@tuiparts/*' --external 'node-notifier'",
+    "build": "bun build src/index.ts --outdir dist --target bun --external '@opentui/*' --external 'node-notifier'",
     "prepublishOnly": "bun run build",
     "typecheck": "bun x tsc --noEmit",
     "lint": "eslint . && bun run lint:md",
@@ -56,6 +56,7 @@
     "@commitlint/config-conventional": "^21.2.0",
     "@eslint/js": "^10.0.1",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
+    "@tuiparts/core": "^0.0.6",
     "@types/bun": "latest",
     "@types/node": "^26.1.2",
     "@types/node-notifier": "^8.0.5",
@@ -76,7 +77,6 @@
     "@opentui/core": "^0.5.11",
     "@opentui/keymap": "^0.5.11",
     "@opentui/qrcode": "^0.5.11",
-    "@tuiparts/core": "^0.0.6",
     "node-notifier": "^10.0.1"
   },
   "engines": {
