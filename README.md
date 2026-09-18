@@ -10,7 +10,7 @@
 
 > ⚠️ **Beta** - This project is under active development. Some features may be incomplete or change between releases.
 
-A beautiful Terminal User Interface for WhatsApp using [WAHA (WhatsApp HTTP API)](https://github.com/devlikeapro/waha). Manage your WhatsApp sessions, chats, and messages directly from your terminal with an intuitive TUI powered by [OpenTUI](https://opentui.com).
+A beautiful Terminal User Interface for WhatsApp using [WAHA (WhatsApp HTTP API)](https://github.com/devlikeapro/waha). Manage your WhatsApp sessions, chats, and messages directly from your terminal with an intuitive TUI powered by [OpenTUI](https://github.com/anomalyco/opentui).
 
 <p align="center">
   <video src="https://github.com/user-attachments/assets/151a3ce4-fbf2-477a-83e7-3bc77e59a980" width="90%" autoplay loop muted></video>
@@ -21,11 +21,16 @@ A beautiful Terminal User Interface for WhatsApp using [WAHA (WhatsApp HTTP API)
 - 📱 **Session Management** - Create, view, and manage WAHA sessions with QR code or phone number pairing
 - 💬 **Chat Interface** - Browse chats with WhatsApp-style layout and real-time updates
 - ✉️ **Messaging** - Send and receive messages with read receipts, **(edited)** indicators, and auto-history loading
+- 🧩 **UI Component Ecosystem** - Modern, composable UI primitives and recipes powered by [@tuiparts/core](https://github.com/tuiparts/tuiparts/tree/main/packages/core) (buttons, dialogs, toasts, switches, tabs, accordions, sliders, toggles, radio groups)
+- 📷 **Native QR Code** - Crystal-clear, responsive terminal QR code pairing powered by [@opentui/qrcode](https://github.com/anomalyco/opentui/tree/main/packages/qrcode)
+- ⌨️ **Declarative Keymaps** - Layered keybindings and focus routing powered by [@opentui/keymap](https://github.com/anomalyco/opentui/tree/main/packages/keymap) with reliable modal trapping and dialog navigation
+- 🎨 **Adaptive Dynamic Themes** - Automatic terminal palette synchronization (`useSystemTheme` enabled by default) with system, dark, and light modes
 - 📊 **Interactive Polls** - View and vote in polls with real-time result progress bars (`█░`)
 - 🔗 **Link Previews** - Rich metadata rendering for URLs (title, description, domain) directly in the chat
 - 🔍 **Search & Filters** - Filter chats by all, unread, favorites, groups, or **labeled** with instant global and in-chat search
 - 📋 **Context Menus** - Right-click style menus for chats (archive, delete, mark unread, pin, mute) and messages (star, pin, react, forward, delete)
-- ⚙️ **Settings** - Configurable notification preferences, enter-to-send, and background sync
+- ☑️ **Bulk Message Actions** - Multi-message selection mode (`x`) with bulk star, forward, and deletion
+- ⚙️ **Settings** - Configurable notification preferences, enter-to-send, theme customization, and background sync
 - 🔔 **Desktop Notifications** - Native OS notifications for messages and calls with per-category controls
 - ⏱️ **Disappearing Messages** - Visibility indicators for chats with disappearing mode enabled
 - 🔄 **Real-Time Updates** - WebSocket-powered live updates for messages, reactions, polls, labels, and typing indicators
@@ -112,9 +117,9 @@ WAHA_API_KEY=your-api-key-here
 
 ```json
 {
-  "version": "1.6.1",
+  "version": "1.7.1",
   "createdAt": "2024-12-19T00:00:00.000Z",
-  "updatedAt": "2024-12-19T00:00:00.000Z",
+  "updatedAt": "2026-09-18T00:00:00.000Z",
   "settings": {
     "enterIsSend": true,
     "messageNotifications": {
@@ -133,7 +138,10 @@ WAHA_API_KEY=your-api-key-here
       "playSound": false
     },
     "showPreviews": true,
-    "backgroundSync": true
+    "backgroundSync": true,
+    "recentEmojis": [],
+    "useSystemTheme": true,
+    "themeMode": "system"
   }
 }
 ```
@@ -158,6 +166,15 @@ WAHA_API_KEY=your-api-key-here
 | `1`      | Go to Sessions view |
 | `2`      | Go to Chats view    |
 | `Ctrl+C` | Exit immediately    |
+
+#### Dialogs & Modals
+
+| Key                  | Action                  |
+| -------------------- | ----------------------- |
+| `Tab` / `Right`      | Focus next button       |
+| `Shift+Tab` / `Left` | Focus previous button   |
+| `Enter` / `Space`    | Activate focused button |
+| `Esc`                | Dismiss / cancel dialog |
 
 #### QR / Phone Pairing
 
@@ -214,6 +231,10 @@ WAHA_API_KEY=your-api-key-here
 | `a`              | Attach media                        |
 | `e`              | React with emoji to last message    |
 | `m`              | Open message context menu           |
+| `x`              | Toggle message selection mode       |
+| `d`              | Bulk delete selected messages       |
+| `f`              | Bulk forward selected messages      |
+| `s`              | Bulk star selected messages         |
 | `/` or `Ctrl+F`  | Open in-chat search                 |
 | `Esc`            | Exit input mode / Clear search      |
 | `Enter`          | Next search result (when searching) |
@@ -221,11 +242,11 @@ WAHA_API_KEY=your-api-key-here
 
 #### Settings
 
-| Key            | Action                         |
-| -------------- | ------------------------------ |
-| `↑/↓` or `j/k` | Navigate menu items            |
-| `Enter/Space`  | Toggle setting / Open sub-menu |
-| `Esc`          | Go back                        |
+| Key            | Action                                                        |
+| -------------- | ------------------------------------------------------------- |
+| `↑/↓` or `j/k` | Navigate categories / options                                 |
+| `Enter/Space`  | Toggle setting / Enter sub-menu (Chats, Theme, Notifications) |
+| `Esc`          | Return to previous menu / Exit settings                       |
 
 ### Debug Logging
 
@@ -248,8 +269,11 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for development setup, commands, and projec
 ## Technologies
 
 - **Runtime**: [Bun](https://bun.sh)
-- **UI Framework**: [OpenTUI](https://opentui.com)
-- **WAHA SDK**: [@muhammedaksam/waha-node](https://www.npmjs.com/package/@muhammedaksam/waha-node)
+- **UI Framework**: [@opentui/core](https://github.com/anomalyco/opentui/tree/main/packages/core)
+- **Keymaps & Focus**: [@opentui/keymap](https://github.com/anomalyco/opentui/tree/main/packages/keymap)
+- **QR Code**: [@opentui/qrcode](https://github.com/anomalyco/opentui/tree/main/packages/qrcode)
+- **UI Primitives & Recipes**: [@tuiparts/core](https://github.com/tuiparts/tuiparts/tree/main/packages/core)
+- **WAHA SDK**: [@muhammedaksam/waha-node](https://github.com/muhammedaksam/waha-node)
 - **TypeScript**: Type-safe development
 
 ## Contributing
@@ -268,4 +292,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [WAHA HTTP API](https://github.com/devlikeapro/waha) - WhatsApp HTTP API
 - [WAHA Node SDK](https://github.com/muhammedaksam/waha-node) - TypeScript SDK for WAHA
-- [OpenTUI](https://opentui.com) - Terminal UI framework used by waha-tui
+- [OpenTUI](https://github.com/anomalyco/opentui) - Terminal UI framework used by waha-tui
+- [tuiparts.sh](https://github.com/tuiparts/tuiparts) - Primitive and recipe ecosystem for OpenTUI

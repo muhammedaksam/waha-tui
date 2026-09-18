@@ -24,7 +24,7 @@ A clear and concise description of what you expected to happen.
 
 ## Environment
 
-- **WAHA-TUI Version:** [e.g. 1.6.3]
+- **WAHA-TUI Version:** [e.g. 1.7.1]
 - **Bun Version:** [e.g. 1.1.0]
 - **OS:** [e.g. Ubuntu 22.04, macOS Sonoma, Windows 11 (WSL2)]
 - **Terminal Emulator:** [e.g. Kitty, iTerm2, Windows Terminal]
