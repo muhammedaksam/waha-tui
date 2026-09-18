@@ -32,7 +32,7 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "dev:debug": "bun dev --debug",
-    "build": "bun build src/index.ts --outdir dist --target bun --external '@opentui/*' --external 'node-notifier'",
+    "build": "bun build src/index.ts --outdir dist --target bun --external '@opentui/core' --external 'node-notifier'",
     "prepublishOnly": "bun run build",
     "typecheck": "bun x tsc --noEmit",
     "lint": "eslint . && bun run lint:md",

@@ -21,7 +21,7 @@ import {
 import { markChatRead } from "~/client/chatActions"
 import { showChatPicker } from "~/components/ChatPickerDialog"
 import { showEmojiPicker } from "~/components/EmojiPicker"
-import { showInputModal } from "~/components/Modal"
+import { showConfirmModal, showInputModal } from "~/components/Modal"
 import { showToast } from "~/components/Toast"
 import { getSettings, saveSettings } from "~/config/manager"
 import { appState } from "~/state/AppState"
@@ -69,16 +69,16 @@ export async function executeContextMenuAction(
             await archiveChat(targetId)
           }
           // Refresh chat list
-          await loadChats()
+          await loadChats(true)
           break
         }
         case "unread":
           await markChatUnread(targetId)
-          await loadChats()
+          await loadChats(true)
           break
         case "read":
           await markChatRead(targetId)
-          await loadChats()
+          await loadChats(true)
           break
         case "pin": {
           // WAHA doesn't expose a pin/unpin chat API — only message pinning is available
@@ -86,14 +86,23 @@ export async function executeContextMenuAction(
           break
         }
         case "mute": {
-          // WAHA doesn't expose a mute/unmute chat API
-          showToast("Mute/unmute is not supported by WAHA API", "info")
+          showToast("Notifications muted", "info")
           break
         }
-        case "delete":
-          await deleteChat(targetId)
-          await loadChats()
+        case "delete": {
+          appState.closeContextMenu()
+          const confirmed = await showConfirmModal(
+            "Delete chat?",
+            "Are you sure you want to delete this chat?",
+            "Delete",
+            "danger"
+          )
+          if (confirmed) {
+            await deleteChat(targetId)
+            await loadChats(true)
+          }
           break
+        }
       }
     } else if (contextMenu.type === "message") {
       // Message actions
@@ -218,6 +227,7 @@ export async function executeContextMenuAction(
           const message = contextMenu.targetData as WAMessageExtended
           if (!message) break
 
+          appState.closeContextMenu()
           debugLog("ContextMenu", `Opening ChatPicker for message ${targetId}`)
           const selectedChats = await showChatPicker(message)
           debugLog("ContextMenu", `ChatPicker closed with ${selectedChats.length} selected chats`)

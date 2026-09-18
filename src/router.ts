@@ -86,6 +86,7 @@ export function canUseFastPath(state: AppState, forceRebuild: boolean): boolean 
     !forceRebuild &&
     state.currentView === "chats" &&
     state.lastChangeType === "selection" &&
+    !state.contextMenu?.visible &&
     chatListManager.hasCachedList()
   )
 }

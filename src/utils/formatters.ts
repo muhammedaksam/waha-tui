@@ -262,10 +262,17 @@ export function formatLastSeen(timestamp: number): string {
  */
 export function getInitials(name: string, maxCount: number = 3): string {
   if (!name) return "?"
-  const words = name.trim().split(/\s+/)
+  // Strip emojis and pictographs so letters are preferred as initials
+  const cleaned = name.replace(/[\p{Extended_Pictographic}\p{Emoji_Component}]/gu, "").trim()
+  const target = cleaned || name.trim()
+  const words = target.split(/\s+/).filter(Boolean)
+  if (words.length === 0) return "?"
   return words
     .slice(0, maxCount)
-    .map((word) => word.charAt(0).toUpperCase())
+    .map((word) => {
+      const firstChar = Array.from(word)[0]
+      return firstChar ? firstChar.toUpperCase() : ""
+    })
     .join("")
 }
 

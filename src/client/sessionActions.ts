@@ -165,17 +165,21 @@ export async function loadAllContacts(): Promise<Map<string, string>> {
   }
 }
 
-export async function loadChats(): Promise<void> {
+export async function loadChats(forceReload = false): Promise<void> {
   try {
     const session = getSession()
     const cacheKey = CacheKeys.chats(session)
 
-    // Check cache first
-    const cached = cacheService.get<ChatSummary[]>(cacheKey)
-    if (cached) {
-      debugLog("Chats", `Using cached ${cached.length} chats`)
-      appState.setChats(cached)
-      return
+    if (forceReload) {
+      cacheService.delete(cacheKey)
+    } else {
+      // Check cache first
+      const cached = cacheService.get<ChatSummary[]>(cacheKey)
+      if (cached) {
+        debugLog("Chats", `Using cached ${cached.length} chats`)
+        appState.setChats(cached)
+        return
+      }
     }
 
     debugLog("Chats", `Loading chats for session: ${session}`)

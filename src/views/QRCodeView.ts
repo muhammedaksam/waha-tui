@@ -11,6 +11,7 @@ import { Logo } from "~/components/Logo"
 import { Icons, WhatsAppTheme } from "~/config/theme"
 import { TIME_MS } from "~/constants"
 import { appState } from "~/state/AppState"
+import { getRenderer } from "~/state/RendererContext"
 import { debugLog } from "~/utils/debug"
 import { getQRCode, requestPairingCode } from "~/utils/pairing"
 import { createNewSession } from "~/views/SessionCreate"
@@ -21,6 +22,20 @@ let statusCheckInterval: NodeJS.Timeout | null = null
 
 // Current session name for pairing requests
 let currentSessionName: string = ""
+
+/**
+ * Get current terminal dimensions safely
+ */
+function getTerminalDimensions(): { width: number; height: number } {
+  try {
+    const renderer = getRenderer()
+    const width = renderer.width || renderer.terminalWidth || 120
+    const height = renderer.height || renderer.terminalHeight || 45
+    return { width, height }
+  } catch {
+    return { width: 120, height: 45 }
+  }
+}
 
 /**
  * Stop QR code auto-refresh and status checking
@@ -37,56 +52,47 @@ export function stopQRRefresh(): void {
 }
 
 /**
- * Toggle between QR and phone authentication modes
+ * Switch between QR code and phone number pairing modes
  */
 export function toggleAuthMode(): void {
-  const state = appState.getState()
-  const newMode = state.authMode === "qr" ? "phone" : "qr"
-  appState.setAuthMode(newMode)
-  appState.setPairingCode(null)
-  appState.setPairingStatus("idle")
+  const currentMode = appState.getState().authMode
+  const nextMode = currentMode === "qr" ? "phone" : "qr"
+  appState.setAuthMode(nextMode)
   appState.setPairingError(null)
-  debugLog("Auth", `Switched to ${newMode} mode`)
+  debugLog("Auth", `Switched auth mode to: ${nextMode}`)
 }
 
 /**
- * Handle phone number input character
+ * Handle digit input for phone number
  */
 export function handlePhoneInput(char: string): void {
-  const state = appState.getState()
-  if (state.authMode !== "phone") return
+  if (!/^\d$/.test(char)) return
 
-  // Only allow digits
-  if (/^\d$/.test(char)) {
-    appState.setPhoneNumber(state.phoneNumber + char)
-    appState.setPairingError(null)
+  const currentNumber = appState.getState().phoneNumber
+  if (currentNumber.length < 15) {
+    appState.setPhoneNumber(currentNumber + char)
   }
 }
 
 /**
- * Handle backspace in phone number input
+ * Handle backspace for phone number
  */
 export function handlePhoneBackspace(): void {
-  const state = appState.getState()
-  if (state.authMode !== "phone") return
-
-  if (state.phoneNumber.length > 0) {
-    appState.setPhoneNumber(state.phoneNumber.slice(0, -1))
-    appState.setPairingError(null)
+  const currentNumber = appState.getState().phoneNumber
+  if (currentNumber.length > 0) {
+    appState.setPhoneNumber(currentNumber.slice(0, -1))
   }
 }
 
 /**
- * Submit phone number and request pairing code
+ * Submit phone number for pairing code
  */
 export async function submitPhoneNumber(): Promise<void> {
   const state = appState.getState()
-  if (state.authMode !== "phone") return
-  if (state.pairingStatus === "requesting") return
+  const phoneNumber = state.phoneNumber
 
-  const phoneNumber = state.phoneNumber.trim()
   if (!phoneNumber || phoneNumber.length < 10) {
-    appState.setPairingError("Enter a valid phone number (10+ digits)")
+    appState.setPairingError("Please enter a valid phone number (at least 10 digits)")
     appState.setPairingStatus("error")
     return
   }
@@ -109,13 +115,40 @@ export async function submitPhoneNumber(): Promise<void> {
 /**
  * QR Mode Instructions Component
  */
-function QRModeInstructions() {
+function QRModeInstructions(compact: boolean = false) {
+  if (compact) {
+    return Box(
+      {
+        flexDirection: "column",
+        justifyContent: "center",
+        width: 28,
+        paddingRight: 1,
+      },
+      Text({
+        content: "Steps to log in",
+        fg: WhatsAppTheme.textPrimary,
+        attributes: TextAttributes.BOLD,
+      }),
+      Box({ height: 1 }),
+      Text({ content: `${Icons.circled1} Open WhatsApp 📱`, fg: WhatsAppTheme.textPrimary }),
+      Text({ content: "  on your phone", fg: WhatsAppTheme.textSecondary }),
+      Box({ height: 1 }),
+      Text({ content: `${Icons.circled2} Menu ⋮ or`, fg: WhatsAppTheme.textPrimary }),
+      Text({ content: "  Settings ⚙", fg: WhatsAppTheme.textSecondary }),
+      Box({ height: 1 }),
+      Text({ content: `${Icons.circled3} Linked devices`, fg: WhatsAppTheme.textPrimary }),
+      Text({ content: "  > Link a device", fg: WhatsAppTheme.textSecondary }),
+      Box({ height: 1 }),
+      Text({ content: `${Icons.circled4} Scan QR code`, fg: WhatsAppTheme.textPrimary })
+    )
+  }
+
   return Box(
     {
       flexDirection: "column",
       justifyContent: "center",
-      width: "40%",
-      paddingRight: 4,
+      width: "38%",
+      paddingRight: 3,
     },
     Text({
       content: "Steps to log in",
@@ -236,7 +269,7 @@ function PhoneModeInstructions() {
 /**
  * QR Code Display with phone number link below
  */
-function QRCodeDisplay() {
+function QRCodeDisplay(compact: boolean = false) {
   const state = appState.getState()
   const qrCode = state.qrCode ?? state.qrCodeMatrix
 
@@ -272,18 +305,27 @@ function QRCodeDisplay() {
       fallbackContent: "Terminal too small for QR",
       fallbackColor: WhatsAppTheme.textSecondary,
     }),
-    // Spacing
-    Box({ height: 1 }),
-    // "Log in with phone number" link - like WhatsApp Web
-    Text({
-      content: "Log in with phone number >",
-      fg: WhatsAppTheme.green,
-      attributes: TextAttributes.UNDERLINE,
-    }),
-    Text({
-      content: "(Press P to switch)",
-      fg: WhatsAppTheme.textTertiary,
-    })
+    // Spacing and link
+    ...(compact
+      ? [
+          Text({
+            content: "Log in with phone number (Press P) >",
+            fg: WhatsAppTheme.green,
+            attributes: TextAttributes.UNDERLINE,
+          }),
+        ]
+      : [
+          Box({ height: 1 }),
+          Text({
+            content: "Log in with phone number >",
+            fg: WhatsAppTheme.green,
+            attributes: TextAttributes.UNDERLINE,
+          }),
+          Text({
+            content: "(Press P to switch)",
+            fg: WhatsAppTheme.textTertiary,
+          }),
+        ])
   )
 }
 
@@ -456,6 +498,117 @@ function PairingCodeDisplay() {
 export function QRCodeView() {
   const state = appState.getState()
   const isPhoneMode = state.authMode === "phone"
+  const { width: termWidth, height: termHeight } = getTerminalDimensions()
+
+  const isLarge = termWidth >= 120 && termHeight >= 46
+  const isMedium = termWidth >= 98 && termHeight >= 39
+  const isTooSmall = termWidth < 72 || termHeight < 39
+
+  // Header with WhatsApp branding
+  const header = isLarge
+    ? Box(
+        {
+          height: 3,
+          width: "100%",
+          paddingLeft: 2,
+          alignItems: "center",
+          flexDirection: "row",
+        },
+        Logo({ color: WhatsAppTheme.green })
+      )
+    : Box(
+        {
+          height: 1,
+          width: "100%",
+          paddingLeft: 2,
+          alignItems: "center",
+          flexDirection: "row",
+        },
+        Text({
+          content: `${Icons.whatsapp} WhatsApp Web Login`,
+          fg: WhatsAppTheme.green,
+          attributes: TextAttributes.BOLD,
+        })
+      )
+
+  // Determine main inner card contents
+  let innerContent: ReturnType<typeof Box>[]
+  if (isPhoneMode) {
+    innerContent = [
+      state.pairingStatus === "success" && state.pairingCode
+        ? PairingCodeDisplay()
+        : PhoneModeInstructions(),
+    ]
+  } else if (isTooSmall) {
+    innerContent = [
+      Box(
+        {
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 1,
+        },
+        Text({
+          content: "Terminal too small for QR code",
+          fg: WhatsAppTheme.textPrimary,
+          attributes: TextAttributes.BOLD,
+        }),
+        Box({ height: 1 }),
+        Text({
+          content: `Requires at least 72x39 (current: ${termWidth}x${termHeight})`,
+          fg: WhatsAppTheme.textSecondary,
+        }),
+        Box({ height: 1 }),
+        Text({
+          content: "Please resize your terminal or press P for phone login",
+          fg: WhatsAppTheme.textSecondary,
+        }),
+        Box({ height: 1 }),
+        Text({
+          content: "Log in with phone number (Press P) >",
+          fg: WhatsAppTheme.green,
+          attributes: TextAttributes.UNDERLINE,
+        })
+      ),
+    ]
+  } else if (isLarge) {
+    innerContent = [QRModeInstructions(false), QRCodeDisplay(false)]
+  } else if (isMedium) {
+    // Medium desktop (e.g. 103x43): compact side-by-side
+    innerContent = [QRModeInstructions(true), QRCodeDisplay(true)]
+  } else {
+    // Narrow but tall enough (72 <= width < 98, height >= 39): stacked layout
+    innerContent = [
+      Box(
+        {
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        Text({
+          content: "Open WhatsApp > Linked devices > Link a device",
+          fg: WhatsAppTheme.textSecondary,
+        }),
+        Box({ height: 1 }),
+        QRCodeDisplay(true)
+      ),
+    ]
+  }
+
+  // Inner card box
+  const innerCard = Box(
+    {
+      flexDirection: isPhoneMode || isTooSmall || (!isLarge && !isMedium) ? "column" : "row",
+      borderStyle: "rounded",
+      justifyContent: "center",
+      alignItems: "center",
+      borderColor: WhatsAppTheme.borderLight,
+      padding: isLarge ? 2 : 0,
+      paddingLeft: isLarge ? 3 : 1,
+      paddingRight: isLarge ? 3 : 1,
+    },
+    ...innerContent
+  )
 
   return Box(
     {
@@ -463,65 +616,35 @@ export function QRCodeView() {
       flexGrow: 1,
       backgroundColor: WhatsAppTheme.background,
     },
-
-    // Header with WhatsApp branding
-    Box(
-      {
-        height: 3,
-        width: "100%",
-        paddingLeft: 2,
-        alignItems: "center",
-        flexDirection: "row",
-      },
-      Logo({ color: WhatsAppTheme.green })
-    ),
-
-    // Main content area
+    header,
     Box(
       {
         flexDirection: "row",
         flexGrow: 1,
         justifyContent: "center",
         alignItems: "center",
-        padding: 2,
+        padding: isLarge ? 1 : 0,
       },
-
-      Box(
-        {
-          flexDirection: isPhoneMode ? "column" : "row",
-          borderStyle: "rounded",
-          justifyContent: "center",
-          alignItems: "center",
-          borderColor: WhatsAppTheme.borderLight,
-          padding: 3,
-          paddingLeft: 4,
-          paddingRight: 4,
-        },
-
-        ...(isPhoneMode
-          ? [
-              state.pairingStatus === "success" && state.pairingCode
-                ? PairingCodeDisplay()
-                : PhoneModeInstructions(),
-            ]
-          : [QRModeInstructions(), QRCodeDisplay()])
-      )
+      innerCard
     ),
-
-    // Footer
-    Box(
-      {
-        height: 2,
-        width: "100%",
-        justifyContent: "center",
-        alignItems: "center",
-        flexDirection: "row",
-      },
-      Text({
-        content: `${Icons.lock} Your personal messages are end-to-end encrypted`,
-        fg: WhatsAppTheme.textSecondary,
-      })
-    )
+    // Footer only displayed when there is adequate vertical space
+    ...(isLarge
+      ? [
+          Box(
+            {
+              height: 2,
+              width: "100%",
+              justifyContent: "center",
+              alignItems: "center",
+              flexDirection: "row",
+            },
+            Text({
+              content: `${Icons.lock} Your personal messages are end-to-end encrypted`,
+              fg: WhatsAppTheme.textSecondary,
+            })
+          ),
+        ]
+      : [])
   )
 }
 
@@ -688,6 +811,9 @@ export async function showQRCode(name: string): Promise<void> {
         // Show loading screen
         appState.setCurrentSession(name)
         appState.setCurrentView("loading")
+
+        // Keep loading screen visible for smooth transition
+        await new Promise((resolve) => setTimeout(resolve, 1500))
 
         // Load chats in background
         await loadChats()

@@ -61,19 +61,33 @@ let lastTopMessageOffset: number = 0 // Track offset from top for fine-grained s
 
 // Expose input focus control
 export function focusMessageInput(): void {
-  if (messageInputComponent) {
-    messageInputComponent.focus()
+  try {
+    if (messageInputComponent && !messageInputComponent.isDestroyed) {
+      messageInputComponent.focus()
+    }
+  } catch {
+    // ignore
   }
 }
 
 export function blurMessageInput(): void {
-  if (messageInputComponent) {
-    messageInputComponent.blur()
+  try {
+    if (messageInputComponent && !messageInputComponent.isDestroyed) {
+      messageInputComponent.blur()
+    }
+  } catch {
+    // ignore
   }
 }
 
 export function isMessageInputFocused(): boolean {
-  return messageInputComponent ? messageInputComponent.focused : false
+  try {
+    return messageInputComponent && !messageInputComponent.isDestroyed
+      ? messageInputComponent.focused
+      : false
+  } catch {
+    return false
+  }
 }
 
 export function ConversationView() {
@@ -339,6 +353,7 @@ export function ConversationView() {
     try {
       if (!child.isDestroyed) {
         conversationScrollBox!.remove(child)
+        child.destroyRecursively()
       }
     } catch {
       // Child may have been destroyed or detached during concurrent re-renders (e.g. background sync).
@@ -870,7 +885,13 @@ export function ConversationView() {
 
       // Auto-focus
       setTimeout(() => {
-        searchInputComponent?.focus()
+        try {
+          if (searchInputComponent && !searchInputComponent.isDestroyed) {
+            searchInputComponent.focus()
+          }
+        } catch {
+          // ignore
+        }
       }, 50)
     }
 

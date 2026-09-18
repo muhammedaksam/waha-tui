@@ -21,33 +21,21 @@ interface ExtendedChat {
  * Extract the extended chat properties from _chat
  */
 function getChatProperties(chat: ChatSummary): ExtendedChat {
-  // Check top-level properties first (populated by modified waha backend)
   const c = chat as ChatSummary & {
     archived?: boolean
     pinned?: boolean
     unreadCount?: number
     star?: boolean
+    labels?: string[]
   }
-  if (c.archived !== undefined) {
-    return {
-      archived: c.archived,
-      pinned: c.pinned,
-      unreadCount: c.unreadCount,
-      star: c.star,
-      labels: (c as ChatSummary & { labels?: string[] }).labels,
-    }
-  }
-
   const rawChat = chat._chat as Record<string, unknown> | undefined
-  if (!rawChat) return {}
 
   return {
-    // Check both archived (standard) and archive (some raw data formats)
-    archived: (rawChat.archived ?? rawChat.archive) as boolean | undefined,
-    unreadCount: rawChat.unreadCount as number | undefined,
-    pinned: (rawChat.pinned ?? rawChat.pin) as boolean | undefined,
-    star: rawChat.star as boolean | undefined,
-    labels: rawChat.labels as string[] | undefined,
+    archived: (c.archived ?? rawChat?.archived ?? rawChat?.archive) as boolean | undefined,
+    unreadCount: (c.unreadCount ?? rawChat?.unreadCount) as number | undefined,
+    pinned: (c.pinned ?? rawChat?.pinned ?? rawChat?.pin) as boolean | undefined,
+    star: (c.star ?? rawChat?.star) as boolean | undefined,
+    labels: c.labels ?? (rawChat?.labels as string[] | undefined),
   }
 }
 
