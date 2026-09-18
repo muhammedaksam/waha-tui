@@ -24,7 +24,7 @@ bun dev
 | `bun build`                   | Build for production                           |
 | `bun check`                   | Run all checks (typecheck, lint, format, test) |
 | `bun test`                    | Run tests                                      |
-| `bun lint`                    | Run ESLint                                     |
+| `bun lint`                    | Run ESLint and Markdownlint                    |
 | `bun format`                  | Format code with Prettier                      |
 | `bun migration:create <name>` | Create a new migration                         |
 

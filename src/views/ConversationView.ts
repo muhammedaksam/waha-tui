@@ -61,19 +61,33 @@ let lastTopMessageOffset: number = 0 // Track offset from top for fine-grained s
 
 // Expose input focus control
 export function focusMessageInput(): void {
-  if (messageInputComponent) {
-    messageInputComponent.focus()
+  try {
+    if (messageInputComponent && !messageInputComponent.isDestroyed) {
+      messageInputComponent.focus()
+    }
+  } catch {
+    // ignore
   }
 }
 
 export function blurMessageInput(): void {
-  if (messageInputComponent) {
-    messageInputComponent.blur()
+  try {
+    if (messageInputComponent && !messageInputComponent.isDestroyed) {
+      messageInputComponent.blur()
+    }
+  } catch {
+    // ignore
   }
 }
 
 export function isMessageInputFocused(): boolean {
-  return messageInputComponent ? messageInputComponent.focused : false
+  try {
+    return messageInputComponent && !messageInputComponent.isDestroyed
+      ? messageInputComponent.focused
+      : false
+  } catch {
+    return false
+  }
 }
 
 export function ConversationView() {
@@ -339,6 +353,7 @@ export function ConversationView() {
     try {
       if (!child.isDestroyed) {
         conversationScrollBox!.remove(child)
+        child.destroyRecursively()
       }
     } catch {
       // Child may have been destroyed or detached during concurrent re-renders (e.g. background sync).
@@ -617,71 +632,78 @@ export function ConversationView() {
 
     // Auto-expand logic
     messageInputComponent.onContentChange = () => {
-      if (messageInputComponent) {
-        // Sync state
-        appState.setMessageInput(messageInputComponent.plainText)
+      if (!messageInputComponent || messageInputComponent.isDestroyed) return
 
-        // Handle typing indicator
-        if (state.currentChatId && messageInputComponent.plainText.length > 0) {
-          sendTypingState(state.currentChatId, "composing")
+      // Sync state
+      appState.setMessageInput(messageInputComponent.plainText)
 
-          if (typingTimeout) {
-            clearTimeout(typingTimeout)
-          }
+      // Handle typing indicator
+      if (state.currentChatId && messageInputComponent.plainText.length > 0) {
+        sendTypingState(state.currentChatId, "composing")
 
-          typingTimeout = setTimeout(() => {
-            if (state.currentChatId) {
-              sendTypingState(state.currentChatId, "paused")
-            }
-          }, TIME_MS.TYPING_PAUSE_DELAY)
+        if (typingTimeout) {
+          clearTimeout(typingTimeout)
         }
 
-        // Calculate needed height
-        // Use lineCount (logical lines) instead of virtualLineCount
-        // as virtualLineCount may not be updated until after layout
-        const lineCount = Math.max(1, messageInputComponent.lineCount)
-
-        // Calculate container height:
-        // 2 (border) + lineCount
-        const neededHeight = Math.min(lineCount + 2, MAX_INPUT_LINES + 2)
-
-        debugLog(
-          "[Input]",
-          `lineCount=${lineCount}, neededHeight=${neededHeight}, currentHeight=${appState.getState().inputHeight}`
-        )
-
-        // Update state - this triggers a re-render with new height
-        appState.setInputHeight(neededHeight)
+        typingTimeout = setTimeout(() => {
+          if (state.currentChatId) {
+            sendTypingState(state.currentChatId, "paused")
+          }
+        }, TIME_MS.TYPING_PAUSE_DELAY)
       }
+
+      // Calculate needed height
+      // Use lineCount (logical lines) instead of virtualLineCount
+      // as virtualLineCount may not be updated until after layout
+      const lineCount = Math.max(1, messageInputComponent.lineCount)
+
+      // Calculate container height:
+      // 2 (border) + lineCount
+      const neededHeight = Math.min(lineCount + 2, MAX_INPUT_LINES + 2)
+
+      debugLog(
+        "[Input]",
+        `lineCount=${lineCount}, neededHeight=${neededHeight}, currentHeight=${appState.getState().inputHeight}`
+      )
+
+      // Update state - this triggers a re-render with new height
+      appState.setInputHeight(neededHeight)
     }
 
     messageInputComponent.onSubmit = async () => {
-      if (messageInputComponent) {
-        const text = messageInputComponent.plainText.trim()
-        // Get fresh state to get current replyingToMessage
-        const currentState = appState.getState()
-        if (text && currentState.currentChatId) {
-          // Get reply message ID if replying
-          const replyMsg = currentState.replyingToMessage as { id?: string } | null
-          const replyToId = replyMsg?.id
+      if (!messageInputComponent || messageInputComponent.isDestroyed) return
 
-          await sendMessage(currentState.currentChatId, text, replyToId)
+      const text = messageInputComponent.plainText.trim()
+      // Get fresh state to get current replyingToMessage
+      const currentState = appState.getState()
+      if (text && currentState.currentChatId) {
+        // Get reply message ID if replying
+        const replyMsg = currentState.replyingToMessage as { id?: string } | null
+        const replyToId = replyMsg?.id
+
+        await sendMessage(currentState.currentChatId, text, replyToId)
+        // Re-check after await — the component may have been destroyed during the send
+        if (messageInputComponent && !messageInputComponent.isDestroyed) {
           messageInputComponent.setText("")
-          appState.setMessageInput("")
-          // Reset height via state
-          appState.setInputHeight(MIN_INPUT_HEIGHT)
         }
+        appState.setMessageInput("")
+        // Reset height via state
+        appState.setInputHeight(MIN_INPUT_HEIGHT)
       }
     }
   }
 
   // Ensure component value matches state if it was changed externally
-  if (messageInputComponent.plainText !== state.messageInput && !messageInputComponent.focused) {
+  if (
+    !messageInputComponent.isDestroyed &&
+    messageInputComponent.plainText !== state.messageInput &&
+    !messageInputComponent.focused
+  ) {
     messageInputComponent.setText(state.messageInput)
   }
 
   // Update scrollbar state from textarea
-  const lineCount = messageInputComponent.lineCount
+  const lineCount = messageInputComponent.isDestroyed ? 1 : messageInputComponent.lineCount
   const viewportSize = MAX_INPUT_LINES
   const needsScrollbar = lineCount > viewportSize
 
@@ -863,7 +885,13 @@ export function ConversationView() {
 
       // Auto-focus
       setTimeout(() => {
-        searchInputComponent?.focus()
+        try {
+          if (searchInputComponent && !searchInputComponent.isDestroyed) {
+            searchInputComponent.focus()
+          }
+        } catch {
+          // ignore
+        }
       }, 50)
     }
 

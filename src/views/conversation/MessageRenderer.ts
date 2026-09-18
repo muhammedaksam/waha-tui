@@ -109,7 +109,13 @@ export function renderMessage(
 
   const isEdited = (message as WAMessageExtended).isEdited === true
   const editedLabel = isEdited ? "edited " : ""
-  const timestampText = t`${editedLabel}${timestamp}${isFromMe ? formatAckStatus(message.ack, {}) : ""}`
+  const isStarred = (message as WAMessageExtended).isStarred === true
+  const starIcon = isStarred ? ` ${Icons.starFilled}` : ""
+  const isPinned =
+    (message as WAMessageExtended).isPinned === true ||
+    (message as WAMessageExtended).pinned === true
+  const pinIcon = isPinned ? ` ${Icons.pin}` : ""
+  const timestampText = t`${editedLabel}${timestamp}${starIcon}${pinIcon}${isFromMe ? formatAckStatus(message.ack, {}) : ""}`
 
   // Create outer row container
   const row = new BoxRenderable(renderer, {

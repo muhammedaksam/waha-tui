@@ -5,6 +5,7 @@
 
 import type { ChatId } from "~/types"
 import { getClient, getSession } from "~/client/core"
+import { CacheKeys, cacheService } from "~/services/CacheService"
 import { NetworkError } from "~/services/Errors"
 import { errorService } from "~/services/ErrorService"
 import { appState } from "~/state/AppState"
@@ -24,6 +25,7 @@ export async function archiveChat(chatId: ChatId): Promise<void> {
     debugLog("Client", `Archiving chat: ${chatId}`)
     const wahaClient = getClient()
     await wahaClient.chats.chatsControllerArchiveChat(session, chatId)
+    cacheService.delete(CacheKeys.chats(session))
     debugLog("Client", `Chat archived successfully: ${chatId}`)
   } catch (error) {
     errorService.handle(error, { context: { action: "archiveChat", chatId } })
@@ -47,6 +49,7 @@ export async function unarchiveChat(chatId: ChatId): Promise<void> {
     debugLog("Client", `Unarchiving chat: ${chatId}`)
     const wahaClient = getClient()
     await wahaClient.chats.chatsControllerUnarchiveChat(session, chatId)
+    cacheService.delete(CacheKeys.chats(session))
     debugLog("Client", `Chat unarchived successfully: ${chatId}`)
   } catch (error) {
     errorService.handle(error, { context: { action: "unarchiveChat", chatId } })
@@ -70,6 +73,7 @@ export async function markChatUnread(chatId: ChatId): Promise<void> {
     debugLog("Client", `Marking chat as unread: ${chatId}`)
     const wahaClient = getClient()
     await wahaClient.chats.chatsControllerUnreadChat(session, chatId)
+    cacheService.delete(CacheKeys.chats(session))
     debugLog("Client", `Chat marked as unread: ${chatId}`)
   } catch (error) {
     errorService.handle(error, { context: { action: "markChatUnread", chatId } })
@@ -92,6 +96,7 @@ export async function markChatRead(chatId: ChatId): Promise<void> {
     debugLog("Client", `Marking chat as read: ${chatId}`)
     const wahaClient = getClient()
     await wahaClient.chats.chatsControllerReadChatMessages(session, chatId)
+    cacheService.delete(CacheKeys.chats(session))
     debugLog("Client", `Chat marked as read: ${chatId}`)
   } catch (error) {
     errorService.handle(error, { context: { action: "markChatread", chatId } })
@@ -115,6 +120,7 @@ export async function deleteChat(chatId: ChatId): Promise<void> {
     debugLog("Client", `Deleting chat: ${chatId}`)
     const wahaClient = getClient()
     await wahaClient.chats.chatsControllerDeleteChat(session, chatId)
+    cacheService.delete(CacheKeys.chats(session))
     debugLog("Client", `Chat deleted successfully: ${chatId}`)
   } catch (error) {
     errorService.handle(error, { context: { action: "deleteChat", chatId } })

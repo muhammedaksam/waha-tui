@@ -512,10 +512,12 @@ class StateManager {
     targetData?: ChatSummary | WAMessage | WAMessageExtended | null,
     position: { x: number; y: number } = { x: 10, y: 5 }
   ): void {
+    this.navigationSlice.set({ lastChangeType: "view" })
     this.modalSlice.openContextMenu(type, targetId, targetData, position)
   }
 
   closeContextMenu(): void {
+    this.navigationSlice.set({ lastChangeType: "view" })
     this.modalSlice.closeContextMenu()
   }
 

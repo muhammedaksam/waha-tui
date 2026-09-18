@@ -17,9 +17,8 @@ import {
 import type { DialogId } from "~/components/ui/dialog"
 import type { WAMessageExtended } from "~/types"
 import { createButton } from "~/components/Button"
-import { createCheckbox } from "~/components/Checkbox"
 import { createInput } from "~/components/Input"
-import { Icons, WhatsAppTheme } from "~/config/theme"
+import { WhatsAppTheme } from "~/config/theme"
 import { getDialogManager } from "~/router"
 import { appState } from "~/state/AppState"
 import { getRenderer } from "~/state/RendererContext"
@@ -71,6 +70,7 @@ export function showChatPicker(_message: WAMessageExtended): Promise<ChatSummary
         dialogManager.close(dialogId)
       } else {
         debugLog("ChatPickerDialog", `Warning: dialogId is undefined in finish()`)
+        dialogManager.close()
       }
     }
 
@@ -90,6 +90,13 @@ export function showChatPicker(_message: WAMessageExtended): Promise<ChatSummary
       const children = listContainer.getChildren()
       for (const child of children) {
         listContainer.remove(child)
+        try {
+          if (!child.isDestroyed) {
+            child.destroyRecursively()
+          }
+        } catch {
+          // ignore
+        }
       }
       rowRenderables.length = 0
 
@@ -144,11 +151,11 @@ export function showChatPicker(_message: WAMessageExtended): Promise<ChatSummary
             },
           })
 
-          // Checkbox using tuiparts recipe
+          // Check indicator
           row.add(
-            createCheckbox(renderer, {
-              checked: isChecked,
-              mark: Icons.checkDouble,
+            new TextRenderable(renderer, {
+              content: isChecked ? "[✓] " : "[ ] ",
+              fg: isChecked ? WhatsAppTheme.green : WhatsAppTheme.textSecondary,
             })
           )
 
@@ -214,6 +221,11 @@ export function showChatPicker(_message: WAMessageExtended): Promise<ChatSummary
 
     // Global Key Handler for navigating the list
     const handleKey = (key: KeyEvent) => {
+      if (key.name === "escape") {
+        finish([])
+        return
+      }
+
       if (filteredChats.length === 0) return
 
       if (key.name === "up") {
@@ -274,6 +286,38 @@ export function showChatPicker(_message: WAMessageExtended): Promise<ChatSummary
           searchQuery = value
           updateListUI()
         })
+
+        searchInput.on(InputRenderableEvents.ENTER, () => {
+          const finalSelection = allChats.filter((c) => selectedChats.has(getChatIdString(c.id)))
+          if (selectedChats.size === 0 && filteredChats[selectedIndex]) {
+            finish([filteredChats[selectedIndex]])
+          } else {
+            finish(finalSelection)
+          }
+        })
+
+        searchInput.onKeyDown = (key: KeyEvent) => {
+          if (key.name === "escape") {
+            key.preventDefault()
+            finish([])
+          } else if (key.name === "return" || key.name === "enter") {
+            key.preventDefault()
+            const finalSelection = allChats.filter((c) => selectedChats.has(getChatIdString(c.id)))
+            if (selectedChats.size === 0 && filteredChats[selectedIndex]) {
+              finish([filteredChats[selectedIndex]])
+            } else {
+              finish(finalSelection)
+            }
+          } else if (key.name === "down") {
+            key.preventDefault()
+            selectedIndex = Math.min(filteredChats.length - 1, selectedIndex + 1)
+            updateListUI()
+          } else if (key.name === "up") {
+            key.preventDefault()
+            selectedIndex = Math.max(0, selectedIndex - 1)
+            updateListUI()
+          }
+        }
 
         // Auto-focus search input
         setTimeout(() => searchInput.focus(), 50)

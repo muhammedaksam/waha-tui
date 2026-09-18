@@ -38,16 +38,24 @@ let searchInputComponent: InputRenderable | null = null
 
 //Export functions for search input control
 export function focusSearchInput(): void {
-  if (searchInputComponent) {
-    searchInputComponent.focus()
-    appState.setInputMode(true)
+  try {
+    if (searchInputComponent && !searchInputComponent.isDestroyed) {
+      searchInputComponent.focus()
+      appState.setInputMode(true)
+    }
+  } catch {
+    // ignore
   }
 }
 
 export function blurSearchInput(): void {
-  if (searchInputComponent) {
-    searchInputComponent.blur()
-    appState.setInputMode(false)
+  try {
+    if (searchInputComponent && !searchInputComponent.isDestroyed) {
+      searchInputComponent.blur()
+      appState.setInputMode(false)
+    }
+  } catch {
+    // ignore
   }
 }
 

@@ -97,7 +97,7 @@ class ChatListManager {
     return chats.map((c) => getChatIdString(c.id)).join(",")
   }
 
-  // Hash for content (ids + message timestamps + active/selected state + last message content + ack status)
+  // Hash for content (ids + message timestamps + active/selected state + last message content + ack status + unread count)
   private getChatsContentHash(chats: ChatSummary[], state: AppState): string {
     const myId = state.myProfile?.id || "null"
     return (
@@ -105,7 +105,7 @@ class ChatListManager {
         .map((c) => {
           const lastMsg = c.lastMessage as
             { timestamp?: number; id?: string; ack?: number } | undefined
-          return `${getChatIdString(c.id)}:${lastMsg?.timestamp || 0}:${lastMsg?.id || ""}:${lastMsg?.ack ?? ""}`
+          return `${getChatIdString(c.id)}:${lastMsg?.timestamp || 0}:${lastMsg?.id || ""}:${lastMsg?.ack ?? ""}:${c.unreadCount || 0}`
         })
         .join(",") + `:${myId}`
     )

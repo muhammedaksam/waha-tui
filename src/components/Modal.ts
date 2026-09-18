@@ -439,6 +439,12 @@ export function showContactPickerModal(): Promise<string | null> {
     let dialogId: DialogId | undefined
 
     const handleKey = (key: KeyEvent) => {
+      if (key.name === "escape") {
+        safeResolve(null)
+        if (dialogId !== undefined) dialogManager.close(dialogId)
+        return
+      }
+
       if (filtered.length === 0) return
 
       if (key.name === "up") {

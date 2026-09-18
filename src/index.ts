@@ -218,7 +218,6 @@ async function main() {
   process.on("exit", () => {
     debugLog("Shutdown", "Process exit event")
     cleanup()
-    process.exit(0)
   })
   process.on("SIGINT", () => {
     debugLog("Shutdown", "SIGINT received")
@@ -236,7 +235,10 @@ async function main() {
       (error.message.includes("remove expects a renderable child object") ||
         error.message.includes("renderable") ||
         error.message.includes("layout") ||
-        error.message.includes("yoga"))
+        error.message.includes("yoga") ||
+        error.message.includes("EditBuffer is destroyed") ||
+        error.message.includes("destroyed") ||
+        error.message.includes("buffer"))
 
     errorService.handle(error, {
       log: true,
@@ -415,6 +417,12 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("Fatal error:", error)
+  const message = error instanceof Error ? error.stack || error.message : String(error)
+  debugLog("Fatal", `Fatal error in main: ${message}`)
+  try {
+    process.stderr.write(`Fatal error: ${message}\n`)
+  } catch {
+    // stderr may be unavailable
+  }
   process.exit(1)
 })

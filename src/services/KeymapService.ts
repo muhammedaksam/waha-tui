@@ -49,6 +49,7 @@ import { executeContextMenuAction } from "~/handlers/ContextMenuActions"
 import { getDialogContainer, getDialogManager } from "~/router"
 import { webSocketService } from "~/services/WebSocketService"
 import { appState } from "~/state/AppState"
+import { getRenderer } from "~/state/RendererContext"
 import { calculateChatListScrollOffset } from "~/utils/chatListScroll"
 import { startNewChat } from "~/utils/createChat"
 import { debugLog } from "~/utils/debug"
@@ -284,7 +285,7 @@ export function processKonamiStroke(
 function registerContextMenuLayer(keymap: Keymap<Renderable, KeyEvent>): void {
   keymap.registerLayer({
     priority: 100,
-    enabled: () => !!appState.getState().contextMenu?.visible,
+    enabled: () => !!appState.getState().contextMenu?.visible && !isDialogOpen(),
     commands: [
       {
         name: "context-menu.up",
@@ -326,10 +327,11 @@ function registerContextMenuLayer(keymap: Keymap<Renderable, KeyEvent>): void {
           if (handled) {
             const actionId = getSelectedContextMenuActionId()
             const currentMenu = appState.getState().contextMenu
+            appState.closeContextMenu()
+            renderAppCallback?.(true)
             if (actionId && currentMenu) {
               await executeContextMenuAction(actionId, currentMenu)
             }
-            appState.closeContextMenu()
           }
           renderAppCallback?.(true)
         },
@@ -393,6 +395,39 @@ function registerDialogLayer(keymap: Keymap<Renderable, KeyEvent>): void {
         title: "Dialog Select Button",
         run() {
           const container = getDialogContainer()
+          if (container?.clickFocusedButton()) {
+            return
+          }
+          try {
+            const renderer = getRenderer()
+            const focused = renderer.currentFocusedRenderable as unknown as {
+              submit?: () => void
+            } | null
+            if (focused && typeof focused.submit === "function") {
+              focused.submit()
+            }
+          } catch {
+            // ignore
+          }
+        },
+      },
+      {
+        name: "dialog.space-select",
+        title: "Dialog Space Select Button",
+        run() {
+          try {
+            const renderer = getRenderer()
+            const focused = renderer.currentFocusedRenderable as unknown as {
+              insertText?: (text: string) => void
+            } | null
+            if (focused && typeof focused.insertText === "function") {
+              focused.insertText(" ")
+              return
+            }
+          } catch {
+            // ignore
+          }
+          const container = getDialogContainer()
           container?.clickFocusedButton()
         },
       },
@@ -405,6 +440,7 @@ function registerDialogLayer(keymap: Keymap<Renderable, KeyEvent>): void {
           } catch {
             // ignore
           }
+          renderAppCallback?.(true)
         },
       },
     ],
@@ -415,7 +451,7 @@ function registerDialogLayer(keymap: Keymap<Renderable, KeyEvent>): void {
       { key: "shift+tab", cmd: "dialog.nav-prev" },
       { key: "return", cmd: "dialog.select" },
       { key: "enter", cmd: "dialog.select" },
-      { key: "space", cmd: "dialog.select" },
+      { key: "space", cmd: "dialog.space-select" },
       { key: "escape", cmd: "dialog.close" },
     ],
   })
@@ -784,7 +820,12 @@ function registerChatsViewLayer(keymap: Keymap<Renderable, KeyEvent>): void {
           const selectedChat = filteredChats[state.selectedChatIndex]
           if (selectedChat) {
             const chatId = getChatIdString(selectedChat.id)
-            appState.openContextMenu("chat", chatId, selectedChat)
+            const yPos = Math.min(
+              18,
+              Math.max(6, 6 + (state.selectedChatIndex - state.chatListScrollOffset) * 3)
+            )
+            appState.openContextMenu("chat", chatId, selectedChat, { x: 32, y: yPos })
+            renderAppCallback?.(true)
           }
         },
       },
@@ -1013,7 +1054,12 @@ function registerConversationViewLayer(keymap: Keymap<Renderable, KeyEvent>): vo
     priority: 10,
     enabled: () => {
       const state = appState.getState()
-      return state.currentView === "conversation" && !state.contextMenu?.visible && !isDialogOpen()
+      return (
+        state.currentView === "conversation" &&
+        !state.contextMenu?.visible &&
+        !isDialogOpen() &&
+        !state.emojiPicker?.visible
+      )
     },
     commands: [
       {
@@ -1040,7 +1086,7 @@ function registerConversationViewLayer(keymap: Keymap<Renderable, KeyEvent>): vo
           const state = appState.getState()
           const messages = state.messages.get(state.currentChatId || "")
           if (messages && messages.length > 0) {
-            const targetMessage = messages[messages.length - 1]!
+            const targetMessage = messages[0]!
             const messageId = targetMessage.id
             appState.openContextMenu("message", messageId, targetMessage)
           }

@@ -3,11 +3,12 @@
  * Dialog-based emoji picker for reactions and message input.
  */
 
-import type { RenderContext } from "@opentui/core"
+import type { KeyEvent, RenderContext } from "@opentui/core"
 import type { ButtonState } from "@tuiparts/core/button"
 
 import {
   BoxRenderable,
+  InputRenderable,
   InputRenderableEvents,
   ScrollBoxRenderable,
   TextAttributes,
@@ -48,13 +49,31 @@ export function showEmojiPicker(pos?: {
   })
 }
 
+let focusTimeout: ReturnType<typeof setTimeout> | null = null
+let currentSearchInput: InputRenderable | null = null
+
 function safeResolve(value: string | null) {
-  if (resolveEmojiPromise) {
-    resolveEmojiPromise(value)
-    resolveEmojiPromise = null
+  if (focusTimeout) {
+    clearTimeout(focusTimeout)
+    focusTimeout = null
+  }
+  if (currentSearchInput) {
+    try {
+      if (currentSearchInput.focused) {
+        currentSearchInput.blur()
+      }
+    } catch {
+      // ignore
+    }
+    currentSearchInput = null
   }
   appState.setInputMode(false)
   appState.setEmojiPicker(null)
+  if (resolveEmojiPromise) {
+    const cb = resolveEmojiPromise
+    resolveEmojiPromise = null
+    cb(value)
+  }
 }
 
 export function EmojiPicker(): BoxRenderable | null {
@@ -132,6 +151,7 @@ export function EmojiPicker(): BoxRenderable | null {
     placeholder: "Search emoji...",
     width: "100%",
   })
+  currentSearchInput = searchInput
 
   pickerBox.add(searchInput)
   pickerBox.add(new BoxRenderable(renderer, { height: 1 }))
@@ -275,15 +295,31 @@ export function EmojiPicker(): BoxRenderable | null {
 
   searchInput.on(InputRenderableEvents.ENTER, () => {
     if (displayEmojis.length > 0) {
-      safeResolve(displayEmojis[selectedIndex] || displayEmojis[0])
+      const selected = displayEmojis[selectedIndex] || displayEmojis[0] || null
+      safeResolve(selected)
+    }
+  })
+
+  searchInput.on("key", (key: KeyEvent) => {
+    if (key.name === "escape") {
+      safeResolve(null)
     }
   })
 
   rebuildGrid()
   anchor.add(pickerBox)
 
-  setTimeout(() => {
-    searchInput.focus()
+  if (focusTimeout) {
+    clearTimeout(focusTimeout)
+  }
+  focusTimeout = setTimeout(() => {
+    try {
+      if (!searchInput.isDestroyed) {
+        searchInput.focus()
+      }
+    } catch {
+      // ignore
+    }
   }, 50)
 
   return anchor
