@@ -7,6 +7,7 @@ import { Box, BoxRenderable, link, t, Text, TextAttributes, TextRenderable } fro
 
 import type { SettingsPage } from "~/state/AppState"
 import { Logo } from "~/components/Logo"
+import { ToggleSwitch } from "~/components/Switch"
 import { Icons, WDSColors, WhatsAppTheme } from "~/config/theme"
 import { VersionInfo } from "~/config/version"
 import { appState } from "~/state/AppState"
@@ -23,6 +24,12 @@ interface SettingsMenuItem {
 
 const menuItems: SettingsMenuItem[] = [
   { id: "chats", icon: "💬", label: "Chats", description: "Enter is send" },
+  {
+    id: "theme",
+    icon: "🎨",
+    label: "Theme & Appearance",
+    description: "System theme and color mode",
+  },
   { id: "notifications", icon: "🔔", label: "Notifications", description: "Desktop alerts" },
   { id: "shortcuts", icon: "⌨️", label: "Keyboard shortcuts", description: "Quick actions" },
   { id: "help", icon: "❓", label: "Help and About", description: "Version info" },
@@ -65,24 +72,6 @@ function SettingsMenuItem(item: SettingsMenuItem, index: number, isSelected: boo
 }
 
 /**
- * Toggle switch component - WhatsApp style
- */
-function ToggleSwitch(enabled: boolean) {
-  return Box(
-    {
-      width: 5,
-      height: 1,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    Text({
-      content: !enabled ? "○──" : "──◉",
-      fg: !enabled ? WhatsAppTheme.textTertiary : WhatsAppTheme.green,
-    })
-  )
-}
-
-/**
  * Settings row with label, description, and optional toggle or chevron
  */
 function SettingsRow(props: {
@@ -90,6 +79,7 @@ function SettingsRow(props: {
   description?: string
   hasToggle?: boolean
   toggleValue?: boolean
+  valueText?: string
   hasChevron?: boolean
   isSelected?: boolean
 }) {
@@ -115,6 +105,13 @@ function SettingsRow(props: {
         : null
     ),
     props.hasToggle ? ToggleSwitch(props.toggleValue ?? false) : null,
+    props.valueText
+      ? Text({
+          content: props.valueText,
+          fg: WhatsAppTheme.green,
+          attributes: TextAttributes.BOLD,
+        })
+      : null,
     props.hasChevron ? Text({ content: "›", fg: WhatsAppTheme.textSecondary }) : null
   )
 }
@@ -168,6 +165,55 @@ function ChatsSettingsPage() {
       hasToggle: true,
       toggleValue: enterIsSend,
       isSelected: settingsSubIndex === 0,
+    })
+  )
+}
+
+function ThemeSettingsPage() {
+  const state = appState.getState()
+  const { useSystemTheme, themeMode, settingsSubIndex } = state
+
+  const modeLabels: Record<string, string> = {
+    system: "System (Auto-Detect)",
+    dark: "Dark",
+    light: "Light",
+  }
+
+  return Box(
+    {
+      flexDirection: "column",
+      flexGrow: 1,
+    },
+    // Header
+    Box(
+      {
+        height: 4,
+        paddingLeft: 2,
+        paddingTop: 1,
+        alignItems: "flex-start",
+        backgroundColor: WhatsAppTheme.panelDark,
+      },
+      Text({
+        content: "← Theme & Appearance",
+        fg: WhatsAppTheme.textPrimary,
+        attributes: TextAttributes.BOLD,
+      })
+    ),
+    // Theme section
+    SectionHeader("Terminal & Colors"),
+    SettingsRow({
+      label: "Use System Theme",
+      description: "Use your terminal's color palette & transparency",
+      hasToggle: true,
+      toggleValue: useSystemTheme,
+      isSelected: settingsSubIndex === 0,
+    }),
+    SettingsRow({
+      label: "Color Mode",
+      description: "Press Enter or Space to cycle mode",
+      valueText: modeLabels[themeMode] || themeMode,
+      hasChevron: true,
+      isSelected: settingsSubIndex === 1,
     })
   )
 }
@@ -573,6 +619,8 @@ export function SettingsView() {
         return mainMenuContent
       case "chats":
         return ChatsSettingsPage()
+      case "theme":
+        return ThemeSettingsPage()
       case "notifications":
         return NotificationsSettingsPage()
       case "notifications-messages":

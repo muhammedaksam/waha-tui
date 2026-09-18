@@ -7,6 +7,7 @@ export type SettingsPage =
   | "notifications-messages"
   | "notifications-groups"
   | "notifications-status"
+  | "theme"
   | "shortcuts"
   | "help"
 
@@ -27,6 +28,8 @@ export interface SettingsState {
   showPreviews: boolean
   backgroundSync: boolean
   recentEmojis: string[]
+  useSystemTheme: boolean
+  themeMode: "system" | "dark" | "light"
 }
 
 export const initialSettingsState: SettingsState = {
@@ -52,6 +55,8 @@ export const initialSettingsState: SettingsState = {
   showPreviews: true,
   backgroundSync: true,
   recentEmojis: [],
+  useSystemTheme: false,
+  themeMode: "system",
 }
 
 export interface SettingsActions extends SliceActions<SettingsState> {
@@ -65,6 +70,8 @@ export interface SettingsActions extends SliceActions<SettingsState> {
   setShowPreviews(showPreviews: boolean): void
   setBackgroundSync(backgroundSync: boolean): void
   setRecentEmojis(recentEmojis: string[]): void
+  setUseSystemTheme(useSystemTheme: boolean): void
+  setThemeMode(themeMode: "system" | "dark" | "light"): void
 }
 
 export function createSettingsSlice(): StateSlice<SettingsState> & SettingsActions {
@@ -155,6 +162,16 @@ export function createSettingsSlice(): StateSlice<SettingsState> & SettingsActio
 
     setRecentEmojis(recentEmojis: string[]) {
       state = { ...state, recentEmojis }
+      notify()
+    },
+
+    setUseSystemTheme(useSystemTheme: boolean) {
+      state = { ...state, useSystemTheme }
+      notify()
+    },
+
+    setThemeMode(themeMode: "system" | "dark" | "light") {
+      state = { ...state, themeMode }
       notify()
     },
   }

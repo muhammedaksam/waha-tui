@@ -38,6 +38,8 @@ export interface WahaTuiSettings {
   showPreviews: boolean // Preview message text inside notifications (global)
   backgroundSync: boolean // Keep syncing messages in background for faster performance
   recentEmojis: string[] // Recently used emojis
+  useSystemTheme: boolean // Use terminal's own palette/colors
+  themeMode: "system" | "dark" | "light" // Color mode
 }
 
 export const DEFAULT_SETTINGS: WahaTuiSettings = {
@@ -60,6 +62,8 @@ export const DEFAULT_SETTINGS: WahaTuiSettings = {
   showPreviews: true,
   backgroundSync: true,
   recentEmojis: [],
+  useSystemTheme: false,
+  themeMode: "system",
 }
 
 /**

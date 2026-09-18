@@ -3,6 +3,8 @@
  * Utility functions for message rendering in ConversationView
  */
 
+import type { ColorInput } from "@opentui/core"
+
 import { BoxRenderable, CliRenderer, TextRenderable } from "@opentui/core"
 
 import type { WAMessageExtended } from "~/types"
@@ -25,7 +27,11 @@ export function stringHash(str: string): number {
 /**
  * Hash function to assign consistent colors to senders (Round-Robin with fallback)
  */
-export function getSenderColor(senderId: string, participants?: string[], chatId?: string): string {
+export function getSenderColor(
+  senderId: string,
+  participants?: string[],
+  chatId?: string
+): ColorInput {
   const colors = WhatsAppTheme.senderColors
 
   // If we have a participants list, use round-robin assignment based on per-group randomized sorting
@@ -62,7 +68,7 @@ export function getSenderInfo(
   isGroupChat: boolean,
   participants?: string[],
   chatId?: string
-): { senderId: string; senderName: string; senderColor: string } {
+): { senderId: string; senderName: string; senderColor: ColorInput } {
   const isFromMe = message.fromMe
   let senderName: string
   let senderId: string

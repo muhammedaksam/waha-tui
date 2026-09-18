@@ -16,6 +16,7 @@ import {
 } from "@opentui/core"
 
 import type { ActiveFilter } from "~/state/AppState"
+import { createInput } from "~/components/Input"
 import { Logo } from "~/components/Logo"
 import { showContactPickerModal } from "~/components/Modal"
 import { Icons, WhatsAppTheme } from "~/config/theme"
@@ -145,16 +146,10 @@ export function ChatsView() {
       (() => {
         // Create new search input if it doesn't exist
         if (!searchInputComponent) {
-          searchInputComponent = new InputRenderable(renderer, {
+          searchInputComponent = createInput(renderer, {
             id: "chat-search-input",
             width: "auto",
             placeholder: "Search or start a new chat",
-            backgroundColor: WhatsAppTheme.inputBg,
-            focusedBackgroundColor: WhatsAppTheme.inputBg,
-            textColor: WhatsAppTheme.textPrimary,
-            focusedTextColor: WhatsAppTheme.white,
-            placeholderColor: WhatsAppTheme.textTertiary,
-            cursorColor: WhatsAppTheme.white,
             maxLength: 100,
             flexGrow: 1,
           })

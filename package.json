@@ -32,7 +32,7 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "dev:debug": "bun dev --debug",
-    "build": "bun build src/index.ts --outdir dist --target bun --external '@opentui/*' --external 'node-notifier' --external 'qrcode'",
+    "build": "bun build src/index.ts --outdir dist --target bun --external '@opentui/*' --external '@tuiparts/*' --external 'node-notifier'",
     "prepublishOnly": "bun run build",
     "typecheck": "bun x tsc --noEmit",
     "lint": "eslint . && bun run lint:md",
@@ -59,7 +59,6 @@
     "@types/bun": "latest",
     "@types/node": "^26.1.2",
     "@types/node-notifier": "^8.0.5",
-    "@types/qrcode": "^1.5.6",
     "eslint": "^10.8.0",
     "eslint-plugin-import": "^2.32.0",
     "husky": "^9.1.7",
@@ -74,11 +73,10 @@
   },
   "dependencies": {
     "@muhammedaksam/waha-node": "^2026.7.2",
-    "@opentui-ui/dialog": "^0.1.2",
-    "@opentui-ui/toast": "^0.0.5",
-    "@opentui/core": "^0.5.1",
-    "node-notifier": "^10.0.1",
-    "qrcode": "^1.5.4"
+    "@opentui/core": "^0.5.11",
+    "@opentui/qrcode": "^0.5.11",
+    "@tuiparts/core": "^0.0.6",
+    "node-notifier": "^10.0.1"
   },
   "engines": {
     "bun": ">=1.0"
