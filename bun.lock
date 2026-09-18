@@ -7,6 +7,7 @@
       "dependencies": {
         "@muhammedaksam/waha-node": "^2026.7.2",
         "@opentui/core": "^0.5.11",
+        "@opentui/keymap": "^0.5.11",
         "@opentui/qrcode": "^0.5.11",
         "@tuiparts/core": "^0.0.6",
         "node-notifier": "^10.0.1",
@@ -143,6 +144,8 @@
     "@opentui/core-win32-arm64": ["@opentui/core-win32-arm64@0.5.11", "", { "os": "win32", "cpu": "arm64" }, "sha512-MGGRXIDJ//HyaqC5ndSr7/CUl+ICdYEAMcjbA00UWsthh4ZO/rYhPkyqOaTn5ck6+G4ca3/+M76J+jImMYTjNg=="],
 
     "@opentui/core-win32-x64": ["@opentui/core-win32-x64@0.5.11", "", { "os": "win32", "cpu": "x64" }, "sha512-sMEGX9rhiPd1gBa190jzj5uIdzKCMImxHmr22hJLxIRWqejxWvqGnRBkW68wT8NfMViDiMtZWavgWL7GgmYCAQ=="],
+
+    "@opentui/keymap": ["@opentui/keymap@0.5.11", "", { "dependencies": { "@opentui/core": "0.5.11" }, "peerDependencies": { "@opentui/react": "0.5.11", "@opentui/solid": "0.5.11", "react": ">=19.2.0", "solid-js": "1.9.12" }, "optionalPeers": ["@opentui/react", "@opentui/solid", "react", "solid-js"] }, "sha512-2c7Qsi2H5tg2ODxf1uOhEEao6JsaBAZRQ43z7nmHdtX5XK5VTNPgScZKBGaYTx/zBIaq/MkCCgPpr/m5wHdssw=="],
 
     "@opentui/qrcode": ["@opentui/qrcode@0.5.11", "", { "dependencies": { "@opentui/core": "0.5.11" }, "peerDependencies": { "@opentui/react": "0.5.11", "@opentui/solid": "0.5.11" }, "optionalPeers": ["@opentui/react", "@opentui/solid"] }, "sha512-R8NVOVZ/F0QG6BpCCchsHtjXTuFp0CUxjMWtwMukDwtNWXm1Em0yN69aTz+ebbYixvvVvUOXlrhkvv7mMTXWSg=="],
 

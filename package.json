@@ -74,6 +74,7 @@
   "dependencies": {
     "@muhammedaksam/waha-node": "^2026.7.2",
     "@opentui/core": "^0.5.11",
+    "@opentui/keymap": "^0.5.11",
     "@opentui/qrcode": "^0.5.11",
     "@tuiparts/core": "^0.0.6",
     "node-notifier": "^10.0.1"

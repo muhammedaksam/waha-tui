@@ -28,6 +28,7 @@ import { executeContextMenuAction, handleKeyPress } from "~/handlers"
 import { loadSavedSettings } from "~/handlers/settingsHandler"
 import { createRenderApp } from "~/router"
 import { errorService } from "~/services/ErrorService"
+import { initKeymap } from "~/services/KeymapService"
 import { webSocketService } from "~/services/WebSocketService"
 import { appState } from "~/state/AppState"
 import { setRenderer } from "~/state/RendererContext"
@@ -403,8 +404,12 @@ async function main() {
     }
   })
 
+  // Initialize @opentui/keymap for global key routing, commands, and Easter Eggs
+  initKeymap(renderer, { renderApp })
+
   // Keyboard handling using OpenTUI's keyInput event system
   renderer.keyInput.on("keypress", async (key: KeyEvent) => {
+    if (key.propagationStopped) return
     await handleKeyPress(key, { renderApp })
   })
 }

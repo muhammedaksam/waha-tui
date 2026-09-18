@@ -1,6 +1,6 @@
 import type { RenderContext } from "@opentui/core"
 
-import { BoxRenderable } from "@opentui/core"
+import { BoxRenderable, Renderable } from "@opentui/core"
 
 import type { DialogManager } from "../manager"
 import type {
@@ -129,6 +129,88 @@ export class DialogContainerRenderable extends BoxRenderable {
     return this._dialogRenderables
   }
 
+  /**
+   * Helper to find all focusable renderables within the top dialog
+   */
+  public getTopFocusableElements(): Renderable[] {
+    const topDialog = this.getTopDialogRenderable()
+    if (!topDialog) return []
+    const results: Renderable[] = []
+    const traverse = (node: Renderable) => {
+      if (node.isDestroyed || !node.visible) return
+      if (node.focusable && !(node as { disabled?: boolean }).disabled) {
+        results.push(node)
+      }
+      for (const child of node.getChildren()) {
+        traverse(child)
+      }
+    }
+    traverse(topDialog)
+    return results
+  }
+
+  /**
+   * Focus next focusable button/element in the top dialog
+   */
+  public focusNextButton(): boolean {
+    const elements = this.getTopFocusableElements()
+    if (elements.length === 0) return false
+    const currentIndex = elements.findIndex((el) => el.focused)
+    const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % elements.length : 0
+    if (currentIndex >= 0 && currentIndex !== nextIndex) {
+      elements[currentIndex]!.blur()
+    }
+    elements[nextIndex]!.focus()
+    this.requestRender()
+    return true
+  }
+
+  /**
+   * Focus previous focusable button/element in the top dialog
+   */
+  public focusPrevButton(): boolean {
+    const elements = this.getTopFocusableElements()
+    if (elements.length === 0) return false
+    const currentIndex = elements.findIndex((el) => el.focused)
+    const prevIndex = currentIndex > 0 ? currentIndex - 1 : elements.length - 1
+    if (currentIndex >= 0 && currentIndex !== prevIndex) {
+      elements[currentIndex]!.blur()
+    }
+    elements[prevIndex]!.focus()
+    this.requestRender()
+    return true
+  }
+
+  /**
+   * Click/press the currently focused button
+   */
+  public clickFocusedButton(): boolean {
+    const elements = this.getTopFocusableElements()
+    const focused = elements.find((el) => el.focused)
+    if (focused) {
+      const target = focused as {
+        press?: () => void
+        handlePress?: (details: {
+          x: number
+          y: number
+          button: number
+          target: Renderable
+        }) => void
+      }
+      if (typeof target.press === "function") {
+        target.press()
+        this.requestRender()
+        return true
+      }
+      if (typeof target.handlePress === "function") {
+        target.handlePress({ x: 0, y: 0, button: 0, target: focused })
+        this.requestRender()
+        return true
+      }
+    }
+    return false
+  }
+
   private addOrUpdateDialog(dialog: InternalDialog): void {
     const existing = this._dialogRenderables.get(dialog.id)
 
@@ -149,6 +231,17 @@ export class DialogContainerRenderable extends BoxRenderable {
     this.updateBackdropStyle()
 
     this.requestRender()
+
+    // Automatically focus the first focusable button/input in the dialog
+    setTimeout(() => {
+      if (!this._destroyed && !dialogRenderable.isDestroyed) {
+        const elements = this.getTopFocusableElements()
+        if (elements.length > 0 && !elements.some((el) => el.focused)) {
+          elements[0]!.focus()
+          this.requestRender()
+        }
+      }
+    }, 10)
   }
 
   private removeDialog(id: DialogId): void {

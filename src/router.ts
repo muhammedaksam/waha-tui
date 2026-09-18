@@ -32,12 +32,17 @@ import { SettingsView } from "~/views/SettingsView"
 // Singleton DialogManager - initialized in createRenderApp
 
 let dialogManager: DialogManager | null = null
+let dialogContainerInstance: DialogContainerRenderable | null = null
 
 export function getDialogManager(): DialogManager {
   if (!dialogManager) {
     throw new Error("DialogManager not initialized. Call createRenderApp first.")
   }
   return dialogManager
+}
+
+export function getDialogContainer(): DialogContainerRenderable | null {
+  return dialogContainerInstance
 }
 
 /**
@@ -182,13 +187,12 @@ export function createRenderApp(renderer: CliRenderer): (forceRebuild?: boolean)
     // Add dialog container once - it persists and manages its own dialog lifecycle
     // Must be added AFTER rootWrapper so it renders on top (higher z-index)
     if (!dialogContainerInitialized && dialogManager) {
-      renderer.root.add(
-        new DialogContainerRenderable(renderer, {
-          manager: dialogManager,
-          ...dialogThemes.minimal,
-          ...WHATSAPP_DIALOG_CONFIG,
-        })
-      )
+      dialogContainerInstance = new DialogContainerRenderable(renderer, {
+        manager: dialogManager,
+        ...dialogThemes.minimal,
+        ...WHATSAPP_DIALOG_CONFIG,
+      })
+      renderer.root.add(dialogContainerInstance)
       dialogContainerInitialized = true
     }
 
