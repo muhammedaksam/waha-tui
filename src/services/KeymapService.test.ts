@@ -2,7 +2,7 @@ import type { MockInput, TestRenderer } from "@opentui/core/testing"
 
 import { KeyEvent } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test"
 
 import {
   destroyKeymap,
@@ -68,7 +68,7 @@ describe("KeymapService", () => {
     }
   }
 
-  test("initializes keymap and registers all layers and commands", () => {
+  it("should initialize keymap and register all layers and commands", () => {
     const keymap = initKeymap(renderer)
     expect(keymap).toBeDefined()
 
@@ -158,7 +158,7 @@ describe("KeymapService", () => {
     expect(commandNames).toContain("conversation.escape")
   })
 
-  test("tracks Konami Code progress sequentially and triggers easter egg on completion", () => {
+  it("should track Konami Code progress sequentially and trigger easter egg on completion", () => {
     initKeymap(renderer)
     let easterEggTriggered = false
 
@@ -185,7 +185,7 @@ describe("KeymapService", () => {
     expect(easterEggTriggered).toBe(true)
   })
 
-  test("resets Konami Code progress on invalid key", () => {
+  it("should reset Konami Code progress on invalid key", () => {
     initKeymap(renderer)
 
     pressStroke("up")
@@ -198,7 +198,7 @@ describe("KeymapService", () => {
     expect(getKonamiProgress()).toBe(0)
   })
 
-  test("restarts Konami Code progress if invalid key is 'up'", () => {
+  it("should restart Konami Code progress if invalid key is 'up'", () => {
     initKeymap(renderer)
 
     pressStroke("up")
@@ -213,7 +213,7 @@ describe("KeymapService", () => {
     expect(getKonamiProgress()).toBe(1)
   })
 
-  test("ignores Konami Code when inputMode is active", () => {
+  it("should ignore Konami Code when inputMode is active", () => {
     initKeymap(renderer)
     appState.setInputMode(true)
 
@@ -221,7 +221,7 @@ describe("KeymapService", () => {
     expect(getKonamiProgress()).toBe(0)
   })
 
-  test("resets progress when modifier keys are pressed", () => {
+  it("should reset progress when modifier keys are pressed", () => {
     initKeymap(renderer)
 
     pressStroke("up")
@@ -232,7 +232,7 @@ describe("KeymapService", () => {
     expect(getKonamiProgress()).toBe(0)
   })
 
-  test("handles settings view navigation and escape", () => {
+  it("should handle settings view navigation and escape", () => {
     initKeymap(renderer)
     appState.setCurrentView("settings")
     appState.setSettingsPage("main")
@@ -251,7 +251,7 @@ describe("KeymapService", () => {
     expect(appState.getState().currentView).toBe("chats")
   })
 
-  test("handles settings view toggle on subpage", () => {
+  it("should handle settings view toggle on subpage", () => {
     initKeymap(renderer)
     appState.setCurrentView("settings")
     appState.setSettingsPage("chats")
@@ -267,7 +267,7 @@ describe("KeymapService", () => {
     expect(appState.getState().enterIsSend).toBe(false)
   })
 
-  test("handles QR view mode toggle and phone digits", () => {
+  it("should handle QR view mode toggle and phone digits", () => {
     initKeymap(renderer)
     appState.setCurrentView("qr")
     appState.setAuthMode("qr")
@@ -291,7 +291,7 @@ describe("KeymapService", () => {
     expect(appState.getState().authMode).toBe("qr")
   })
 
-  test("handles sessions view navigation", () => {
+  it("should handle sessions view navigation", () => {
     initKeymap(renderer)
     appState.setCurrentView("sessions")
     appState.setSessions([
@@ -314,7 +314,7 @@ describe("KeymapService", () => {
     expect(appState.getState().selectedSessionIndex).toBe(0)
   })
 
-  test("handles chats view filter cycling and settings navigation", () => {
+  it("should handle chats view filter cycling and settings navigation", () => {
     initKeymap(renderer)
     appState.setCurrentView("chats")
     appState.setActiveFilter("all")
@@ -329,7 +329,7 @@ describe("KeymapService", () => {
     expect(appState.getState().settingsPage).toBe("main")
   })
 
-  test("processKonamiStroke unit logic consumes stroke on completion", () => {
+  it("should consume stroke on completion in processKonamiStroke", () => {
     const keymap = initKeymap(renderer)
     let consumed = false
     let commandRun = false
@@ -382,7 +382,7 @@ describe("KeymapService", () => {
     expect(commandRun).toBe(true)
   })
 
-  test("snake game handler intercepts keys when active", () => {
+  it("should intercept keys when snake game handler is active", () => {
     initKeymap(renderer)
     expect(isSnakeGameActive()).toBe(false)
 
@@ -404,7 +404,7 @@ describe("KeymapService", () => {
     expect(isSnakeGameActive()).toBe(false)
   })
 
-  test("dialog layer binds navigation and select commands", () => {
+  it("should bind navigation and select commands in dialog layer", () => {
     const keymap = initKeymap(renderer)
     const commands = keymap.getCommands({ visibility: "registered" })
 
@@ -425,7 +425,7 @@ describe("KeymapService", () => {
     expect(() => keymap.runCommand("dialog.close")).not.toThrow()
   })
 
-  test("isDialogOpen returns dialog open state", () => {
+  it("should return dialog open state from isDialogOpen", () => {
     expect(isDialogOpen()).toBe(false)
   })
 })
