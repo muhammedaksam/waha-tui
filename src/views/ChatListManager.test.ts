@@ -1,5 +1,5 @@
 import { createTestRenderer } from "@opentui/core/testing"
-import { expect, spyOn, test } from "bun:test"
+import { expect, it, spyOn } from "bun:test"
 
 import * as client from "~/client"
 import * as chatActions from "~/client/chatActions"
@@ -7,8 +7,8 @@ import { appState } from "~/state/AppState"
 import { chatListManager } from "~/views/ChatListManager"
 import { destroyConversationScrollBox } from "~/views/ConversationView"
 
-test.each([false, true])(
-  "clicking a chat after an incoming message opens its displayed name (object IDs: %s)",
+it.each([false, true])(
+  "should open the displayed name when clicking a chat after an incoming message (object IDs: %s)",
   async (objectIds) => {
     const mocks = [
       spyOn(client, "loadContacts").mockResolvedValue(undefined),
