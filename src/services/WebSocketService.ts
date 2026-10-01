@@ -29,6 +29,7 @@ import { notifyNewMessage } from "~/utils/notifications"
 
 // Standard WebSocket close codes
 const CLOSE_NORMAL = 1000
+const MAX_RECENT_MESSAGE_IDS = 1000
 
 type WahaEvent =
   | WAHAWebhookSessionStatus
@@ -49,6 +50,8 @@ export class WebSocketService {
   private maxReconnectDelay = TIME_MS.WS_MAX_RECONNECT_DELAY
   private isConnecting = false
   private shouldKeyReconnect = true
+  // Retain across reconnects, with a bounded size for long-running sessions.
+  private recentMessageIds = new Set<string>()
 
   public initialize(config: WahaTuiConfig) {
     this.config = config
@@ -79,10 +82,9 @@ export class WebSocketService {
       const params = new URLSearchParams()
       params.append("session", "*") // Listen to all sessions (or filter if needed)
 
-      // Subscribe to all possible events explicitly
+      // message.any includes incoming messages; subscribing to message as well duplicates them.
       const allEvents = [
         "session.status",
-        "message",
         "message.reaction",
         "message.any",
         "message.ack",
@@ -382,15 +384,27 @@ export class WebSocketService {
       return
     }
 
+    const state = appState.getState()
+    const session = state.currentSession
+
+    // Deduplicate before any asynchronous work so simultaneous deliveries cannot both notify.
+    if (typeof payload.id === "string" && payload.id) {
+      const key = JSON.stringify([data.session || session, payload.id])
+      if (this.recentMessageIds.has(key)) return
+
+      this.recentMessageIds.add(key)
+      if (this.recentMessageIds.size > MAX_RECENT_MESSAGE_IDS) {
+        const oldest = this.recentMessageIds.values().next().value
+        if (oldest !== undefined) this.recentMessageIds.delete(oldest)
+      }
+    }
+
     // Clear typing status for sender - WhatsApp doesn't always send "paused" presence after sending
     if (!payload.fromMe && payload.from) {
       appState.clearTypingForSender(payload.from)
     }
 
     // If we are currently viewing this chat, append the message
-    const state = appState.getState()
-    const session = state.currentSession
-
     if (state.currentChatId === chatId) {
       debugLog("WebSocket", `New message in current chat: ${chatId}`)
       appState.appendMessage(chatId, payload)
