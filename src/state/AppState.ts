@@ -473,7 +473,10 @@ class StateManager {
   }
 
   getContactName(contactId: string): string | undefined {
-    return this.contactSlice.getContactName(contactId)
+    const name = this.contactSlice.getContactName(contactId)
+    if (name) return name
+    const phoneId = this.chatSlice.getPhoneFromLid(contactId)
+    return phoneId ? this.contactSlice.getContactName(phoneId) : undefined
   }
 
   setMyProfile(myProfile: MyProfile | null): void {
