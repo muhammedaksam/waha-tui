@@ -4,6 +4,7 @@ import { SliceActions, StateSlice } from "~/state/slices/types"
 
 export interface ContactState {
   contactsCache: Map<string, string> // Maps contact ID to name
+  pushNamesCache: Map<string, string> // Maps contact ID to pushname
   allContacts: Map<string, string> // Full phonebook contacts for search
   myProfile: MyProfile | null // Current user's profile
   wahaTier: string | null // WAHA tier
@@ -11,6 +12,7 @@ export interface ContactState {
 
 export const initialContactState: ContactState = {
   contactsCache: new Map(),
+  pushNamesCache: new Map(),
   allContacts: new Map(),
   myProfile: null,
   wahaTier: null,
@@ -18,8 +20,11 @@ export const initialContactState: ContactState = {
 
 export interface ContactActions extends SliceActions<ContactState> {
   setContactsCache(contactsCache: Map<string, string>): void
+  setPushNamesCache(pushNamesCache: Map<string, string>): void
+  setPushNames(pushNames: Map<string, string>): void
   setAllContacts(allContacts: Map<string, string>): void
   getContactName(contactId: string): string | undefined
+  getPushName(contactId: string): string | undefined
   setMyProfile(myProfile: MyProfile | null): void
   setWahaTier(wahaTier: string | null): void
 }
@@ -61,6 +66,16 @@ export function createContactSlice(): StateSlice<ContactState> & ContactActions 
       notify()
     },
 
+    setPushNamesCache(pushNamesCache: Map<string, string>) {
+      state = { ...state, pushNamesCache }
+      notify()
+    },
+
+    setPushNames(pushNames: Map<string, string>) {
+      state = { ...state, pushNamesCache: pushNames }
+      notify()
+    },
+
     setAllContacts(allContacts: Map<string, string>) {
       state = { ...state, allContacts }
       notify()
@@ -68,6 +83,10 @@ export function createContactSlice(): StateSlice<ContactState> & ContactActions 
 
     getContactName(contactId: string): string | undefined {
       return state.contactsCache.get(contactId)
+    },
+
+    getPushName(contactId: string): string | undefined {
+      return state.pushNamesCache.get(contactId)
     },
 
     setMyProfile(myProfile: MyProfile | null) {

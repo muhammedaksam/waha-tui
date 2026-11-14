@@ -8,6 +8,7 @@ export {
   stringHash,
   getSenderColor,
   getSenderInfo,
+  resolveSenderDisplayName,
   formatDateSeparator,
   DaySeparator,
   centerText,
