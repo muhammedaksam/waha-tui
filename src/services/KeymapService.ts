@@ -55,7 +55,9 @@ import { startNewChat } from "~/utils/createChat"
 import { debugLog } from "~/utils/debug"
 import { filterChats, isArchived } from "~/utils/filterChats"
 import { getChatIdString } from "~/utils/formatters"
+import { getLinkPreviewData } from "~/utils/linkPreview"
 import { isDownloadableMedia } from "~/utils/mediaLabels"
+import { extractUrls, openUrl } from "~/utils/urlUtils"
 import { blurSearchInput, clearSearchInput, focusSearchInput } from "~/views/ChatsView"
 import {
   blurMessageInput,
@@ -1117,6 +1119,34 @@ function registerConversationViewLayer(keymap: Keymap<Renderable, KeyEvent>): vo
         },
       },
       {
+        name: "conversation.open-link",
+        title: "Open Link in Browser",
+        enabled: () => !appState.getState().inputMode,
+        run() {
+          const state = appState.getState()
+          const messages = state.messages.get(state.currentChatId || "")
+          if (messages && messages.length > 0) {
+            const sorted = [...messages].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+            for (const msg of sorted) {
+              const urls = extractUrls(msg.body || "")
+              const preview = getLinkPreviewData(msg)
+              const url = urls[0] || preview?.canonicalUrl || preview?.url
+              if (url) {
+                showToast("Opening link in browser...", "info")
+                openUrl(url).catch((err) => {
+                  debugLog("Keyboard", `Failed to open link via shortcut: ${err}`)
+                  showToast("Failed to open link", "error")
+                })
+                return
+              }
+            }
+            showToast("No links found in this chat", "info")
+          } else {
+            showToast("No messages in this chat", "info")
+          }
+        },
+      },
+      {
         name: "conversation.attach-media",
         title: "Attach File / Media",
         enabled: () => !appState.getState().inputMode,
@@ -1332,6 +1362,7 @@ function registerConversationViewLayer(keymap: Keymap<Renderable, KeyEvent>): vo
       { key: "shift+enter", cmd: "conversation.search-prev" },
       { key: "m", cmd: "conversation.context-menu" },
       { key: "o", cmd: "conversation.open-media" },
+      { key: "l", cmd: "conversation.open-link" },
       { key: "a", cmd: "conversation.attach-media" },
       { key: "e", cmd: "conversation.emoji" },
       { key: "p", cmd: "conversation.poll" },

@@ -18,6 +18,7 @@ import {
   setSnakeGameHandler,
 } from "~/services/KeymapService"
 import { appState } from "~/state/AppState"
+import * as urlUtils from "~/utils/urlUtils"
 
 describe("KeymapService", () => {
   let renderer: TestRenderer
@@ -144,6 +145,7 @@ describe("KeymapService", () => {
     expect(commandNames).toContain("conversation.search-prev")
     expect(commandNames).toContain("conversation.context-menu")
     expect(commandNames).toContain("conversation.open-media")
+    expect(commandNames).toContain("conversation.open-link")
     expect(commandNames).toContain("conversation.attach-media")
     expect(commandNames).toContain("conversation.emoji")
     expect(commandNames).toContain("conversation.poll")
@@ -490,5 +492,62 @@ describe("KeymapService", () => {
     pressStroke("o")
 
     expect(toasts).toContain("No media found in this chat")
+  })
+
+  it("should open the most recent link in browser via conversation.open-link shortcut (l)", async () => {
+    initKeymap(renderer)
+    appState.setCurrentView("conversation")
+    appState.setCurrentChat("chat-1")
+
+    const openedUrls: string[] = []
+    spyOn(urlUtils, "openUrl").mockImplementation(async (url) => {
+      openedUrls.push(url)
+      return true
+    })
+
+    const oldMsgWithLink = {
+      id: "msg-old",
+      timestamp: 1000,
+      body: "Old link: https://old.example.com",
+    }
+    const textMsg = {
+      id: "msg-text",
+      timestamp: 2000,
+      body: "Just text without links",
+    }
+    const recentMsgWithLink = {
+      id: "msg-recent",
+      timestamp: 3000,
+      body: "Check out https://new.example.com for info",
+    }
+
+    appState.setMessages("chat-1", [recentMsgWithLink, textMsg, oldMsgWithLink] as never)
+
+    pressStroke("l")
+
+    expect(openedUrls).toEqual(["https://new.example.com"])
+  })
+
+  it("should show toast when no links are found in chat on conversation.open-link", () => {
+    initKeymap(renderer)
+    appState.setCurrentView("conversation")
+    appState.setCurrentChat("chat-1")
+
+    const toasts: string[] = []
+    spyOn(toastModule, "showToast").mockImplementation((msg) => {
+      toasts.push(msg)
+      return "toast-id"
+    })
+
+    const textMsg = {
+      id: "msg-text",
+      timestamp: 2000,
+      body: "No links here",
+    }
+    appState.setMessages("chat-1", [textMsg] as never)
+
+    pressStroke("l")
+
+    expect(toasts).toContain("No links found in this chat")
   })
 })

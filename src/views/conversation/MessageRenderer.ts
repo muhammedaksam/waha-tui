@@ -10,12 +10,14 @@ import { BoxRenderable, CliRenderer, t, TextAttributes, TextRenderable } from "@
 import type { WAMessageExtended } from "~/types"
 import { downloadAndOpenMedia, sendPollVote } from "~/client"
 import { showPollVotesModal } from "~/components/Modal"
+import { showToast } from "~/components/Toast"
 import { Icons, WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
 import { formatAckStatus, getInitials, isSelfChat } from "~/utils/formatters"
 import { getLinkPreviewData } from "~/utils/linkPreview"
 import { getMediaLabel, isDownloadableMedia } from "~/utils/mediaLabels"
+import { extractUrls, formatTextWithUrls, openUrl } from "~/utils/urlUtils"
 import { centerText, getSenderInfo } from "~/views/conversation/MessageHelpers"
 import { renderReplyContext } from "~/views/conversation/ReplyContext"
 
@@ -255,6 +257,28 @@ export function renderMessage(
           downloadAndOpenMedia(targetChatId, message.id).catch((err) => {
             debugLog("ConversationView", `Failed to download media via click: ${err}`)
           })
+          return
+        }
+      }
+
+      // Ctrl/Cmd + click on a message with URLs opens the URL in the browser
+      if (
+        !isSelectionMode &&
+        event.type === "down" &&
+        event.button === 0 &&
+        (event.modifiers?.ctrl || event.modifiers?.alt)
+      ) {
+        const textToSearch = (message.body || media.caption || "") as string
+        const urls = extractUrls(textToSearch)
+        const preview = getLinkPreviewData(message)
+        const urlToOpen = urls[0] || preview?.canonicalUrl || preview?.url
+        if (urlToOpen) {
+          event.stopPropagation()
+          showToast("Opening link in browser...", "info")
+          openUrl(urlToOpen).catch((err) => {
+            debugLog("ConversationView", `Failed to open link via click: ${err}`)
+            showToast("Failed to open link", "error")
+          })
         }
       }
     },
@@ -405,11 +429,30 @@ export function renderMessage(
       flexDirection: "row",
       alignItems: "flex-end",
       justifyContent: "space-between",
+      onMouse: function (event) {
+        if (
+          !isSelectionMode &&
+          event.type === "down" &&
+          event.button === 0 &&
+          (event.modifiers?.ctrl || event.modifiers?.alt)
+        ) {
+          const urls = extractUrls(media.caption || "")
+          const preview = getLinkPreviewData(message)
+          const urlToOpen = urls[0] || preview?.canonicalUrl || preview?.url
+          if (urlToOpen) {
+            event.stopPropagation()
+            showToast("Opening link in browser...", "info")
+            openUrl(urlToOpen).catch((err) => {
+              debugLog("ConversationView", `Failed to open link: ${err}`)
+              showToast("Failed to open link", "error")
+            })
+          }
+        }
+      },
     })
 
     const captionText = new TextRenderable(renderer, {
-      content: media.caption,
-      fg: WhatsAppTheme.textPrimary, // Normal text for captions
+      content: formatTextWithUrls(media.caption, WhatsAppTheme.textPrimary, WhatsAppTheme.green),
       flexGrow: 1,
     })
     captionRow.add(captionText)
@@ -434,11 +477,30 @@ export function renderMessage(
       flexDirection: "row",
       alignItems: "flex-end",
       justifyContent: "space-between",
+      onMouse: function (event) {
+        if (
+          !isSelectionMode &&
+          event.type === "down" &&
+          event.button === 0 &&
+          (event.modifiers?.ctrl || event.modifiers?.alt)
+        ) {
+          const urls = extractUrls(messageText)
+          const preview = getLinkPreviewData(message)
+          const urlToOpen = urls[0] || preview?.canonicalUrl || preview?.url
+          if (urlToOpen) {
+            event.stopPropagation()
+            showToast("Opening link in browser...", "info")
+            openUrl(urlToOpen).catch((err) => {
+              debugLog("ConversationView", `Failed to open link: ${err}`)
+              showToast("Failed to open link", "error")
+            })
+          }
+        }
+      },
     })
 
     const contentText = new TextRenderable(renderer, {
-      content: messageText,
-      fg: WhatsAppTheme.textPrimary,
+      content: formatTextWithUrls(messageText, WhatsAppTheme.textPrimary, WhatsAppTheme.green),
       flexGrow: 1,
     })
     contentRow.add(contentText)
@@ -684,8 +746,22 @@ export function renderMessage(
   const linkPreview = getLinkPreviewData(message)
   if (linkPreview) {
     const previewWrapper = new BoxRenderable(renderer, {
+      id: `msg-${message.id || Date.now()}-link-preview`,
       flexDirection: "row",
       marginTop: 1,
+      onMouse: function (event) {
+        if (!isSelectionMode && event.type === "down" && event.button === 0) {
+          event.stopPropagation()
+          const urlToOpen = linkPreview.canonicalUrl || linkPreview.url
+          if (urlToOpen) {
+            showToast("Opening link in browser...", "info")
+            openUrl(urlToOpen).catch((err) => {
+              debugLog("ConversationView", `Failed to open preview link: ${err}`)
+              showToast("Failed to open link", "error")
+            })
+          }
+        }
+      },
     })
 
     // Left accent bar
@@ -728,12 +804,11 @@ export function renderMessage(
       )
     }
 
-    // Show the URL in blue
+    // Show the URL styled as an active link
     const displayUrl = linkPreview.canonicalUrl || linkPreview.url
     previewContent.add(
       new TextRenderable(renderer, {
-        content: displayUrl,
-        fg: WhatsAppTheme.blue,
+        content: formatTextWithUrls(displayUrl, WhatsAppTheme.green, WhatsAppTheme.green),
       })
     )
 
