@@ -231,3 +231,49 @@ export function formatFileSize(bytes: number): string {
 
   return `${size.toFixed(1)} ${units[unitIndex]}`
 }
+
+/**
+ * Check whether a message contains downloadable media content (images, videos, documents, audio, stickers, etc.)
+ * Excludes non-downloadable special types like contacts, locations, system notifications, or polls.
+ */
+export function isDownloadableMedia(message: WAMessageExtended | null | undefined): boolean {
+  if (!message) return false
+  const data = (message._data ?? {}) as MessageData
+  const msgAny = message as Record<string, unknown>
+  const type = String(msgAny.type ?? data.type ?? "").toLowerCase()
+
+  // Non-downloadable types even if flagged with hasMedia
+  const nonDownloadableTypes = [
+    "chat",
+    "location",
+    "live_location",
+    "vcard",
+    "multi_vcard",
+    "call_log",
+    "e2e_notification",
+    "notification",
+    "notification_template",
+    "gp2",
+    "ciphertext",
+    "revoked",
+    "poll",
+    "poll_creation",
+    "protocol",
+  ]
+  if (nonDownloadableTypes.includes(type)) {
+    return false
+  }
+
+  // Explicit downloadable media types
+  const downloadableTypes = ["image", "video", "gif", "audio", "ptt", "document", "sticker"]
+  if (downloadableTypes.includes(type)) {
+    return true
+  }
+
+  // Fallback to media flags and URLs
+  if (msgAny.hasMedia === true || data.hasMedia === true || !!msgAny.mediaUrl || !!data.mediaUrl) {
+    return true
+  }
+
+  return false
+}

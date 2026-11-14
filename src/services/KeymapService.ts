@@ -55,6 +55,7 @@ import { startNewChat } from "~/utils/createChat"
 import { debugLog } from "~/utils/debug"
 import { filterChats, isArchived } from "~/utils/filterChats"
 import { getChatIdString } from "~/utils/formatters"
+import { isDownloadableMedia } from "~/utils/mediaLabels"
 import { blurSearchInput, clearSearchInput, focusSearchInput } from "~/views/ChatsView"
 import {
   blurMessageInput,
@@ -1101,13 +1102,17 @@ function registerConversationViewLayer(keymap: Keymap<Renderable, KeyEvent>): vo
           const messages = state.messages.get(state.currentChatId || "")
           if (messages && messages.length > 0) {
             const targetMessage = [...messages]
-              .reverse()
-              .find((m) => m.hasMedia || m._data?.hasMedia)
+              .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+              .find((m) => isDownloadableMedia(m))
             if (targetMessage && state.currentChatId) {
               downloadAndOpenMedia(state.currentChatId as string, targetMessage.id).catch((err) => {
                 debugLog("Keyboard", `Failed to download media via shortcut: ${err}`)
               })
+            } else {
+              showToast("No media found in this chat", "info")
             }
+          } else {
+            showToast("No messages in this chat", "info")
           }
         },
       },
@@ -1144,7 +1149,9 @@ function registerConversationViewLayer(keymap: Keymap<Renderable, KeyEvent>): vo
           const state = appState.getState()
           const messages = state.messages.get(state.currentChatId || "")
           if (messages && messages.length > 0) {
-            const targetMessage = messages[messages.length - 1]!
+            const targetMessage = [...messages].sort(
+              (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
+            )[0]!
             showEmojiPicker().then((emoji) => {
               if (emoji) {
                 reactToMessage(targetMessage.id, emoji).catch((err) => {

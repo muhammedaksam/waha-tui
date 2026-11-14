@@ -8,14 +8,14 @@ import type { WAMessage } from "@muhammedaksam/waha-node"
 import { BoxRenderable, CliRenderer, t, TextAttributes, TextRenderable } from "@opentui/core"
 
 import type { WAMessageExtended } from "~/types"
-import { sendPollVote } from "~/client"
+import { downloadAndOpenMedia, sendPollVote } from "~/client"
 import { showPollVotesModal } from "~/components/Modal"
 import { Icons, WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
 import { formatAckStatus, getInitials, isSelfChat } from "~/utils/formatters"
 import { getLinkPreviewData } from "~/utils/linkPreview"
-import { getMediaLabel } from "~/utils/mediaLabels"
+import { getMediaLabel, isDownloadableMedia } from "~/utils/mediaLabels"
 import { centerText, getSenderInfo } from "~/views/conversation/MessageHelpers"
 import { renderReplyContext } from "~/views/conversation/ReplyContext"
 
@@ -89,6 +89,7 @@ export function renderMessage(
   // Build message bubble content with WhatsApp-like layout
   // Detect media type and produce descriptive label
   const media = getMediaLabel(message)
+  const isDownloadable = isDownloadableMedia(message)
   let messageText: string
   let isMediaLabel = false
 
@@ -237,6 +238,24 @@ export function renderMessage(
           x: bubbleX,
           y: bubbleY,
         })
+        return
+      }
+
+      // If clicking on a downloadable media bubble without caption
+      if (
+        !isSelectionMode &&
+        event.type === "down" &&
+        event.button === 0 &&
+        isDownloadable &&
+        !media.caption
+      ) {
+        const targetChatId = chatId || appState.getState().currentChatId
+        if (targetChatId && message.id) {
+          event.stopPropagation()
+          downloadAndOpenMedia(targetChatId, message.id).catch((err) => {
+            debugLog("ConversationView", `Failed to download media via click: ${err}`)
+          })
+        }
       }
     },
   })
@@ -308,6 +327,23 @@ export function renderMessage(
       flexDirection: "row",
       alignItems: "flex-end",
       justifyContent: "space-between",
+      onMouse: function (event) {
+        if (isSelectionMode && event.type === "down" && event.button === 0 && chatId) {
+          appState.toggleMessageSelection(chatId, message.id)
+          event.stopPropagation()
+          return
+        }
+
+        if (isDownloadable && event.type === "down" && event.button === 0) {
+          event.stopPropagation()
+          const targetChatId = chatId || appState.getState().currentChatId
+          if (targetChatId && message.id) {
+            downloadAndOpenMedia(targetChatId, message.id).catch((err) => {
+              debugLog("ConversationView", `Failed to download media via click: ${err}`)
+            })
+          }
+        }
+      },
     })
 
     const mediaLabelText = new TextRenderable(renderer, {
@@ -316,6 +352,38 @@ export function renderMessage(
       flexGrow: 1,
     })
     mediaLabelRow.add(mediaLabelText)
+
+    if (isDownloadable) {
+      const downloadBtn = new BoxRenderable(renderer, {
+        id: `msg-${message.id || Date.now()}-download-btn`,
+        flexDirection: "row",
+        flexShrink: 0,
+        marginLeft: 1,
+        onMouse: function (event) {
+          if (isSelectionMode && event.type === "down" && event.button === 0 && chatId) {
+            appState.toggleMessageSelection(chatId, message.id)
+            event.stopPropagation()
+            return
+          }
+          if (event.type === "down" && event.button === 0) {
+            event.stopPropagation()
+            const targetChatId = chatId || appState.getState().currentChatId
+            if (targetChatId && message.id) {
+              downloadAndOpenMedia(targetChatId, message.id).catch((err) => {
+                debugLog("ConversationView", `Failed to download media via click: ${err}`)
+              })
+            }
+          }
+        },
+      })
+      const downloadIcon = new TextRenderable(renderer, {
+        content: Icons.download,
+        fg: WhatsAppTheme.green,
+        attributes: TextAttributes.BOLD,
+      })
+      downloadBtn.add(downloadIcon)
+      mediaLabelRow.add(downloadBtn)
+    }
 
     // If no caption follows, put timestamp on the label row
     if (!media.caption) {
