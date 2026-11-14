@@ -4,24 +4,15 @@
  */
 
 import type { WAMessageExtended } from "~/types"
+import { extractUrls } from "~/utils/urlUtils"
+
+export { extractUrls }
 
 export interface LinkPreviewInfo {
   url: string
   title?: string
   description?: string
   canonicalUrl?: string
-}
-
-/**
- * Simple URL regex to detect links in message text
- */
-const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi
-
-/**
- * Extract URLs from plain text
- */
-export function extractUrls(text: string): string[] {
-  return text.match(URL_REGEX) || []
 }
 
 /**

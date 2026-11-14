@@ -18,7 +18,9 @@ import { appState } from "~/state/AppState"
 import { getRenderer } from "~/state/RendererContext"
 import { debugLog } from "~/utils/debug"
 import { hasUnreadMessages, isArchived, isPinned } from "~/utils/filterChats"
+import { getLinkPreviewData } from "~/utils/linkPreview"
 import { isDownloadableMedia } from "~/utils/mediaLabels"
+import { extractUrls } from "~/utils/urlUtils"
 
 export interface ContextMenuItem {
   id: string
@@ -217,6 +219,17 @@ export function getMessageMenuItems(message: WAMessage | WAMessageExtended): Con
       id: "download",
       label: "Download & Open",
       icon: Icons.download,
+    })
+  }
+
+  const extMsg = message as WAMessageExtended
+  const urls = extractUrls(extMsg.body || "")
+  const linkPreview = getLinkPreviewData(extMsg)
+  if (urls.length > 0 || linkPreview?.url || linkPreview?.canonicalUrl) {
+    items.push({
+      id: "open_link",
+      label: "Open Link",
+      icon: "🔗",
     })
   }
 

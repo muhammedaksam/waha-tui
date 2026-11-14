@@ -1,11 +1,13 @@
-import { BoxRenderable, TextRenderable } from "@opentui/core"
+import { BoxRenderable, parseColor, TextRenderable } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
 import { beforeEach, describe, expect, it, spyOn } from "bun:test"
 
 import type { WAMessageExtended } from "~/types"
 import * as client from "~/client"
-import { Icons } from "~/config/theme"
+import { getMessageMenuItems } from "~/components/ContextMenu"
+import { Icons, WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
+import * as urlUtils from "~/utils/urlUtils"
 import { renderMessage } from "~/views/conversation/MessageRenderer"
 
 function getTextContent(renderable: TextRenderable): string {
@@ -228,5 +230,146 @@ describe("MessageRenderer > Downloadable Media", () => {
     expect(findRenderableById(locRoot, "msg-loc-1-download-btn")).toBeUndefined()
 
     setup.renderer.destroy()
+  })
+})
+
+describe("MessageRenderer > Hyperlinks & URL clicking", () => {
+  beforeEach(() => {
+    appState.reset()
+    appState.setCurrentChat("chat-1")
+  })
+
+  it("should style URLs in message body with green color and underline", async () => {
+    const setup = await createTestRenderer({ width: 80, height: 24 })
+    const msg = {
+      id: "msg-url-1",
+      body: "Visit https://github.com for details",
+      timestamp: 1700000000,
+      hasMedia: false,
+    } as unknown as WAMessageExtended
+
+    const root = renderMessage(setup.renderer, msg, false, true, undefined, "chat-1")
+
+    const urlText = findTextRenderable(root, (text) => text.startsWith("Visit "))
+    expect(urlText).toBeDefined()
+
+    const content = urlText?.content as {
+      chunks?: Array<{ text: string; fg?: unknown; link?: { url: string } }>
+    }
+    const urlChunk = content?.chunks?.find((c) => c.text === "https://github.com")
+    expect(urlChunk).toBeDefined()
+    expect(urlChunk?.fg).toEqual(parseColor(WhatsAppTheme.green))
+    expect(urlChunk?.link).toEqual({ url: "https://github.com" })
+
+    setup.renderer.destroy()
+  })
+
+  it("should trigger openUrl when [Ctrl]+clicking a message content row with a URL", async () => {
+    const setup = await createTestRenderer({ width: 80, height: 24 })
+    const msg = {
+      id: "msg-url-2",
+      body: "Check out https://waha.dev today",
+      timestamp: 1700000000,
+      hasMedia: false,
+    } as unknown as WAMessageExtended
+
+    const openedUrls: string[] = []
+    const openUrlSpy = spyOn(urlUtils, "openUrl").mockImplementation(async (url) => {
+      openedUrls.push(url)
+      return true
+    })
+
+    const root = renderMessage(setup.renderer, msg, false, true, undefined, "chat-1")
+
+    const contentRow = findRenderableById(root, "msg-msg-url-2-content")
+    expect(contentRow).toBeDefined()
+
+    let stopped = false
+    const mockEvent = {
+      type: "down",
+      button: 0,
+      modifiers: { ctrl: true, alt: false, shift: false },
+      get propagationStopped() {
+        return stopped
+      },
+      stopPropagation: () => {
+        stopped = true
+      },
+    }
+
+    contentRow?.processMouseEvent(mockEvent as never)
+
+    expect(stopped).toBe(true)
+    expect(openedUrls).toEqual(["https://waha.dev"])
+
+    openUrlSpy.mockRestore()
+    setup.renderer.destroy()
+  })
+
+  it("should trigger openUrl when clicking the link preview card", async () => {
+    const setup = await createTestRenderer({ width: 80, height: 24 })
+    const msg = {
+      id: "msg-url-3",
+      body: "https://example.com",
+      timestamp: 1700000000,
+      hasMedia: false,
+      _data: {
+        matchedText: "https://example.com",
+        title: "Example Domain",
+        description: "An example domain description",
+      },
+    } as unknown as WAMessageExtended
+
+    const openedUrls: string[] = []
+    const openUrlSpy = spyOn(urlUtils, "openUrl").mockImplementation(async (url) => {
+      openedUrls.push(url)
+      return true
+    })
+
+    const root = renderMessage(setup.renderer, msg, false, true, undefined, "chat-1")
+
+    const previewBox = findRenderableById(root, "msg-msg-url-3-link-preview")
+    expect(previewBox).toBeDefined()
+
+    let stopped = false
+    const mockEvent = {
+      type: "down",
+      button: 0,
+      modifiers: { ctrl: false, alt: false, shift: false },
+      get propagationStopped() {
+        return stopped
+      },
+      stopPropagation: () => {
+        stopped = true
+      },
+    }
+
+    previewBox?.processMouseEvent(mockEvent as never)
+
+    expect(stopped).toBe(true)
+    expect(openedUrls).toEqual(["https://example.com"])
+
+    openUrlSpy.mockRestore()
+    setup.renderer.destroy()
+  })
+
+  it("should include 'Open Link' in context menu items when message has a URL", () => {
+    const msgWithUrl = {
+      id: "msg-menu-1",
+      body: "Check https://example.com",
+    } as unknown as WAMessageExtended
+
+    const items = getMessageMenuItems(msgWithUrl)
+    const openLinkItem = items.find((i) => i.id === "open_link")
+    expect(openLinkItem).toBeDefined()
+    expect(openLinkItem?.label).toBe("Open Link")
+
+    const msgWithoutUrl = {
+      id: "msg-menu-2",
+      body: "No URL here",
+    } as unknown as WAMessageExtended
+
+    const noUrlItems = getMessageMenuItems(msgWithoutUrl)
+    expect(noUrlItems.find((i) => i.id === "open_link")).toBeUndefined()
   })
 })
