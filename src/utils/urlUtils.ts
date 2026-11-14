@@ -151,6 +151,16 @@ export async function openUrl(url: string): Promise<boolean> {
 
   const targetUrl = normalizeUrl(url)
 
+  try {
+    const parsed = new URL(targetUrl)
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:" && parsed.protocol !== "ftp:") {
+      debugLog("Browser", `Rejected URL with unsupported protocol: ${parsed.protocol}`)
+      return false
+    }
+  } catch {
+    return false
+  }
+
   return new Promise((resolve) => {
     let command: string
     let args: string[]

@@ -250,7 +250,7 @@ describe("MessageRenderer > Hyperlinks & URL clicking", () => {
 
     const root = renderMessage(setup.renderer, msg, false, true, undefined, "chat-1")
 
-    const urlText = findTextRenderable(root, (text) => text.includes("https://github.com"))
+    const urlText = findTextRenderable(root, (text) => text.startsWith("Visit "))
     expect(urlText).toBeDefined()
 
     const content = urlText?.content as {
@@ -274,7 +274,7 @@ describe("MessageRenderer > Hyperlinks & URL clicking", () => {
     } as unknown as WAMessageExtended
 
     const openedUrls: string[] = []
-    spyOn(urlUtils, "openUrl").mockImplementation(async (url) => {
+    const openUrlSpy = spyOn(urlUtils, "openUrl").mockImplementation(async (url) => {
       openedUrls.push(url)
       return true
     })
@@ -302,6 +302,7 @@ describe("MessageRenderer > Hyperlinks & URL clicking", () => {
     expect(stopped).toBe(true)
     expect(openedUrls).toEqual(["https://waha.dev"])
 
+    openUrlSpy.mockRestore()
     setup.renderer.destroy()
   })
 
@@ -320,7 +321,7 @@ describe("MessageRenderer > Hyperlinks & URL clicking", () => {
     } as unknown as WAMessageExtended
 
     const openedUrls: string[] = []
-    spyOn(urlUtils, "openUrl").mockImplementation(async (url) => {
+    const openUrlSpy = spyOn(urlUtils, "openUrl").mockImplementation(async (url) => {
       openedUrls.push(url)
       return true
     })
@@ -348,6 +349,7 @@ describe("MessageRenderer > Hyperlinks & URL clicking", () => {
     expect(stopped).toBe(true)
     expect(openedUrls).toEqual(["https://example.com"])
 
+    openUrlSpy.mockRestore()
     setup.renderer.destroy()
   })
 

@@ -10,6 +10,7 @@ import {
   extractUrls,
   formatTextWithUrls,
   normalizeUrl,
+  openUrl,
   trimTrailingPunctuation,
 } from "~/utils/urlUtils"
 
@@ -123,5 +124,13 @@ describe("formatTextWithUrls", () => {
     const trailingDot = styled.chunks.find((c) => c.text === ").")
     expect(trailingDot).toBeDefined()
     expect(trailingDot?.link).toBeUndefined()
+  })
+
+  describe("openUrl protocol validation", () => {
+    it("returns false for invalid or unsupported protocol", async () => {
+      expect(await openUrl("")).toBe(false)
+      expect(await openUrl("javascript:alert(1)")).toBe(false)
+      expect(await openUrl("file:///etc/passwd")).toBe(false)
+    })
   })
 })

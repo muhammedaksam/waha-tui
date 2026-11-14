@@ -500,7 +500,7 @@ describe("KeymapService", () => {
     appState.setCurrentChat("chat-1")
 
     const openedUrls: string[] = []
-    spyOn(urlUtils, "openUrl").mockImplementation(async (url) => {
+    const openUrlSpy = spyOn(urlUtils, "openUrl").mockImplementation(async (url) => {
       openedUrls.push(url)
       return true
     })
@@ -526,6 +526,7 @@ describe("KeymapService", () => {
     pressStroke("l")
 
     expect(openedUrls).toEqual(["https://new.example.com"])
+    openUrlSpy.mockRestore()
   })
 
   it("should show toast when no links are found in chat on conversation.open-link", () => {
