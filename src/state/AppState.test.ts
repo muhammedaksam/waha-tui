@@ -271,6 +271,27 @@ describe("AppState", () => {
     })
   })
 
+  describe("getPushName", () => {
+    beforeEach(() => {
+      appState.setPushNamesCache(new Map([["447700900001@c.us", "Alice"]]))
+    })
+
+    it("should return the push name for a phone number ID", () => {
+      expect(appState.getPushName("447700900001@c.us")).toBe("Alice")
+    })
+
+    it("should resolve a LID to the push name via the LID mapping", () => {
+      appState.addLidMappings([{ lid: "123456789012345@lid", pn: "447700900001@c.us" }])
+      expect(appState.getPushName("123456789012345@lid")).toBe("Alice")
+    })
+
+    it("should return undefined for a LID with no push name", () => {
+      appState.addLidMappings([{ lid: "999999999999999@lid", pn: "447700900002@c.us" }])
+      expect(appState.getPushName("999999999999999@lid")).toBeUndefined()
+      expect(appState.getPushName("888888888888888@lid")).toBeUndefined()
+    })
+  })
+
   describe("setQrCode", () => {
     it("should update qrCode in state", () => {
       appState.setQrCode("2@testqrcodevalue")

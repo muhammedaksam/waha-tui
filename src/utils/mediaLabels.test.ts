@@ -5,7 +5,12 @@
 import { describe, expect, it } from "bun:test"
 
 import type { WAMessageExtended } from "~/types"
-import { formatFileSize, getMediaLabel, getMediaLabelFromReply } from "~/utils/mediaLabels"
+import {
+  formatFileSize,
+  getMediaLabel,
+  getMediaLabelFromReply,
+  isDownloadableMedia,
+} from "~/utils/mediaLabels"
 
 // Helper to create a minimal WAMessageExtended for testing
 function makeMessage(
@@ -291,5 +296,57 @@ describe("formatFileSize", () => {
 
   it("handles negative values", () => {
     expect(formatFileSize(-100)).toBe("0 B")
+  })
+})
+
+// ─── isDownloadableMedia ──────────────────────────────────────────
+
+describe("isDownloadableMedia", () => {
+  it("returns false for null, undefined, or empty messages", () => {
+    expect(isDownloadableMedia(null)).toBe(false)
+    expect(isDownloadableMedia(undefined)).toBe(false)
+  })
+
+  it("returns false for plain text messages", () => {
+    const msg = makeMessage({ body: "Just text", hasMedia: false })
+    expect(isDownloadableMedia(msg)).toBe(false)
+  })
+
+  it("returns true for standard media types (image, video, audio, ptt, document, sticker)", () => {
+    expect(isDownloadableMedia(makeMessage({ type: "image", hasMedia: true }))).toBe(true)
+    expect(isDownloadableMedia(makeMessage({ type: "video", hasMedia: true }))).toBe(true)
+    expect(isDownloadableMedia(makeMessage({ type: "gif", hasMedia: true }))).toBe(true)
+    expect(isDownloadableMedia(makeMessage({ type: "audio", hasMedia: true }))).toBe(true)
+    expect(isDownloadableMedia(makeMessage({ type: "ptt", hasMedia: true }))).toBe(true)
+    expect(isDownloadableMedia(makeMessage({ type: "document", hasMedia: true }))).toBe(true)
+    expect(isDownloadableMedia(makeMessage({ type: "sticker", hasMedia: true }))).toBe(true)
+  })
+
+  it("returns false for non-downloadable special types", () => {
+    expect(isDownloadableMedia(makeMessage({ type: "location", hasMedia: true }))).toBe(false)
+    expect(isDownloadableMedia(makeMessage({ type: "vcard", hasMedia: true }))).toBe(false)
+    expect(isDownloadableMedia(makeMessage({ type: "multi_vcard", hasMedia: true }))).toBe(false)
+    expect(isDownloadableMedia(makeMessage({ type: "call_log", hasMedia: true }))).toBe(false)
+    expect(isDownloadableMedia(makeMessage({ type: "poll", hasMedia: true }))).toBe(false)
+    expect(isDownloadableMedia(makeMessage({ type: "revoked", hasMedia: true }))).toBe(false)
+    expect(isDownloadableMedia(makeMessage({ type: "e2e_notification", hasMedia: true }))).toBe(
+      false
+    )
+  })
+
+  it("returns true if hasMedia or mediaUrl is present on message or _data", () => {
+    expect(isDownloadableMedia(makeMessage({ hasMedia: true }))).toBe(true)
+    expect(isDownloadableMedia(makeMessage({ mediaUrl: "http://example.com/file.bin" }))).toBe(true)
+    expect(
+      isDownloadableMedia(makeMessage({ _data: { hasMedia: true } } as Record<string, unknown>))
+    ).toBe(true)
+    expect(
+      isDownloadableMedia(
+        makeMessage({ _data: { mediaUrl: "http://example.com/file.bin" } } as Record<
+          string,
+          unknown
+        >)
+      )
+    ).toBe(true)
   })
 })

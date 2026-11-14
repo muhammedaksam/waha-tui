@@ -498,6 +498,8 @@ export async function prefetchMessagesForTopChats(count: number = 5): Promise<vo
   debugLog("BackgroundSync", "Pre-fetch complete")
 }
 
+const activeMediaDownloads = new Set<string>()
+
 /**
  * Downloads media from a message and opens it in the system's default viewer.
  * @param chatId - The chat ID
@@ -505,6 +507,13 @@ export async function prefetchMessagesForTopChats(count: number = 5): Promise<vo
  * @throws {NetworkError} If network connection fails
  */
 export async function downloadAndOpenMedia(chatId: string, messageId: string): Promise<void> {
+  if (activeMediaDownloads.has(messageId)) {
+    debugLog("Client", `Media download already in progress for message: ${messageId}`)
+    return
+  }
+  activeMediaDownloads.add(messageId)
+  showToast("Downloading media...", "info")
+
   try {
     const session = getSession()
     const wahaClient = getClient()
@@ -526,7 +535,12 @@ export async function downloadAndOpenMedia(chatId: string, messageId: string): P
       throw new Error("Message does not contain media")
     }
 
-    let mediaUrl = message.media?.url || message.mediaUrl
+    const msgData = message._data as Record<string, unknown> | undefined
+    let mediaUrl =
+      message.media?.url ||
+      message.mediaUrl ||
+      (msgData?.mediaUrl as string | undefined) ||
+      (msgData?.media as { url?: string } | undefined)?.url
     if (!mediaUrl) {
       throw new Error("Media URL not found in message payload")
     }
@@ -549,6 +563,8 @@ export async function downloadAndOpenMedia(chatId: string, messageId: string): P
     // Determine filename from mime type or object
     const filename =
       message.media?.filename ||
+      message._data?.filename ||
+      message._data?.mediaData?.filename ||
       `media_${messageId}.${message.media?.mimetype?.split("/")[1]?.split(";")[0] || "bin"}`
 
     const downloadDir = await getMediaDownloadDir()
@@ -590,11 +606,15 @@ export async function downloadAndOpenMedia(chatId: string, messageId: string): P
     if (!opened) {
       throw new Error("System failed to open the file")
     }
+    showToast("Media opened", "success")
   } catch (error) {
+    showToast("Failed to download media", "error")
     errorService.handle(error, { context: { action: "downloadAndOpenMedia", messageId } })
     throw error instanceof Error
       ? new NetworkError("Failed to download and open media", { messageId }, error)
       : new NetworkError("Failed to download and open media", { messageId })
+  } finally {
+    activeMediaDownloads.delete(messageId)
   }
 }
 

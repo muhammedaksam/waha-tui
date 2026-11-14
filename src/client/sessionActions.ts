@@ -265,30 +265,66 @@ export async function pollChats(): Promise<void> {
 // Contacts
 // ============================================
 
-export async function loadContacts(): Promise<void> {
+export async function loadContacts(forceReload = false): Promise<void> {
   try {
     const state = appState.getState()
-    if (state.contactsCache.size > 0) return
+    if (!forceReload && (state.contactsCache.size > 0 || state.pushNamesCache.size > 0)) return
 
     const session = getSession()
     debugLog("Contacts", `Loading contacts for session: ${session}`)
     const wahaClient = getClient()
-    const response = await wahaClient.contacts.contactsControllerGetAll({
-      session,
-      limit: 5000,
-    })
 
-    const contacts = (response.data as unknown as Array<{ id?: string; name?: string }>) || []
     const contactsMap = new Map<string, string>()
+    const pushNamesMap = new Map<string, string>()
+    const pageSize = 5000
+    let offset = 0
+    let hasMore = true
 
-    for (const contact of contacts) {
-      if (contact.id && contact.name) {
-        contactsMap.set(contact.id, contact.name)
+    while (hasMore) {
+      const response = await wahaClient.contacts.contactsControllerGetAll({
+        session,
+        limit: pageSize,
+        offset,
+      })
+
+      const contacts =
+        (response.data as unknown as Array<{
+          id?: string
+          name?: string
+          pushname?: string
+          pushName?: string
+        }>) || []
+
+      if (!contacts || contacts.length === 0) {
+        break
+      }
+
+      let newItemsCount = 0
+      for (const contact of contacts) {
+        if (contact.id) {
+          const name = contact.name?.trim()
+          const pushName = (contact.pushname || contact.pushName)?.trim()
+
+          if (name) {
+            if (!contactsMap.has(contact.id)) newItemsCount++
+            contactsMap.set(contact.id, name)
+          } else if (pushName) {
+            if (!pushNamesMap.has(contact.id)) newItemsCount++
+            pushNamesMap.set(contact.id, pushName)
+          }
+        }
+      }
+
+      if (contacts.length < pageSize || newItemsCount === 0) {
+        hasMore = false
+      } else {
+        offset += pageSize
       }
     }
 
-    debugLog("Contacts", `Cached ${contactsMap.size} contacts`)
+    debugLog("Contacts", `Cached ${contactsMap.size} contacts, ${pushNamesMap.size} push names`)
     appState.setContactsCache(contactsMap)
+    appState.setPushNamesCache(pushNamesMap)
   } catch (error) {
     errorService.handle(error, { context: { action: "loadContacts" } })
   }

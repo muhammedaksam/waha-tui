@@ -10,7 +10,7 @@ import { BoxRenderable, CliRenderer, TextRenderable } from "@opentui/core"
 import type { WAMessageExtended } from "~/types"
 import { WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
-import { getPhoneNumber } from "~/utils/formatters"
+import { formatPhoneNumber } from "~/utils/formatters"
 
 /**
  * Simple string hash function for consistent color assignment
@@ -61,6 +61,62 @@ export function getSenderColor(
 }
 
 /**
+ * Resolves the display name for a sender ID according to WhatsApp conventions:
+ * 1. Saved contact: show the saved name.
+ * 2. Phone and pushname both known: show `${formattedPhone} ~${pushname}`.
+ * 3. Only the pushname known: show `~${pushname}`.
+ * 4. Only the phone known: show the formatted phone number from getPhoneFromLid plus formatPhoneNumber.
+ * Fallback: LID digits (split('@')[0]).
+ */
+export function resolveSenderDisplayName(senderId: string, inlinePushName?: string): string {
+  if (!senderId) return ""
+
+  // Priority 1: Saved contact: show the name
+  const savedName = appState.getContactName(senderId)
+  if (savedName) {
+    return savedName
+  }
+
+  // Determine push name
+  const rawPushName = inlinePushName || appState.getPushName(senderId)
+  const pushName = rawPushName?.trim()
+  const tildePushName = pushName
+    ? pushName.startsWith("~")
+      ? pushName
+      : `~${pushName}`
+    : undefined
+
+  // Determine phone number (LIDs must be resolved via getPhoneFromLid)
+  let phoneId: string | undefined
+  if (senderId.endsWith("@lid")) {
+    phoneId = appState.getPhoneFromLid(senderId)
+  } else if (!senderId.endsWith("@g.us") && !senderId.endsWith("@broadcast")) {
+    phoneId = senderId
+  }
+
+  const formattedPhone = phoneId ? formatPhoneNumber(phoneId) : undefined
+
+  // Priority 2: Phone and pushname both known: show +44 7700 900001 ~Alice
+  if (formattedPhone && tildePushName) {
+    return `${formattedPhone} ${tildePushName}`
+  }
+
+  // Priority 3: Only the pushname known: show ~Alice
+  if (tildePushName) {
+    return tildePushName
+  }
+
+  // Priority 4: Only the phone known: show the formatted phone number
+  if (formattedPhone) {
+    return formattedPhone
+  }
+
+  // Fallback: LID digits
+  const parts = senderId.split("@")
+  return parts[0]
+}
+
+/**
  * Helper to get sender info (ID, Name, Color)
  */
 export function getSenderInfo(
@@ -82,29 +138,13 @@ export function getSenderInfo(
       senderId = message.participant
     }
 
-    // Determine name
-    if (isGroupChat && message.from) {
-      // Priority 1: Check contacts cache
-      const cachedName = appState.getContactName(senderId)
-      if (cachedName) {
-        senderName = cachedName
-      } else {
-        // Priority 2: _data info
-        const msgData = message._data
-        if (msgData?.notifyName) {
-          senderName = msgData.notifyName
-        } else if (msgData?.pushName) {
-          senderName = msgData.pushName
-        } else {
-          // Priority 3: Participant ID, fallback to from
-          const fallbackParts = (message.participant || message.from || "").split("@")
-          senderName = fallbackParts[0]
-        }
-      }
-    } else {
-      // 1:1 Chat sender name
-      senderName = appState.getContactName(senderId) || getPhoneNumber(senderId)
-    }
+    const inlinePushName =
+      message._data?.notifyName ||
+      message._data?.pushName ||
+      (message as { pushName?: string }).pushName ||
+      (message as { notifyName?: string }).notifyName
+
+    senderName = resolveSenderDisplayName(senderId, inlinePushName)
   }
 
   const senderColor = isFromMe

@@ -10,7 +10,7 @@ import { WhatsAppTheme } from "~/config/theme"
 import { appState } from "~/state/AppState"
 import { isSelfChat, truncate } from "~/utils/formatters"
 import { getMediaLabelFromReply } from "~/utils/mediaLabels"
-import { getSenderColor } from "~/views/conversation/MessageHelpers"
+import { getSenderColor, resolveSenderDisplayName } from "~/views/conversation/MessageHelpers"
 
 /**
  * Render the quoted/reply context box above a reply message
@@ -72,11 +72,10 @@ export function renderReplyContext(
     (quotedSenderId !== "" && isSelfChat(quotedSenderId, myProfileId ?? null))
 
   // Always try to find the quoted message in cache - fromMe is the authoritative source
+  let quotedMessage: WAMessageExtended | undefined
   if (replyTo.id) {
     const messages = state.messages.get(state.currentChatId || "") || []
-    const quotedMessage = messages.find(
-      (msg) => msg.id === replyTo.id || msg.id?.endsWith(replyTo.id)
-    )
+    quotedMessage = messages.find((msg) => msg.id === replyTo.id || msg.id?.endsWith(replyTo.id))
 
     if (quotedMessage) {
       // Found the original message - use its fromMe flag (authoritative)
@@ -104,15 +103,16 @@ export function renderReplyContext(
   if (isQuotedFromMe) {
     quotedSenderName = "You"
   } else if (quotedSenderId) {
-    // Priority 1: Check contacts cache using sender ID
-    const cachedName = appState.getContactName(quotedSenderId)
-    if (cachedName) {
-      quotedSenderName = cachedName
-    } else {
-      // Priority 2: Fallback to phone number from sender ID
-      const parts = quotedSenderId.split("@")
-      quotedSenderName = parts[0]
-    }
+    const inlinePushName =
+      (typeof replyData?.notifyName === "string" && replyData.notifyName) ||
+      (typeof replyData?.pushName === "string" && replyData.pushName) ||
+      (replyTo as { pushName?: string }).pushName ||
+      (replyTo as { notifyName?: string }).notifyName ||
+      quotedMessage?._data?.notifyName ||
+      quotedMessage?._data?.pushName ||
+      undefined
+
+    quotedSenderName = resolveSenderDisplayName(quotedSenderId, inlinePushName)
   }
 
   // Use sender ID for color consistency, fallback to name

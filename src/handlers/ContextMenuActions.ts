@@ -27,6 +27,8 @@ import { getSettings, saveSettings } from "~/config/manager"
 import { appState } from "~/state/AppState"
 import { debugLog } from "~/utils/debug"
 import { getChatIdString } from "~/utils/formatters"
+import { getLinkPreviewData } from "~/utils/linkPreview"
+import { extractUrls, openUrl } from "~/utils/urlUtils"
 import { focusMessageInput } from "~/views/ConversationView"
 
 /**
@@ -128,6 +130,17 @@ export async function executeContextMenuAction(
         case "download": {
           if (state.currentChatId) {
             await downloadAndOpenMedia(state.currentChatId, targetId)
+          }
+          break
+        }
+        case "open_link": {
+          const message = contextMenu.targetData as WAMessageExtended
+          const urls = extractUrls(message?.body || "")
+          const linkPreview = message ? getLinkPreviewData(message) : null
+          const targetUrl = urls[0] || linkPreview?.canonicalUrl || linkPreview?.url
+          if (targetUrl) {
+            showToast("Opening link in browser...", "info")
+            await openUrl(targetUrl)
           }
           break
         }

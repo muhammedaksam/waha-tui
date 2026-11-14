@@ -468,6 +468,14 @@ class StateManager {
     this.contactSlice.setContactsCache(contactsCache)
   }
 
+  setPushNamesCache(pushNamesCache: Map<string, string>): void {
+    this.contactSlice.setPushNamesCache(pushNamesCache)
+  }
+
+  setPushNames(pushNames: Map<string, string>): void {
+    this.contactSlice.setPushNames(pushNames)
+  }
+
   setAllContacts(allContacts: Map<string, string>): void {
     this.contactSlice.setAllContacts(allContacts)
   }
@@ -477,6 +485,13 @@ class StateManager {
     if (name) return name
     const phoneId = this.chatSlice.getPhoneFromLid(contactId)
     return phoneId ? this.contactSlice.getContactName(phoneId) : undefined
+  }
+
+  getPushName(contactId: string): string | undefined {
+    const pushName = this.contactSlice.getPushName(contactId)
+    if (pushName) return pushName
+    const phoneId = this.chatSlice.getPhoneFromLid(contactId)
+    return phoneId ? this.contactSlice.getPushName(phoneId) : undefined
   }
 
   setMyProfile(myProfile: MyProfile | null): void {
