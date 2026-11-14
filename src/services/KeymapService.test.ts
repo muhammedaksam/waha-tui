@@ -2,8 +2,10 @@ import type { MockInput, TestRenderer } from "@opentui/core/testing"
 
 import { KeyEvent } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
 
+import * as messageActions from "~/client/messageActions"
+import * as toastModule from "~/components/Toast"
 import {
   destroyKeymap,
   getKonamiProgress,
@@ -427,5 +429,66 @@ describe("KeymapService", () => {
 
   it("should return dialog open state from isDialogOpen", () => {
     expect(isDialogOpen()).toBe(false)
+  })
+
+  it("should download the most recent media message via conversation.open-media shortcut", async () => {
+    initKeymap(renderer)
+    appState.setCurrentView("conversation")
+    appState.setCurrentChat("chat-1")
+
+    const downloadedMessageIds: string[] = []
+    spyOn(messageActions, "downloadAndOpenMedia").mockImplementation(async (_chatId, msgId) => {
+      downloadedMessageIds.push(msgId)
+    })
+
+    const oldMedia = {
+      id: "msg-old",
+      timestamp: 1000,
+      hasMedia: true,
+      type: "document",
+    }
+    const textMsg = {
+      id: "msg-text",
+      timestamp: 2000,
+      hasMedia: false,
+      type: "chat",
+    }
+    const recentMedia = {
+      id: "msg-recent",
+      timestamp: 3000,
+      hasMedia: true,
+      type: "document",
+    }
+
+    // Even if messages were reverse or ordered, it must pick the newest media by timestamp
+    appState.setMessages("chat-1", [recentMedia, textMsg, oldMedia] as never)
+
+    pressStroke("o")
+
+    expect(downloadedMessageIds).toEqual(["msg-recent"])
+  })
+
+  it("should show toast when no media is found in chat on conversation.open-media", () => {
+    initKeymap(renderer)
+    appState.setCurrentView("conversation")
+    appState.setCurrentChat("chat-1")
+
+    const toasts: string[] = []
+    spyOn(toastModule, "showToast").mockImplementation((msg) => {
+      toasts.push(msg)
+      return "toast-id"
+    })
+
+    const textMsg = {
+      id: "msg-text",
+      timestamp: 2000,
+      hasMedia: false,
+      type: "chat",
+    }
+    appState.setMessages("chat-1", [textMsg] as never)
+
+    pressStroke("o")
+
+    expect(toasts).toContain("No media found in this chat")
   })
 })

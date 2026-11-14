@@ -18,6 +18,7 @@ import { appState } from "~/state/AppState"
 import { getRenderer } from "~/state/RendererContext"
 import { debugLog } from "~/utils/debug"
 import { hasUnreadMessages, isArchived, isPinned } from "~/utils/filterChats"
+import { isDownloadableMedia } from "~/utils/mediaLabels"
 
 export interface ContextMenuItem {
   id: string
@@ -211,7 +212,7 @@ export function getMessageMenuItems(message: WAMessage | WAMessageExtended): Con
     },
   ]
 
-  if (message.hasMedia || (message as WAMessageExtended)._data?.hasMedia) {
+  if (isDownloadableMedia(message as WAMessageExtended)) {
     items.push({
       id: "download",
       label: "Download & Open",
